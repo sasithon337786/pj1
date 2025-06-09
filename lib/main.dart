@@ -7,6 +7,7 @@ import 'package:pj1/custom_Activity.dart';
 import 'package:pj1/doing_activity.dart';
 import 'package:pj1/lifestly_Activity.dart';
 import 'package:pj1/mains.dart';
+import 'package:pj1/registration_screen.dart';
 import 'package:pj1/set_time.dart';
 import 'package:pj1/sport_Activity.dart';
 import 'package:pj1/target.dart';
@@ -29,6 +30,6 @@ class MyApp extends StatelessWidget {
           colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
           useMaterial3: true,
         ),
-        home: CountdownPage());
+        home: RegistrationScreen());
   }
 }
