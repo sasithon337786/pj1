@@ -6,6 +6,7 @@ import 'package:pj1/chooseactivity.dart';
 import 'package:pj1/custom_Activity.dart';
 import 'package:pj1/doing_activity.dart';
 import 'package:pj1/lifestly_Activity.dart';
+import 'package:pj1/login.dart';
 import 'package:pj1/mains.dart';
 import 'package:pj1/registration_screen.dart';
 import 'package:pj1/set_time.dart';
@@ -14,6 +15,9 @@ import 'package:pj1/target.dart';
 import 'package:pj1/user_Graph.dart';
 import 'package:pj1/user_expectations.dart';
 import 'package:pj1/user_grapline.dart';
+import 'package:google_sign_in/google_sign_in.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_core/firebase_core.dart';
 
 void main() {
   runApp(const MyApp());
@@ -30,6 +34,6 @@ class MyApp extends StatelessWidget {
           colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
           useMaterial3: true,
         ),
-        home: RegistrationScreen());
+        home: LoginScreen());
   }
 }
