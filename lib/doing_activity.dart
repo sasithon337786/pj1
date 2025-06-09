@@ -117,7 +117,7 @@ class _DoingActivityState extends State<DoingActivity> {
                             Row(
                               children: [
                                 Image.asset(
-                                  'assets/icons/lifestyle.png',
+                                  'assets/icons/profile.png',
                                   width: 24,
                                   height: 24,
                                 ),
