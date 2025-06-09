@@ -3,6 +3,8 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
 
+import 'package:pj1/login.dart';
+
 class RegistrationScreen extends StatefulWidget {
   const RegistrationScreen({super.key});
 
@@ -33,7 +35,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFD08C94),
+      backgroundColor: const Color(0xFFC98993),
       body: SingleChildScrollView(
         padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 60),
         child: Column(
@@ -43,7 +45,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
               onTap: _pickImage,
               child: CircleAvatar(
                 radius: 50,
-                backgroundColor: const Color(0xFF4F3A35),
+                backgroundColor: const Color(0xFF564843),
                 backgroundImage: _image != null ? FileImage(_image!) : null,
                 child: _image == null
                     ? const Icon(
@@ -60,7 +62,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
             Container(
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
-                color: const Color(0xFFECDCD4),
+                color: const Color(0xFFE6D2CD),
                 borderRadius: BorderRadius.circular(20),
               ),
               child: Column(
@@ -79,9 +81,9 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                   _buildTextField(
                     controller: nameController,
                     iconWidget: Image.asset(
-                      'assets/icons/lifestyle.png',
-                      width: 24,
-                      height: 24,
+                      'assets/icons/profile.png',
+                      width: 30,
+                      height: 30,
                     ),
                     hintText: 'Name',
                   ),
@@ -92,9 +94,9 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                   _buildTextField(
                     controller: emailController,
                     iconWidget: Image.asset(
-                      'assets/icons/lifestyle.png',
-                      width: 24,
-                      height: 24,
+                      'assets/icons/email.png',
+                      width: 30,
+                      height: 30,
                     ),
                     hintText: 'Email',
                   ),
@@ -105,9 +107,9 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                   _buildTextField(
                     controller: passwordController,
                     iconWidget: Image.asset(
-                      'assets/icons/lifestyle.png',
-                      width: 24,
-                      height: 24,
+                      'assets/icons/pass.png',
+                      width: 30,
+                      height: 30,
                     ),
                     hintText: 'Password',
                     obscureText: true,
@@ -119,9 +121,9 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                   _buildTextField(
                     controller: confirmPasswordController,
                     iconWidget: Image.asset(
-                      'assets/icons/lifestyle.png',
-                      width: 24,
-                      height: 24,
+                      'assets/icons/lock.png',
+                      width: 30,
+                      height: 30,
                     ),
                     hintText: 'Confirm Password',
                     obscureText: true,
@@ -133,9 +135,9 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                   _buildTextField(
                     controller: birthdayController,
                     iconWidget: Image.asset(
-                      'assets/icons/lifestyle.png',
-                      width: 24,
-                      height: 24,
+                      'assets/icons/age.png',
+                      width: 30,
+                      height: 30,
                     ),
                     hintText: 'Birthday',
                     readOnly: true,
@@ -158,10 +160,14 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                   // ปุ่มสมัครสมาชิก
                   ElevatedButton(
                     onPressed: () {
-                      // ตรงนี้ไว้ handle register
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (context) => const LoginScreen()),
+                      );
                     },
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF4F3A35),
+                      backgroundColor: const Color(0xFF564843),
                       padding: const EdgeInsets.symmetric(
                           horizontal: 50, vertical: 15),
                       shape: RoundedRectangleBorder(
