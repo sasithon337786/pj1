@@ -1,0 +1,34 @@
+import 'package:flutter/material.dart';
+import 'package:pj1/Time_Activity.dart';
+import 'package:pj1/add.dart';
+import 'package:pj1/add_expectations.dart';
+import 'package:pj1/chooseactivity.dart';
+import 'package:pj1/custom_Activity.dart';
+import 'package:pj1/doing_activity.dart';
+import 'package:pj1/lifestly_Activity.dart';
+import 'package:pj1/mains.dart';
+import 'package:pj1/set_time.dart';
+import 'package:pj1/sport_Activity.dart';
+import 'package:pj1/target.dart';
+import 'package:pj1/user_Graph.dart';
+import 'package:pj1/user_expectations.dart';
+import 'package:pj1/user_grapline.dart';
+
+void main() {
+  runApp(const MyApp());
+}
+
+class MyApp extends StatelessWidget {
+  const MyApp({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+        title: 'Flutter Demo',
+        theme: ThemeData(
+          colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
+          useMaterial3: true,
+        ),
+        home: CountdownPage());
+  }
+}
