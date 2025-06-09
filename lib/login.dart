@@ -40,6 +40,7 @@ class _LoginScreenState extends State<LoginScreen> {
       // สำเร็จ → ไปหน้าถัดไปได้เลย
       if (mounted) {
         Navigator.pushReplacementNamed(context, '/home');
+        Navigator.pushReplacementNamed(context, '/home');
       }
     } catch (e) {
       print('Google Sign-in error: $e');
@@ -49,6 +50,7 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: const Color(0xFFC98993),
       backgroundColor: const Color(0xFFC98993),
       body: Stack(
         children: [
@@ -78,11 +80,34 @@ class _LoginScreenState extends State<LoginScreen> {
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
                 color: const Color(0xFFE6D2CD),
+                color: const Color(0xFFE6D2CD),
                 borderRadius: BorderRadius.circular(20),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
+                  // หัวข้อ Login + ไอคอน
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Image.asset(
+                        'assets/icons/nutt.png',
+                        width: 25,
+                        height: 25,
+                      ),
+                      const SizedBox(width: 5),
+                      Text(
+                        'Login',
+                        style: GoogleFonts.kanit(
+                          fontSize: 24,
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+
                   // หัวข้อ Login + ไอคอน
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
@@ -123,6 +148,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     controller: passwordController,
                     iconWidget: Image.asset(
                       'assets/icons/lock.png',
+                      'assets/icons/lock.png',
                       width: 35,
                       height: 35,
                     ),
@@ -138,6 +164,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFFC98993),
+                      backgroundColor: const Color(0xFFC98993),
                       padding: const EdgeInsets.symmetric(
                           horizontal: 15, vertical: 12),
                       shape: RoundedRectangleBorder(
@@ -148,6 +175,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Image.asset(
+                          'assets/icons/google.png',
                           'assets/icons/google.png',
                           width: 24,
                           height: 24,
@@ -200,6 +228,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                   ),
 
+
                   const SizedBox(height: 20),
 
                   // ปุ่มสมัครสมาชิกและเข้าสู่ระบบ
@@ -214,8 +243,15 @@ class _LoginScreenState extends State<LoginScreen> {
                               builder: (context) => const RegistrationScreen(),
                             ),
                           );
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const RegistrationScreen(),
+                            ),
+                          );
                         },
                         style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF564843),
                           backgroundColor: const Color(0xFF564843),
                           padding: const EdgeInsets.symmetric(
                               horizontal: 20, vertical: 12),
@@ -258,6 +294,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           }
                         },
                         style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF564843),
                           backgroundColor: const Color(0xFF564843),
                           padding: const EdgeInsets.symmetric(
                               horizontal: 30, vertical: 12),
@@ -309,6 +346,7 @@ class _LoginScreenState extends State<LoginScreen> {
           fontSize: 16,
         ),
         filled: true,
+        fillColor: const Color(0xFFC98993),
         fillColor: const Color(0xFFC98993),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
