@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:pj1/Services/ApiService.dart';
 import 'package:pj1/Time_Activity.dart';
 import 'package:pj1/add.dart';
 import 'package:pj1/add_expectations.dart';
@@ -20,6 +21,8 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 
 void main() {
+  final api = ApiService();
+  api.checkStatus(); // เรียกตอนเริ่มแอป
   runApp(const MyApp());
 }
 
