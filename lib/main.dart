@@ -21,6 +21,8 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 
 void main() {
+  final api = ApiService();
+  api.checkStatus(); // เรียกตอนเริ่มแอป
   runApp(const MyApp());
 }
 

@@ -2,6 +2,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:google_sign_in/google_sign_in.dart';
+import 'package:pj1/Services/ApiService.dart';
 import 'package:pj1/mains.dart';
 import 'package:pj1/registration_screen.dart';
 
@@ -16,6 +17,7 @@ class _LoginScreenState extends State<LoginScreen> {
   final TextEditingController emailController = TextEditingController();
   final TextEditingController passwordController = TextEditingController();
   bool isRobotChecked = false;
+  final api = ApiService();
 
   Future<void> signInWithGoogle() async {
     try {
@@ -37,6 +39,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
       // สำเร็จ → ไปหน้าถัดไปได้เลย
       if (mounted) {
+        Navigator.pushReplacementNamed(context, '/home');
         Navigator.pushReplacementNamed(context, '/home');
       }
     } catch (e) {
@@ -230,12 +233,30 @@ class _LoginScreenState extends State<LoginScreen> {
                         ),
                       ),
                       ElevatedButton(
-                        onPressed: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                                builder: (context) => const HomePage()),
-                          );
+                        onPressed: () async {
+                          final email = emailController.text.trim();
+                          final password = passwordController.text.trim();
+
+                          if (email.isEmpty || password.isEmpty) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                  content: Text('กรุณากรอกอีเมลและรหัสผ่าน')),
+                            );
+                            return;
+                          }
+
+                          final success = await api.loginUser(email, password);
+                          if (success) {
+                            Navigator.pushReplacement(
+                              context,
+                              MaterialPageRoute(
+                                  builder: (context) => const HomePage()),
+                            );
+                          } else {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text('เข้าสู่ระบบไม่สำเร็จ')),
+                            );
+                          }
                         },
                         style: ElevatedButton.styleFrom(
                           backgroundColor: const Color(0xFF564843),
