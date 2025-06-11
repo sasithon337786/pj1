@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:pj1/Addmin/list_admin.dart';
 import 'package:pj1/account.dart';
 import 'package:pj1/grap.dart';
 import 'package:pj1/mains.dart';
@@ -207,7 +208,12 @@ class _MainAddminState extends State<MainAddmin> {
                                   ),
                                   ElevatedButton(
                                     onPressed: () {
-                                      // TODO: รายละเอียด
+                                      Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                            builder: (context) =>
+                                                const UserInfoScreen()),
+                                      );
                                     },
                                     style: ElevatedButton.styleFrom(
                                       backgroundColor: const Color(0xFFE6D2CD),

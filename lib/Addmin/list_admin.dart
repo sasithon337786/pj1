@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:pj1/Addmin/deteil_user_admin.dart';
 import 'package:pj1/account.dart';
 import 'package:pj1/grap.dart';
 import 'package:pj1/mains.dart';
@@ -132,7 +133,7 @@ class _UserInfoScreenState extends State<UserInfoScreen> {
                     style: GoogleFonts.kanit(
                       fontSize: 22,
                       fontWeight: FontWeight.bold,
-                      color: const Color(0xFF3E3E3E),
+                      color: const Color(0xFF564843),
                     ),
                   ),
                   const SizedBox(height: 24),
@@ -176,7 +177,13 @@ class _UserInfoScreenState extends State<UserInfoScreen> {
                   const SizedBox(height: 28),
                   // ปุ่มข้อมูลผู้ใช้
                   ElevatedButton.icon(
-                    onPressed: () {},
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (context) => const UserDetailPage()),
+                      );
+                    },
                     icon: Image.asset(
                       'assets/icons/account.png',
                       width: 24,
