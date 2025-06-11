@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:pj1/Addmin/list_admin.dart';
 import 'package:pj1/Addmin/main_Addmin.dart';
+import 'package:pj1/Services/ApiService.dart';
 import 'package:pj1/Time_Activity.dart';
 import 'package:pj1/add.dart';
 import 'package:pj1/add_expectations.dart';
@@ -37,6 +39,6 @@ class MyApp extends StatelessWidget {
           colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
           useMaterial3: true,
         ),
-        home: MainAddmin());
+        home: UserInfoScreen());
   }
 }
