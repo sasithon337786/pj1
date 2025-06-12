@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:pj1/Addmin/deteil_user_admin.dart';
+import 'package:pj1/Addmin/listuser_suspended.dart';
 import 'package:pj1/account.dart';
 import 'package:pj1/grap.dart';
 import 'package:pj1/mains.dart';
@@ -31,7 +32,7 @@ class _UserInfoScreenState extends State<UserInfoScreen> {
       case 1:
         Navigator.push(
           context,
-          MaterialPageRoute(builder: (context) => const Targetpage()),
+          MaterialPageRoute(builder: (context) => const ListuserSuspended()),
         );
         break;
       case 2:
@@ -136,7 +137,7 @@ class _UserInfoScreenState extends State<UserInfoScreen> {
                       color: const Color(0xFF564843),
                     ),
                   ),
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 15),
                   // กล่องข้อมูลกิจกรรม
                   Container(
                     width: double.infinity, // ให้เต็มกล่อง
