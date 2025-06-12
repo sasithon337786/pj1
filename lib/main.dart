@@ -24,9 +24,11 @@ import 'package:google_sign_in/google_sign_in.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 
-void main() {
-  final api = ApiService();
-  api.checkStatus(); // เรียกตอนเริ่มแอป
+void main() async {
+  // final api = ApiService();
+  // api.checkStatus(); // เรียกตอนเริ่มแอป
+  WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp();
   runApp(const MyApp());
 }
 
