@@ -2,17 +2,17 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:pj1/Addmin/list_admin.dart';
 import 'package:pj1/Addmin/listuser_delete_admin.dart';
-import 'package:pj1/Addmin/listuser_petition.dart';
 import 'package:pj1/Addmin/listuser_suspended.dart';
+import 'package:pj1/Addmin/main_Addmin.dart';
 
-class MainAddmin extends StatefulWidget {
-  const MainAddmin({Key? key}) : super(key: key);
+class ListuserPetition extends StatefulWidget {
+  const ListuserPetition({Key? key}) : super(key: key);
 
   @override
-  State<MainAddmin> createState() => _MainAddminState();
+  State<ListuserPetition> createState() => _ListuserPetitionState();
 }
 
-class _MainAddminState extends State<MainAddmin> {
+class _ListuserPetitionState extends State<ListuserPetition> {
   final List<String> users = ['Nutty', 'แฟรงค์', 'Mozel', 'คิวคิวคิว'];
 
   int _selectedIndex = 0;
@@ -138,23 +138,21 @@ class _MainAddminState extends State<MainAddmin> {
                         Row(
                           children: [
                             Image.asset(
-                              'assets/icons/man.png',
+                              'assets/icons/noaccount.png',
                               width: 35,
                               height: 35,
                             ),
                             const SizedBox(
                                 width: 8), // เพิ่มช่องว่างระหว่าง icon กับ text
                             Text(
-                              'User',
+                              'รายการคำร้องของผู้ใช้',
                               style: GoogleFonts.kanit(
                                 fontSize: 22,
-                                fontWeight: FontWeight.bold,
                                 color: const Color(0xFF564843),
                               ),
                             ),
                           ],
                         ),
-
                         // รายการ Users
                         ListView.builder(
                           shrinkWrap: true,
@@ -200,7 +198,7 @@ class _MainAddminState extends State<MainAddmin> {
                                       ),
                                     ),
                                     child: Text(
-                                      'รายละเอียด',
+                                      'ดูข้อมูลคำร้อง',
                                       style: GoogleFonts.kanit(
                                         fontSize: 15,
                                         color: Colors.white,
