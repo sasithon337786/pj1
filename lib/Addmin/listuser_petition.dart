@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:pj1/Addmin/list_admin.dart';
+import 'package:pj1/Addmin/deteiluser_suspended.dart';
 import 'package:pj1/Addmin/listuser_delete_admin.dart';
 import 'package:pj1/Addmin/listuser_suspended.dart';
 import 'package:pj1/Addmin/main_Addmin.dart';
@@ -138,7 +138,7 @@ class _ListuserPetitionState extends State<ListuserPetition> {
                         Row(
                           children: [
                             Image.asset(
-                              'assets/icons/noaccount.png',
+                              'assets/icons/penti.png',
                               width: 35,
                               height: 35,
                             ),
@@ -183,8 +183,10 @@ class _ListuserPetitionState extends State<ListuserPetition> {
                                       Navigator.push(
                                         context,
                                         MaterialPageRoute(
-                                            builder: (context) =>
-                                                const UserInfoScreen()),
+                                          builder: (context) => DeteiluserSuspended(
+                                              userName: users[
+                                                  index]), // ตรงนี้แหละค่ะที่มันทำงาน
+                                        ),
                                       );
                                     },
                                     style: ElevatedButton.styleFrom(

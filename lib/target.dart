@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:pj1/account.dart';
 import 'package:pj1/add_expectations.dart';
 import 'package:pj1/grap.dart';

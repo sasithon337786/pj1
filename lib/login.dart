@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:pj1/Services/ApiService.dart';
-import 'package:pj1/mains.dart';
 import 'package:pj1/registration_screen.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -260,9 +259,10 @@ class _LoginScreenState extends State<LoginScreen> {
       });
     }
   }
+
   Future<void> _resetPassword() async {
     String email = _emailController.text.trim();
-    
+
     if (email.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Please enter your email first')),
@@ -280,7 +280,7 @@ class _LoginScreenState extends State<LoginScreen> {
       );
     } on FirebaseAuthException catch (e) {
       String errorMessage;
-      
+
       switch (e.code) {
         case 'user-not-found':
           errorMessage = 'No user found with this email.';

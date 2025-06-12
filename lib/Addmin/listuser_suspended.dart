@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:pj1/Addmin/list_admin.dart';
 import 'package:pj1/Addmin/listuser_delete_admin.dart';
 import 'package:pj1/Addmin/listuser_petition.dart';
 import 'package:pj1/Addmin/main_Addmin.dart';

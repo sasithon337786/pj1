@@ -1,18 +1,10 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:pj1/Time_Activity.dart';
 import 'package:pj1/account.dart';
-import 'package:pj1/add.dart';
 import 'package:pj1/calendar_page.dart';
 import 'package:pj1/chooseactivity.dart';
-import 'package:pj1/custom_Activity.dart';
-import 'package:pj1/dialog_coagy.dart';
 import 'package:pj1/grap.dart';
-import 'package:pj1/lifestly_Activity.dart';
 import 'package:pj1/mains.dart';
-import 'package:pj1/sport_Activity.dart';
 import 'package:pj1/target.dart';
 
 class DoingActivity extends StatefulWidget {
