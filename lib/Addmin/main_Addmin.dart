@@ -145,10 +145,9 @@ class _MainAddminState extends State<MainAddmin> {
                             const SizedBox(
                                 width: 8), // เพิ่มช่องว่างระหว่าง icon กับ text
                             Text(
-                              'User',
+                              'รายชื่อผู้ใช้ทั้งหมด',
                               style: GoogleFonts.kanit(
                                 fontSize: 22,
-                                fontWeight: FontWeight.bold,
                                 color: const Color(0xFF564843),
                               ),
                             ),
