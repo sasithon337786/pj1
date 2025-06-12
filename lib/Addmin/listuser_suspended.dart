@@ -1,20 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:pj1/Addmin/list_admin.dart';
-import 'package:pj1/Addmin/listuser_suspended.dart';
 import 'package:pj1/account.dart';
 import 'package:pj1/grap.dart';
 import 'package:pj1/mains.dart';
 import 'package:pj1/target.dart';
 
-class MainAddmin extends StatefulWidget {
-  const MainAddmin({Key? key}) : super(key: key);
+class ListuserSuspended extends StatefulWidget {
+  const ListuserSuspended({Key? key}) : super(key: key);
 
   @override
-  State<MainAddmin> createState() => _MainAddminState();
+  State<ListuserSuspended> createState() => _ListuserSuspendedState();
 }
 
-class _MainAddminState extends State<MainAddmin> {
+class _ListuserSuspendedState extends State<ListuserSuspended> {
   final List<String> users = ['Nutty', 'แฟรงค์', 'Mozel', 'คิวคิวคิว'];
 
   int _selectedIndex = 0;
@@ -140,23 +139,21 @@ class _MainAddminState extends State<MainAddmin> {
                         Row(
                           children: [
                             Image.asset(
-                              'assets/icons/man.png',
+                              'assets/icons/noaccount.png',
                               width: 35,
                               height: 35,
                             ),
                             const SizedBox(
                                 width: 8), // เพิ่มช่องว่างระหว่าง icon กับ text
                             Text(
-                              'User',
+                              'บัญชีที่ระงับแล้ว',
                               style: GoogleFonts.kanit(
                                 fontSize: 22,
-                                fontWeight: FontWeight.bold,
                                 color: const Color(0xFF564843),
                               ),
                             ),
                           ],
                         ),
-
                         // รายการ Users
                         ListView.builder(
                           shrinkWrap: true,
@@ -202,7 +199,7 @@ class _MainAddminState extends State<MainAddmin> {
                                       ),
                                     ),
                                     child: Text(
-                                      'รายละเอียด',
+                                      'บกเลิกการระงับ',
                                       style: GoogleFonts.kanit(
                                         fontSize: 15,
                                         color: Colors.white,

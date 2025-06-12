@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:pj1/Addmin/edit_user.dart';
+import 'package:pj1/Addmin/listuser_suspended.dart';
 import 'package:pj1/account.dart';
 import 'package:pj1/grap.dart';
 import 'package:pj1/mains.dart';
@@ -30,7 +32,7 @@ class _UserDetailPageState extends State<UserDetailPage> {
       case 1:
         Navigator.push(
           context,
-          MaterialPageRoute(builder: (context) => const Targetpage()),
+          MaterialPageRoute(builder: (context) => const ListuserSuspended()),
         );
         break;
       case 2:
@@ -149,7 +151,14 @@ class _UserDetailPageState extends State<UserDetailPage> {
 
                       // Action buttons
                       actionButton(
-                        onPressed: () {},
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const UserProfileEditPage(),
+                            ),
+                          );
+                        },
                         icon: Image.asset(
                           'assets/icons/account.png',
                           width: 24,
