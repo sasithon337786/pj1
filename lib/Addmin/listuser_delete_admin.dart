@@ -1,12 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:pj1/Addmin/list_admin.dart';
+import 'package:pj1/Addmin/listuser_petition.dart';
 import 'package:pj1/Addmin/listuser_suspended.dart';
 import 'package:pj1/Addmin/main_Addmin.dart';
-import 'package:pj1/account.dart';
-import 'package:pj1/grap.dart';
-import 'package:pj1/mains.dart';
-import 'package:pj1/target.dart';
 
 class ListuserDeleteAdmin extends StatefulWidget {
   const ListuserDeleteAdmin({Key? key}) : super(key: key);
@@ -47,7 +43,7 @@ class _ListuserDeleteAdminState extends State<ListuserDeleteAdmin> {
       case 3:
         Navigator.push(
           context,
-          MaterialPageRoute(builder: (context) => const AccountPage()),
+          MaterialPageRoute(builder: (context) => const ListuserPetition()),
         );
         break;
     }

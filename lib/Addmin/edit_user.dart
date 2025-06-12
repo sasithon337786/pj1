@@ -1,13 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:pj1/Addmin/deteil_user_admin.dart';
+
 import 'package:pj1/Addmin/listuser_delete_admin.dart';
+import 'package:pj1/Addmin/listuser_petition.dart';
 import 'package:pj1/Addmin/listuser_suspended.dart';
 import 'package:pj1/Addmin/main_Addmin.dart';
-import 'package:pj1/account.dart';
-import 'package:pj1/grap.dart';
-import 'package:pj1/mains.dart';
-import 'package:pj1/target.dart';
 
 class UserProfileEditPage extends StatefulWidget {
   const UserProfileEditPage({super.key});
@@ -57,7 +54,7 @@ class _UserProfileEditPageState extends State<UserProfileEditPage> {
       case 3:
         Navigator.push(
           context,
-          MaterialPageRoute(builder: (context) => const AccountPage()),
+          MaterialPageRoute(builder: (context) => const ListuserPetition()),
         );
         break;
     }

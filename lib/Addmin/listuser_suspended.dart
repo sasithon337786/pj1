@@ -2,11 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:pj1/Addmin/list_admin.dart';
 import 'package:pj1/Addmin/listuser_delete_admin.dart';
+import 'package:pj1/Addmin/listuser_petition.dart';
 import 'package:pj1/Addmin/main_Addmin.dart';
-import 'package:pj1/account.dart';
-import 'package:pj1/grap.dart';
-import 'package:pj1/mains.dart';
-import 'package:pj1/target.dart';
 
 class ListuserSuspended extends StatefulWidget {
   const ListuserSuspended({Key? key}) : super(key: key);
@@ -47,7 +44,7 @@ class _ListuserSuspendedState extends State<ListuserSuspended> {
       case 3:
         Navigator.push(
           context,
-          MaterialPageRoute(builder: (context) => const AccountPage()),
+          MaterialPageRoute(builder: (context) => const ListuserPetition()),
         );
         break;
     }
@@ -183,12 +180,139 @@ class _ListuserSuspendedState extends State<ListuserSuspended> {
                                   ),
                                   ElevatedButton(
                                     onPressed: () {
-                                      Navigator.push(
-                                        context,
-                                        MaterialPageRoute(
-                                            builder: (context) =>
-                                                const UserInfoScreen()),
+                                      // *** เริ่มต้นส่วนของ AlertDialog ***
+                                      showDialog(
+                                        context: context,
+                                        builder: (BuildContext context) {
+                                          // ตัวแปรสำหรับเก็บค่าปุ่มที่ถูกเลือก: -1 = ยังไม่เลือก, 0 = 'ไม่', 1 = 'ใช่'
+                                          int selectedIndex = -1;
+
+                                          return StatefulBuilder(
+                                            // ใช้ StatefulBuilder เพื่อให้ AlertDialog สามารถอัปเดต UI ภายในได้
+                                            builder: (context, setState) {
+                                              return AlertDialog(
+                                                shape: RoundedRectangleBorder(
+                                                  borderRadius:
+                                                      BorderRadius.circular(20),
+                                                ),
+                                                backgroundColor:
+                                                    const Color(0xFFE6D2CD),
+                                                title: Text(
+                                                  'ยืนยันการยกเลิกการระงับ',
+                                                  style: GoogleFonts.kanit(
+                                                    fontSize: 22,
+                                                    fontWeight: FontWeight.w600,
+                                                    color:
+                                                        const Color(0xFF564843),
+                                                  ),
+                                                  textAlign: TextAlign.center,
+                                                ),
+                                                content: Text(
+                                                  'ต้องการยกเลิกการระงับบัญชีผู้ใช้นี้ใช่หรือไม่?',
+                                                  style: GoogleFonts.kanit(
+                                                    fontSize: 18,
+                                                    color:
+                                                        const Color(0xFF3E3E3E),
+                                                  ),
+                                                  textAlign: TextAlign.center,
+                                                ),
+                                                actionsAlignment:
+                                                    MainAxisAlignment.center,
+                                                actionsPadding:
+                                                    const EdgeInsets.only(
+                                                        bottom: 12),
+                                                actions: [
+                                                  // ปุ่ม "ไม่"
+                                                  ElevatedButton(
+                                                    style: ElevatedButton
+                                                        .styleFrom(
+                                                      // กำหนดสีตาม selectedIndex: ถ้า selectedIndex เป็น 0 (ไม่) ให้เป็นสีเข้ม, ถ้าไม่ใช่ให้เป็นสีปกติ
+                                                      backgroundColor: selectedIndex ==
+                                                              0
+                                                          ? const Color(
+                                                              0xFF564843) // สีเมื่อถูกเลือก
+                                                          : const Color(
+                                                              0xFFC98993), // สีปกติ
+                                                      foregroundColor: Colors
+                                                          .white, // สีตัวอักษร
+                                                      shape:
+                                                          RoundedRectangleBorder(
+                                                        borderRadius:
+                                                            BorderRadius
+                                                                .circular(20),
+                                                      ),
+                                                      padding: const EdgeInsets
+                                                          .symmetric(
+                                                          horizontal: 28,
+                                                          vertical: 12),
+                                                    ),
+                                                    onPressed: () {
+                                                      setState(() {
+                                                        // อัปเดต UI ภายใน AlertDialog
+                                                        selectedIndex =
+                                                            0; // ตั้งค่าว่าเลือก 'ไม่'
+                                                      });
+                                                      // Navigator.of(context).pop(); // ยังไม่ปิด AlertDialog ทันที
+                                                    },
+                                                    child: Text(
+                                                      'ไม่',
+                                                      style: GoogleFonts.kanit(
+                                                        fontSize: 16,
+                                                        color: Colors.white,
+                                                      ),
+                                                    ),
+                                                  ),
+                                                  const SizedBox(
+                                                      width:
+                                                          10), // เพิ่มระยะห่างระหว่างปุ่ม
+
+                                                  // ปุ่ม "ใช่"
+                                                  ElevatedButton(
+                                                    style: ElevatedButton
+                                                        .styleFrom(
+                                                      // กำหนดสีตาม selectedIndex: ถ้า selectedIndex เป็น 1 (ใช่) ให้เป็นสีเข้ม, ถ้าไม่ใช่ให้เป็นสีปกติ
+                                                      backgroundColor: selectedIndex ==
+                                                              1
+                                                          ? const Color(
+                                                              0xFF564843) // สีเมื่อถูกเลือก
+                                                          : const Color(
+                                                              0xFFC98993), // สีปกติ
+                                                      foregroundColor: Colors
+                                                          .white, // สีตัวอักษร
+                                                      shape:
+                                                          RoundedRectangleBorder(
+                                                        borderRadius:
+                                                            BorderRadius
+                                                                .circular(20),
+                                                      ),
+                                                      padding: const EdgeInsets
+                                                          .symmetric(
+                                                          horizontal: 28,
+                                                          vertical: 12),
+                                                    ),
+                                                    onPressed: () {
+                                                      setState(() {
+                                                        // อัปเดต UI ภายใน AlertDialog
+                                                        selectedIndex =
+                                                            1; // ตั้งค่าว่าเลือก 'ใช่'
+                                                      });
+                                                      // Navigator.of(context).pop(); // ยังไม่ปิด AlertDialog ทันที
+                                                    },
+                                                    child: Text(
+                                                      'ใช่',
+                                                      style: GoogleFonts.kanit(
+                                                        fontSize: 16,
+                                                        color: Colors.white,
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ],
+                                              );
+                                            },
+                                          );
+                                        },
                                       );
+                                      // *** สิ้นสุดส่วนของ AlertDialog ***
                                     },
                                     style: ElevatedButton.styleFrom(
                                       backgroundColor: const Color(0xFFE6D2CD),
@@ -201,7 +325,7 @@ class _ListuserSuspendedState extends State<ListuserSuspended> {
                                       ),
                                     ),
                                     child: Text(
-                                      'บกเลิกการระงับ',
+                                      'ยกเลิกการระงับ',
                                       style: GoogleFonts.kanit(
                                         fontSize: 15,
                                         color: Colors.white,
