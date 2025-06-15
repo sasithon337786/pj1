@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -28,77 +30,84 @@ class _LoginScreenState extends State<LoginScreen> {
   final api = ApiService();
 
   Future<void> _signInWithGoogle() async {
-  setState(() {
-    _isGoogleLoading = true;
-  });
-
-  try {
-    // เริ่ม Google Sign-In
-    final GoogleSignInAccount? googleUser = await GoogleSignIn().signIn();
-    if (googleUser == null) {
-      // ผู้ใช้กดยกเลิก
-      return;
-    }
-
-    // รับ token จาก Google
-    final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
-
-    // สร้าง credential สำหรับ Firebase
-    final credential = GoogleAuthProvider.credential(
-      accessToken: googleAuth.accessToken,
-      idToken: googleAuth.idToken,
-    );
-
-    // ล็อกอินเข้า Firebase
-    UserCredential userCredential = await FirebaseAuth.instance.signInWithCredential(credential);
-    final user = userCredential.user;
-
-    if (user == null) {
-      throw Exception('Failed to sign in with Google');
-    }
-
-    // 🔐 รับ Firebase ID Token เพื่อส่งไป Backend
-    final idToken = await user.getIdToken();
-
-    // TODO: ส่ง idToken ไป Backend (ตัวอย่างด้านล่าง)
-    final response = await http.post(
-      Uri.parse(ApiEndpoints.baseUrl+'/api/auth/verify-token'),
-      headers: {
-        'Authorization': 'Bearer $idToken',
-        'Content-Type': 'application/json',
-      },
-    );
-
-    if (response.statusCode == 200) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Google sign-in successful!'),
-          backgroundColor: Colors.green,
-        ),
-      );
-      Navigator.of(context).pushReplacementNamed('/home');
-    } else {
-      throw Exception('Server rejected token');
-    }
-  } on FirebaseAuthException catch (e) {
-    _showError('Firebase error: ${e.message}');
-  } catch (e) {
-    _showError('Error: ${e.toString()}');
-  } finally {
     setState(() {
-      _isGoogleLoading = false;
+      _isGoogleLoading = true;
     });
-  }
-}
 
-void _showError(String message) {
-  ScaffoldMessenger.of(context).showSnackBar(
-    SnackBar(
-      content: Text(message),
-      backgroundColor: Colors.red,
-    ),
-  );
-}
+    try {
+      // เริ่ม Google Sign-In
+      final GoogleSignInAccount? googleUser = await GoogleSignIn().signIn();
+      if (googleUser == null) {
+        // ผู้ใช้กดยกเลิก
+        return;
+      }
+
+      // รับ token จาก Google
+      final GoogleSignInAuthentication googleAuth =
+          await googleUser.authentication;
+
+      // สร้าง credential สำหรับ Firebase
+      final credential = GoogleAuthProvider.credential(
+        accessToken: googleAuth.accessToken,
+        idToken: googleAuth.idToken,
+      );
+
+      // ล็อกอินเข้า Firebase
+      UserCredential userCredential =
+          await FirebaseAuth.instance.signInWithCredential(credential);
+      final user = userCredential.user;
+
+      if (user == null) {
+        throw Exception('Failed to sign in with Google');
+      }
+
+      // 🔐 รับ Firebase ID Token เพื่อส่งไป Backend
+      final idToken = await user.getIdToken();
+
+      // TODO: ส่ง idToken ไป Backend (ตัวอย่างด้านล่าง)
+      final response = await http.post(
+        Uri.parse(ApiEndpoints.baseUrl + '/api/auth/verify-token'),
+        headers: {
+          'Authorization': 'Bearer $idToken',
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode({
+          'email': user.email,
+          'displayName': user.displayName,
+          'photoURL': user.photoURL,
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Google sign-in successful!'),
+            backgroundColor: Colors.green,
+          ),
+        );
+        Navigator.of(context).pushReplacementNamed('/home');
+      } else {
+        throw Exception('Server rejected token');
+      }
+    } on FirebaseAuthException catch (e) {
+      _showError('Firebase error: ${e.message}');
+    } catch (e) {
+      _showError('Error: ${e.toString()}');
+    } finally {
+      setState(() {
+        _isGoogleLoading = false;
+      });
+    }
+  }
+
+  void _showError(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Colors.red,
+      ),
+    );
+  }
 
   Future<void> _signInWithEmailAndPassword() async {
     if (!_formKey.currentState!.validate()) return;
