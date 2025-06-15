@@ -4,6 +4,8 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:pj1/Services/ApiService.dart';
 import 'package:pj1/registration_screen.dart';
+import 'package:http/http.dart' as http;
+import 'package:pj1/constant/api_endpoint.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -26,160 +28,77 @@ class _LoginScreenState extends State<LoginScreen> {
   final api = ApiService();
 
   Future<void> _signInWithGoogle() async {
-    setState(() {
-      _isGoogleLoading = true;
-    });
+  setState(() {
+    _isGoogleLoading = true;
+  });
 
-    try {
-      // Clear any existing sign-in state
-      await _googleSignIn.signOut();
-      await _auth.signOut();
+  try {
+    // เริ่ม Google Sign-In
+    final GoogleSignInAccount? googleUser = await GoogleSignIn().signIn();
+    if (googleUser == null) {
+      // ผู้ใช้กดยกเลิก
+      return;
+    }
 
-      // Configure GoogleSignIn with proper settings
-      final GoogleSignIn googleSignIn = GoogleSignIn(
-        scopes: [
-          'email',
-          'profile',
-          'openid',
-        ],
-        // เพิ่ม hostedDomain หากจำเป็น (สำหรับ G Suite domains)
-        // hostedDomain: 'your-domain.com',
-      );
+    // รับ token จาก Google
+    final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
 
-      // Trigger the authentication flow
-      final GoogleSignInAccount? googleUser = await googleSignIn.signIn();
+    // สร้าง credential สำหรับ Firebase
+    final credential = GoogleAuthProvider.credential(
+      accessToken: googleAuth.accessToken,
+      idToken: googleAuth.idToken,
+    );
 
-      if (googleUser == null) {
-        // User canceled the sign-in
-        setState(() {
-          _isGoogleLoading = false;
-        });
-        return;
-      }
+    // ล็อกอินเข้า Firebase
+    UserCredential userCredential = await FirebaseAuth.instance.signInWithCredential(credential);
+    final user = userCredential.user;
 
-      print('Google User: ${googleUser.email}'); // Debug log
+    if (user == null) {
+      throw Exception('Failed to sign in with Google');
+    }
 
-      // Obtain the auth details with proper error handling
-      GoogleSignInAuthentication? googleAuth;
+    // 🔐 รับ Firebase ID Token เพื่อส่งไป Backend
+    final idToken = await user.getIdToken();
 
-      try {
-        // Force refresh the authentication
-        await googleUser.clearAuthCache();
-        googleAuth = await googleUser.authentication;
+    // TODO: ส่ง idToken ไป Backend (ตัวอย่างด้านล่าง)
+    final response = await http.post(
+      Uri.parse(ApiEndpoints.baseUrl+'/api/auth/verify-token'),
+      headers: {
+        'Authorization': 'Bearer $idToken',
+        'Content-Type': 'application/json',
+      },
+    );
 
-        print(
-            'Access Token: ${googleAuth.accessToken != null ? "Present" : "Null"}');
-        print('ID Token: ${googleAuth.idToken != null ? "Present" : "Null"}');
-
-        // ตรวจสอบว่ามี tokens หรือไม่
-        if (googleAuth.accessToken == null && googleAuth.idToken == null) {
-          // ลองใช้วิธีอื่นในการรับ tokens
-          print('Attempting alternative token retrieval...');
-
-          // Sign out และ sign in ใหม่
-          await googleSignIn.signOut();
-          final GoogleSignInAccount? retryUser = await googleSignIn.signIn();
-
-          if (retryUser != null) {
-            googleAuth = await retryUser.authentication;
-            print(
-                'Retry - Access Token: ${googleAuth.accessToken != null ? "Present" : "Null"}');
-            print(
-                'Retry - ID Token: ${googleAuth.idToken != null ? "Present" : "Null"}');
-          }
-        }
-      } catch (authError) {
-        print('Authentication error: $authError');
-        throw Exception('Failed to authenticate with Google: $authError');
-      }
-
-      if (googleAuth == null ||
-          (googleAuth.accessToken == null && googleAuth.idToken == null)) {
-        throw Exception('No authentication tokens received from Google');
-      }
-
-      // Create a new credential
-      final credential = GoogleAuthProvider.credential(
-        accessToken: googleAuth.accessToken,
-        idToken: googleAuth.idToken,
-      );
-
-      // Sign in to Firebase with the Google credential
-      UserCredential userCredential =
-          await _auth.signInWithCredential(credential);
-
-      // ตรวจสอบว่าการ sign in สำเร็จหรือไม่
-      if (userCredential.user == null) {
-        throw Exception('Failed to sign in with Google');
-      }
-
+    if (response.statusCode == 200) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Google sign-in successful!'),
           backgroundColor: Colors.green,
         ),
       );
-
-      // Navigate to home page
       Navigator.of(context).pushReplacementNamed('/home');
-    } on FirebaseAuthException catch (e) {
-      String errorMessage;
-      print(
-          'FirebaseAuthException: ${e.code} - ${e.message}'); // เพิ่ม debug log
-
-      switch (e.code) {
-        case 'account-exists-with-different-credential':
-          errorMessage = 'An account exists with a different sign-in method.';
-          break;
-        case 'invalid-credential':
-          errorMessage = 'Invalid credential. Please try again.';
-          break;
-        case 'network-request-failed':
-          errorMessage =
-              'Network error. Please check your internet connection.';
-          break;
-        case 'operation-not-allowed':
-          errorMessage =
-              'Google sign-in is not enabled. Please contact support.';
-          break;
-        default:
-          errorMessage = 'Google sign-in failed: ${e.message}';
-      }
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(errorMessage),
-          backgroundColor: Colors.red,
-        ),
-      );
-    } catch (e) {
-      // เพิ่ม detailed error logging
-      print('Unexpected error during Google sign-in: $e');
-      print('Error type: ${e.runtimeType}');
-
-      String errorMessage = 'An unexpected error occurred.';
-
-      // ตรวจสอบ error types แบบละเอียดขึ้น
-      if (e.toString().contains('network')) {
-        errorMessage = 'Network error. Please check your internet connection.';
-      } else if (e.toString().contains('google')) {
-        errorMessage = 'Google sign-in service error. Please try again.';
-      } else if (e.toString().contains('token')) {
-        errorMessage = 'Authentication token error. Please try again.';
-      }
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(errorMessage),
-          backgroundColor: Colors.red,
-        ),
-      );
-    } finally {
-      setState(() {
-        _isGoogleLoading = false;
-      });
+    } else {
+      throw Exception('Server rejected token');
     }
+  } on FirebaseAuthException catch (e) {
+    _showError('Firebase error: ${e.message}');
+  } catch (e) {
+    _showError('Error: ${e.toString()}');
+  } finally {
+    setState(() {
+      _isGoogleLoading = false;
+    });
   }
+}
+
+void _showError(String message) {
+  ScaffoldMessenger.of(context).showSnackBar(
+    SnackBar(
+      content: Text(message),
+      backgroundColor: Colors.red,
+    ),
+  );
+}
 
   Future<void> _signInWithEmailAndPassword() async {
     if (!_formKey.currentState!.validate()) return;
