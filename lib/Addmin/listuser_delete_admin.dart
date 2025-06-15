@@ -1,18 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:pj1/Addmin/list_admin.dart';
-import 'package:pj1/Addmin/listuser_delete_admin.dart';
 import 'package:pj1/Addmin/listuser_petition.dart';
 import 'package:pj1/Addmin/listuser_suspended.dart';
+import 'package:pj1/Addmin/main_Addmin.dart';
 
-class MainAddmin extends StatefulWidget {
-  const MainAddmin({Key? key}) : super(key: key);
+class ListuserDeleteAdmin extends StatefulWidget {
+  const ListuserDeleteAdmin({Key? key}) : super(key: key);
 
   @override
-  State<MainAddmin> createState() => _MainAddminState();
+  State<ListuserDeleteAdmin> createState() => _ListuserDeleteAdminState();
 }
 
-class _MainAddminState extends State<MainAddmin> {
+class _ListuserDeleteAdminState extends State<ListuserDeleteAdmin> {
   final List<String> users = ['Nutty', 'แฟรงค์', 'Mozel', 'คิวคิวคิว'];
 
   int _selectedIndex = 0;
@@ -138,14 +137,14 @@ class _MainAddminState extends State<MainAddmin> {
                         Row(
                           children: [
                             Image.asset(
-                              'assets/icons/man.png',
+                              'assets/icons/trashh.png',
                               width: 35,
                               height: 35,
                             ),
                             const SizedBox(
                                 width: 8), // เพิ่มช่องว่างระหว่าง icon กับ text
                             Text(
-                              'รายชื่อผู้ใช้ทั้งหมด',
+                              'บัญชีที่ลบแล้ว',
                               style: GoogleFonts.kanit(
                                 fontSize: 22,
                                 color: const Color(0xFF564843),
@@ -153,7 +152,6 @@ class _MainAddminState extends State<MainAddmin> {
                             ),
                           ],
                         ),
-
                         // รายการ Users
                         ListView.builder(
                           shrinkWrap: true,
@@ -177,33 +175,6 @@ class _MainAddminState extends State<MainAddmin> {
                                     style: GoogleFonts.kanit(
                                       fontSize: 22,
                                       color: Colors.white,
-                                    ),
-                                  ),
-                                  ElevatedButton(
-                                    onPressed: () {
-                                      Navigator.push(
-                                        context,
-                                        MaterialPageRoute(
-                                            builder: (context) =>
-                                                const UserInfoScreen()),
-                                      );
-                                    },
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: const Color(0xFFE6D2CD),
-                                      foregroundColor: const Color(0xFF564843),
-                                      padding: const EdgeInsets.symmetric(
-                                          horizontal: 12, vertical: 6),
-                                      textStyle: const TextStyle(fontSize: 14),
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(16),
-                                      ),
-                                    ),
-                                    child: Text(
-                                      'รายละเอียด',
-                                      style: GoogleFonts.kanit(
-                                        fontSize: 15,
-                                        color: Colors.white,
-                                      ),
                                     ),
                                   ),
                                 ],
