@@ -121,7 +121,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
     try {
       var request = http.MultipartRequest(
         'POST',
-        Uri.parse(ApiEndpoints.baseUrl + 'registerwithemailpassword'),
+        Uri.parse(ApiEndpoints.baseUrl + 'api/auth/registerwithemailpassword'),
       );
 
       // เพิ่มฟิลด์ข้อมูล (ตรงกับ API: email, password, username, birthday)
@@ -134,7 +134,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
       if (_image != null) {
         request.files.add(
           await http.MultipartFile.fromPath(
-            'file', // ใช้ 'file' ตามที่ API รับ (req.file)
+            'profileImage', // ใช้ 'file' ตามที่ API รับ (req.file)
             _image!.path,
           ),
         );
