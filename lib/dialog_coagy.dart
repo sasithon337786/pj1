@@ -1,7 +1,10 @@
 import 'dart:io';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 
 void showAddCategoryDialog(
     BuildContext context,
@@ -10,6 +13,44 @@ void showAddCategoryDialog(
     Function(File, String) onComplete) {
   // <<< ไม่รับ ApiService แล้ว
   File? selectedImage;
+  final FirebaseAuth _auth = FirebaseAuth.instance;
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final FirebaseStorage _storage = FirebaseStorage.instance;
+
+  Future<String?> _uploadProfileImage(String userId) async {
+    if (selectedImage == null) return null;
+
+    try {
+      final ref = _storage.ref().child('profile_images').child('$userId.jpg');
+      final uploadTask = ref.putFile(selectedImage!);
+      final snapshot = await uploadTask;
+      final downloadUrl = await snapshot.ref.getDownloadURL();
+      return downloadUrl;
+    } catch (e) {
+      print('Error uploading image: $e');
+      return null;
+    }
+  }
+
+  Future<void> _createCategory() async {
+    final uid = FirebaseAuth.instance.currentUser!.uid;
+    print('Hello: $uid');
+    String categoryName = categoryController.text.trim();
+    if (categoryName.isNotEmpty && selectedImage != null && uid.isNotEmpty) {
+      print(uid);
+      // เรียกใช้ onComplete โดยส่งแค่ File และ String
+      await onComplete(
+          selectedImage!, categoryName); // <<< ไม่ส่ง apiService แล้ว
+      Navigator.pop(context);
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('กรุณาเลือกรูปภาพและใส่ชื่อหมวดหมู่'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
 
   showDialog(
     context: context,
@@ -94,20 +135,7 @@ void showAddCategoryDialog(
                         horizontal: 24, vertical: 12),
                   ),
                   onPressed: () async {
-                    String categoryName = categoryController.text.trim();
-                    if (categoryName.isNotEmpty && selectedImage != null) {
-                      // เรียกใช้ onComplete โดยส่งแค่ File และ String
-                      await onComplete(selectedImage!,
-                          categoryName); // <<< ไม่ส่ง apiService แล้ว
-                      Navigator.pop(context);
-                    } else {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text('กรุณาเลือกรูปภาพและใส่ชื่อหมวดหมู่'),
-                          backgroundColor: Colors.red,
-                        ),
-                      );
-                    }
+                    _createCategory();
                   },
                   child: Text(
                     'Complete',
