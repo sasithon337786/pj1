@@ -121,7 +121,7 @@ class _LifestyleActivityPageState extends State<LifestyleActivity> {
                                       builder: (context) => MainHomeScreen()),
                                 );
                               },
-                              child: CategoryIcon(
+                              child: const CategoryIcon(
                                 icon: 'assets/icons/heart-health-muscle.png',
                                 label: 'Health',
                               ),
@@ -135,7 +135,7 @@ class _LifestyleActivityPageState extends State<LifestyleActivity> {
                                           SportActivityPage()),
                                 );
                               },
-                              child: CategoryIcon(
+                              child: const CategoryIcon(
                                 icon: 'assets/icons/gym.png',
                                 label: 'Sports',
                               ),
@@ -149,7 +149,7 @@ class _LifestyleActivityPageState extends State<LifestyleActivity> {
                                           LifestyleActivity()),
                                 );
                               },
-                              child: CategoryIcon(
+                              child: const CategoryIcon(
                                 icon: 'assets/icons/life.png',
                                 label: 'Lifestyle',
                               ),
@@ -162,7 +162,7 @@ class _LifestyleActivityPageState extends State<LifestyleActivity> {
                                       builder: (context) => TimeActivity()),
                                 );
                               },
-                              child: CategoryIcon(
+                              child: const CategoryIcon(
                                 icon: 'assets/icons/pending.png',
                                 label: 'Time',
                               ),
