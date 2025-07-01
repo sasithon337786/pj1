@@ -6,7 +6,9 @@ import 'package:google_fonts/google_fonts.dart';
 void showAddCategoryDialog(
     BuildContext context,
     TextEditingController categoryController,
+    // เปลี่ยน Function signature ให้กลับมารับแค่ File และ String
     Function(File, String) onComplete) {
+  // <<< ไม่รับ ApiService แล้ว
   File? selectedImage;
 
   showDialog(
@@ -30,7 +32,6 @@ void showAddCategoryDialog(
                   'เพิ่มหมวดหมู่',
                   style: GoogleFonts.kanit(
                     fontSize: 22,
-                    // fontWeight: FontWeight.bold,
                     color: const Color(0xFF5B4436),
                   ),
                 ),
@@ -58,7 +59,7 @@ void showAddCategoryDialog(
                     ),
                     child: selectedImage != null
                         ? ClipRRect(
-                            borderRadius: BorderRadius.circular(12),
+                            borderRadius: BorderRadius.circular(50),
                             child:
                                 Image.file(selectedImage!, fit: BoxFit.cover),
                           )
@@ -92,11 +93,20 @@ void showAddCategoryDialog(
                     padding: const EdgeInsets.symmetric(
                         horizontal: 24, vertical: 12),
                   ),
-                  onPressed: () {
-                    String categoryName = categoryController.text;
+                  onPressed: () async {
+                    String categoryName = categoryController.text.trim();
                     if (categoryName.isNotEmpty && selectedImage != null) {
-                      onComplete(selectedImage!, categoryName);
+                      // เรียกใช้ onComplete โดยส่งแค่ File และ String
+                      await onComplete(selectedImage!,
+                          categoryName); // <<< ไม่ส่ง apiService แล้ว
                       Navigator.pop(context);
+                    } else {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('กรุณาเลือกรูปภาพและใส่ชื่อหมวดหมู่'),
+                          backgroundColor: Colors.red,
+                        ),
+                      );
                     }
                   },
                   child: Text(
