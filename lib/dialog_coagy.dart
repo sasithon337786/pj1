@@ -1,80 +1,115 @@
+import 'dart:convert';
 import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:firebase_storage/firebase_storage.dart';
+import 'package:path/path.dart' as path;
+import 'package:pj1/constant/api_endpoint.dart';
 
 void showAddCategoryDialog(
-    BuildContext context,
-    TextEditingController categoryController,
-    // เปลี่ยน Function signature ให้กลับมารับแค่ File และ String
-    Function(File, String) onComplete) {
-  // <<< ไม่รับ ApiService แล้ว
+  BuildContext context,
+  TextEditingController categoryController,
+  Function(File, String)
+      onComplete, // <- ใช้เผื่อ callback ภายนอก (ตอนนี้ยังไม่ได้ใช้)
+) {
   File? selectedImage;
-  final FirebaseAuth _auth = FirebaseAuth.instance;
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseStorage _storage = FirebaseStorage.instance;
-
-  Future<String?> _uploadProfileImage(String userId) async {
-    if (selectedImage == null) return null;
-
-    try {
-      final ref = _storage.ref().child('profile_images').child('$userId.jpg');
-      final uploadTask = ref.putFile(selectedImage!);
-      final snapshot = await uploadTask;
-      final downloadUrl = await snapshot.ref.getDownloadURL();
-      return downloadUrl;
-    } catch (e) {
-      print('Error uploading image: $e');
-      return null;
-    }
-  }
-
-  Future<void> _createCategory() async {
-    final uid = FirebaseAuth.instance.currentUser!.uid;
-    print('Hello: $uid');
-    String categoryName = categoryController.text.trim();
-    if (categoryName.isNotEmpty && selectedImage != null && uid.isNotEmpty) {
-      print(uid);
-      // เรียกใช้ onComplete โดยส่งแค่ File และ String
-      await onComplete(
-          selectedImage!, categoryName); // <<< ไม่ส่ง apiService แล้ว
-      Navigator.pop(context);
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('กรุณาเลือกรูปภาพและใส่ชื่อหมวดหมู่'),
-          backgroundColor: Colors.red,
-        ),
-      );
-    }
-  }
 
   showDialog(
     context: context,
     builder: (BuildContext context) {
       return StatefulBuilder(
         builder: (context, setState) {
+          bool isLoading = false;
+
+          Future<String?> _uploadCategoryImage(
+              String userId, File imageFile) async {
+            try {
+              String fileName = path.basename(imageFile.path);
+              final ref = _storage
+                  .ref()
+                  .child('category_pics')
+                  .child(userId)
+                  .child('${DateTime.now().millisecondsSinceEpoch}_$fileName');
+              final snapshot = await ref.putFile(imageFile);
+              return await snapshot.ref.getDownloadURL();
+            } catch (e) {
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('อัปโหลดรูปภาพล้มเหลว: $e'),
+                    backgroundColor: Colors.red,
+                  ),
+                );
+              }
+              return null;
+            }
+          }
+
+          Future<void> _createCategory() async {
+            final uid = FirebaseAuth.instance.currentUser?.uid;
+            String categoryName = categoryController.text.trim();
+
+            if (categoryName.isNotEmpty &&
+                selectedImage != null &&
+                uid != null) {
+              setState(() => isLoading = true);
+
+              final imageUrl = await _uploadCategoryImage(uid, selectedImage!);
+              if (imageUrl != null) {
+                final response = await http.post(
+                  Uri.parse(
+                      ApiEndpoints.baseUrl + '/api/category/createCategory'),
+                  headers: {
+                    'Content-Type': 'application/json',
+                  },
+                  body: jsonEncode({
+                    'uid': uid,
+                    'cate_name': categoryName,
+                    'cate_pic': imageUrl,
+                  }),
+                );
+
+                if (response.statusCode == 200) {
+                  if (context.mounted) Navigator.pop(context);
+                } else {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('บันทึกหมวดหมู่ล้มเหลว'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                }
+              }
+
+              setState(() => isLoading = false);
+            } else {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('กรุณาเลือกรูปภาพและใส่ชื่อหมวดหมู่'),
+                  backgroundColor: Colors.red,
+                ),
+              );
+            }
+          }
+
           return AlertDialog(
             backgroundColor: const Color(0xFFEFEAE3),
             shape:
                 RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
             title: Row(
               children: [
-                Image.asset(
-                  'assets/icons/magic-wand.png',
-                  width: 30,
-                  height: 30,
-                ),
+                Image.asset('assets/icons/magic-wand.png',
+                    width: 30, height: 30),
                 const SizedBox(width: 8),
                 Text(
                   'เพิ่มหมวดหมู่',
-                  style: GoogleFonts.kanit(
-                    fontSize: 22,
-                    color: const Color(0xFF5B4436),
-                  ),
+                  style:
+                      GoogleFonts.kanit(fontSize: 22, color: Color(0xFF5B4436)),
                 ),
               ],
             ),
@@ -126,22 +161,23 @@ void showAddCategoryDialog(
                   style: GoogleFonts.kanit(color: Colors.white),
                 ),
                 const SizedBox(height: 16),
-                ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFFC98993),
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(20)),
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 24, vertical: 12),
-                  ),
-                  onPressed: () async {
-                    _createCategory();
-                  },
-                  child: Text(
-                    'Complete',
-                    style: GoogleFonts.kanit(fontSize: 18, color: Colors.white),
-                  ),
-                ),
+                isLoading
+                    ? const CircularProgressIndicator()
+                    : ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFFC98993),
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(20)),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 24, vertical: 12),
+                        ),
+                        onPressed: _createCategory,
+                        child: Text(
+                          'Complete',
+                          style: GoogleFonts.kanit(
+                              fontSize: 18, color: Colors.white),
+                        ),
+                      ),
               ],
             ),
           );
