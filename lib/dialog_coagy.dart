@@ -1,6 +1,5 @@
 import 'dart:convert';
 import 'dart:io';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
@@ -8,13 +7,12 @@ import 'package:image_picker/image_picker.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:path/path.dart' as path;
-import 'package:pj1/constant/api_endpoint.dart';
+import 'package:pj1/constant/api_endpoint.dart'; // ✅ เปลี่ยนให้ถูกกับโปรเจกต์ของคุณ
 
 void showAddCategoryDialog(
   BuildContext context,
   TextEditingController categoryController,
-  Function(File, String)
-      onComplete, // <- ใช้เผื่อ callback ภายนอก (ตอนนี้ยังไม่ได้ใช้)
+  Function(File, String)? onComplete, // ยังไม่ได้ใช้ แต่เผื่อในอนาคต
 ) {
   File? selectedImage;
   final FirebaseStorage _storage = FirebaseStorage.instance;
@@ -26,6 +24,7 @@ void showAddCategoryDialog(
         builder: (context, setState) {
           bool isLoading = false;
 
+          /// 📤 อัปโหลดภาพไป Firebase Storage
           Future<String?> _uploadCategoryImage(
               String userId, File imageFile) async {
             try {
@@ -35,6 +34,7 @@ void showAddCategoryDialog(
                   .child('category_pics')
                   .child(userId)
                   .child('${DateTime.now().millisecondsSinceEpoch}_$fileName');
+
               final snapshot = await ref.putFile(imageFile);
               return await snapshot.ref.getDownloadURL();
             } catch (e) {
@@ -50,6 +50,7 @@ void showAddCategoryDialog(
             }
           }
 
+          /// ➕ สร้างหมวดหมู่
           Future<void> _createCategory() async {
             final uid = FirebaseAuth.instance.currentUser?.uid;
             String categoryName = categoryController.text.trim();
@@ -60,10 +61,10 @@ void showAddCategoryDialog(
               setState(() => isLoading = true);
 
               final imageUrl = await _uploadCategoryImage(uid, selectedImage!);
+
               if (imageUrl != null) {
                 final response = await http.post(
-                  Uri.parse(
-                      ApiEndpoints.baseUrl + '/api/category/createCategory'),
+                  Uri.parse('${ApiEndpoints.baseUrl}/api/category/createCategory'),
                   headers: {
                     'Content-Type': 'application/json',
                   },
@@ -75,11 +76,21 @@ void showAddCategoryDialog(
                 );
 
                 if (response.statusCode == 200) {
-                  if (context.mounted) Navigator.pop(context);
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('เพิ่มหมวดหมู่สำเร็จ'),
+                        backgroundColor: Colors.green,
+                      ),
+                    );
+                    Navigator.pop(context);
+                  }
                 } else {
+                  final message = jsonDecode(response.body)['message'] ??
+                      'บันทึกหมวดหมู่ล้มเหลว';
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('บันทึกหมวดหมู่ล้มเหลว'),
+                    SnackBar(
+                      content: Text(message),
                       backgroundColor: Colors.red,
                     ),
                   );
@@ -99,8 +110,9 @@ void showAddCategoryDialog(
 
           return AlertDialog(
             backgroundColor: const Color(0xFFEFEAE3),
-            shape:
-                RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20),
+            ),
             title: Row(
               children: [
                 Image.asset('assets/icons/magic-wand.png',
@@ -167,7 +179,8 @@ void showAddCategoryDialog(
                         style: ElevatedButton.styleFrom(
                           backgroundColor: const Color(0xFFC98993),
                           shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(20)),
+                            borderRadius: BorderRadius.circular(20),
+                          ),
                           padding: const EdgeInsets.symmetric(
                               horizontal: 24, vertical: 12),
                         ),
