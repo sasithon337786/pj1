@@ -5,7 +5,7 @@ import 'dart:io'; // ต้องเพิ่ม import นี้เข้าม
 class ApiService {
   // เปลี่ยนเป็น IP ที่ backend รันอยู่
   // ถ้า backend ของหนูรองรับการอัปโหลดไฟล์ด้วย ให้แน่ใจว่า baseUrl ถูกต้องและ backend พร้อมรับไฟล์
-  final String baseUrl = 'http://10.160.17.225:3000';
+  final String baseUrl = 'http://10.160.17.225:4000';
 
   Future<void> checkStatus() async {
     try {

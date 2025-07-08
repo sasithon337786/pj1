@@ -1,14 +1,18 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io'; // สำหรับ File
+import 'dart:math';
 import 'package:firebase_auth/firebase_auth.dart'; // สำหรับ FirebaseAuth
 import 'package:cloud_firestore/cloud_firestore.dart'; // สำหรับ Cloud Firestore
 import 'package:firebase_storage/firebase_storage.dart'; // สำหรับ Firebase Storage
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart'; // สำหรับ ImagePicker
 
 // ต้อง import ไฟล์ที่เกี่ยวข้องทั้งหมดที่ใช้ใน Bottom Navigation Bar
 import 'package:pj1/account.dart';
+import 'package:pj1/constant/api_endpoint.dart';
 import 'package:pj1/grap.dart';
 import 'package:pj1/mains.dart'; // HomePage
 import 'package:pj1/target.dart';
@@ -24,15 +28,16 @@ class CreateActivityScreen extends StatefulWidget {
 }
 
 class _CreateActivityScreenState extends State<CreateActivityScreen> {
-  File? _image; // สำหรับเก็บรูปภาพที่เลือก
+  File? selectedImage; // สำหรับเก็บรูปภาพที่เลือก
   final ImagePicker _picker = ImagePicker(); // Instance ของ ImagePicker
-
+  final FirebaseStorage _storage = FirebaseStorage.instance;
+  bool isLoading = false;
   final TextEditingController activityNameController =
       TextEditingController(); // สำหรับชื่อกิจกรรม
 
   List<MainScreen.Category> _categories =
       []; // ลิสต์ของหมวดหมู่ทั้งหมด (default + user custom)
-  String? _selectedCategoryLabel; // หมวดหมู่ที่ถูกเลือกใน Dropdown
+  int? _selectedCategoryId; // หมวดหมู่ที่ถูกเลือกใน Dropdown
 
   int _selectedIndex = 0; // สำหรับ Bottom Navigation Bar
 
@@ -41,120 +46,155 @@ class _CreateActivityScreenState extends State<CreateActivityScreen> {
     final pickedFile = await _picker.pickImage(source: ImageSource.gallery);
     if (pickedFile != null) {
       setState(() {
-        _image = File(pickedFile.path);
+        selectedImage = File(pickedFile.path);
       });
     }
   }
 
   // --- ฟังก์ชันสำหรับโหลดหมวดหมู่ที่มีอยู่จาก Firebase และ Default ---
   Future<void> _loadCategories() async {
-    final user = FirebaseAuth.instance.currentUser;
-    List<MainScreen.Category> currentCategories = [
-      // หมวดหมู่เริ่มต้น (จาก Asset)
-      MainScreen.Category(
-          iconPath: 'assets/icons/heart-health-muscle.png', label: 'Health'),
-      MainScreen.Category(iconPath: 'assets/icons/gym.png', label: 'Sports'),
-      MainScreen.Category(
-          iconPath: 'assets/icons/life.png', label: 'Lifestyle'),
-      MainScreen.Category(iconPath: 'assets/icons/pending.png', label: 'Time'),
-    ];
+  try {
+    final response = await http
+        .get(Uri.parse('${ApiEndpoints.baseUrl}/api/category/getCategory?uid=${FirebaseAuth.instance.currentUser?.uid}'));
 
-    if (user != null) {
-      try {
-        final snapshot = await FirebaseFirestore.instance
-            .collection('categories')
-            .where('userId', isEqualTo: user.uid)
-            .orderBy('timestamp', descending: false)
-            .get();
+    if (response.statusCode == 200) {
+      final List<dynamic> data = jsonDecode(response.body);
+      List<MainScreen.Category> loadedCategories = data.map((item) {
+        return MainScreen.Category(
+          id: item['cate_id'],
+          iconPath: '',
+          label: item['cate_name'],
+        );
+      }).toList();
 
-        List<MainScreen.Category> userCustomCategories =
-            snapshot.docs.map((doc) {
-          return MainScreen.Category(
-            iconPath: doc['iconPath'],
-            label: doc['label'],
-            isNetworkImage: true,
-          );
-        }).toList();
-        currentCategories.addAll(userCustomCategories);
-      } catch (e) {
-        print('Error loading categories for activity screen: $e');
-        // ไม่ต้องแสดง SnackBar เพราะอาจจะเกิดจากการที่ผู้ใช้ยังไม่มีหมวดหมู่ custom
-      }
+      setState(() {
+        _categories = loadedCategories;
+
+        // ตรวจสอบให้แน่ใจว่า _selectedCategoryId เป็นค่าที่ถูกต้อง
+        if (_categories.isNotEmpty) {
+          // ถ้า _selectedCategoryId ไม่มีค่า หรือ ค่าที่เลือกไม่มีอยู่ในลิสต์ที่โหลดมา
+          if (_selectedCategoryId == null ||
+              !_categories.any((c) => c.id == _selectedCategoryId)) {
+            _selectedCategoryId = _categories.first.id; // ให้เลือกตัวแรกเป็นค่าเริ่มต้น
+          }
+        } else {
+          _selectedCategoryId = null; // ถ้าไม่มีหมวดหมู่เลย ก็ไม่มีค่าที่เลือก
+        }
+      });
+    } else {
+      print('Failed to load categories: ${response.statusCode}');
+      setState(() {
+        _categories = [];
+        _selectedCategoryId = null; // ตั้งค่าให้เป็น null เมื่อโหลดข้อมูลไม่สำเร็จ
+      });
     }
-
+  } catch (e) {
+    print('Error loading categories: $e');
     setState(() {
-      _categories = currentCategories;
-      // กำหนดค่าเริ่มต้นของ Dropdown เป็นหมวดหมู่แรกสุด หากยังไม่มีการเลือก
-      if (_selectedCategoryLabel == null && _categories.isNotEmpty) {
-        _selectedCategoryLabel = _categories.first.label;
-      }
+      _categories = [];
+      _selectedCategoryId = null; // ตั้งค่าให้เป็น null เมื่อเกิดข้อผิดพลาด
     });
+  }
+}
+
+  Future<String?> _uploadActivityImage(String userId, File imageFile) async {
+    try {
+      final random = Random();
+      final randomNumber =
+          random.nextInt(90000) + 10000; // เลข 5 หลัก 10000-99999
+
+      final ref = _storage
+          .ref()
+          .child('activity_pics')
+          .child('${userId}_$randomNumber.jpg'); // ตั้งชื่อไฟล์แบบใหม่
+
+      final uploadTask = ref.putFile(imageFile);
+      final snapshot = await uploadTask;
+      final downloadUrl = await snapshot.ref.getDownloadURL();
+      return downloadUrl;
+    } catch (e) {
+      print('Error uploading category image: $e');
+      return null;
+    }
   }
 
   // --- ฟังก์ชันสำหรับเพิ่มกิจกรรมใหม่ลง Firebase ---
-  Future<void> _addActivity() async {
-    final user = FirebaseAuth.instance.currentUser;
-    if (user == null) {
+  Future<void> _createActivity() async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    String activityName = activityNameController.text.trim();
+    print(activityName);
+    // ✅ เพิ่มการตรวจสอบ category ที่เลือก
+    if (activityName.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-            content: Text('คุณต้องเข้าสู่ระบบก่อนจึงจะเพิ่มกิจกรรมได้'),
-            backgroundColor: Colors.orange),
+        const SnackBar(content: Text('กรุณาใส่ชื่อกิจกรรม')),
       );
       return;
     }
 
-    // ตรวจสอบข้อมูลที่จำเป็น
-    if (_image == null ||
-        activityNameController.text.trim().isEmpty ||
-        _selectedCategoryLabel == null) {
+    if (selectedImage == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-            content: Text('กรุณาเลือกรูปภาพ, ใส่ชื่อกิจกรรม และเลือกหมวดหมู่'),
-            backgroundColor: Colors.red),
+        const SnackBar(content: Text('กรุณาเลือกรูปภาพ')),
       );
       return;
     }
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-          content: Text('กำลังเพิ่มกิจกรรม...'),
-          duration: Duration(seconds: 2)),
-    );
+    if (_selectedCategoryId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('กรุณาเลือกหมวดหมู่')),
+      );
+      return;
+    }
+
+    if (uid == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('กรุณาเข้าสู่ระบบ')),
+      );
+      return;
+    }
+
+    setState(() => isLoading = true);
 
     try {
-      // 1. อัปโหลดรูปภาพไป Firebase Storage
-      final ref = FirebaseStorage.instance
-          .ref()
-          .child('activity_images') // เก็บรูปกิจกรรมในโฟลเดอร์นี้
-          .child('${user.uid}_${DateTime.now().millisecondsSinceEpoch}.jpg');
+      final imageUrl = await _uploadActivityImage(uid, selectedImage!);
+      print('Image URL: $imageUrl');
+      print(uid);
+      print(_selectedCategoryId);
+      print(activityName);
 
-      await ref.putFile(_image!);
-      final imageUrl = await ref.getDownloadURL();
+      if (imageUrl != null) {
+        final response = await http.post(
+          Uri.parse('${ApiEndpoints.baseUrl}/api/activity/createAct'),
+          headers: {'Content-Type': 'application/json'},
+          body: jsonEncode({
+            'uid': uid,
+            'cate_id': _selectedCategoryId,
+            'act_name': activityName,
+            'act_pic': imageUrl,
+          }),
+        );
 
-      // 2. บันทึกข้อมูลกิจกรรมไป Firebase Firestore
-      await FirebaseFirestore.instance.collection('activities').add({
-        'userId': user.uid, // UID ของผู้ใช้ที่สร้าง
-        'categoryLabel': _selectedCategoryLabel, // หมวดหมู่ที่กิจกรรมนี้จะอยู่
-        'label': activityNameController.text.trim(), // ชื่อกิจกรรม
-        'iconPath': imageUrl, // URL รูปภาพ
-        'timestamp': FieldValue.serverTimestamp(), // เวลาที่สร้าง
-      });
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-            content: Text('เพิ่มกิจกรรมสำเร็จ!'),
-            backgroundColor: Colors.green),
-      );
-
-      // กลับไปหน้า MainHomeScreen (ซึ่งจะโหลดข้อมูลใหม่เอง)
-      Navigator.pop(context);
+        if (response.statusCode == 200) {
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('เพิ่มกิจกรรมสำเร็จ')),
+            );
+            Navigator.pop(context, true);
+          }
+        } else {
+          final message =
+              jsonDecode(response.body)['message'] ?? 'บันทึกกิจกรรมล้มเหลว';
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(message)),
+          );
+        }
+      }
     } catch (e) {
-      print('Error adding activity to Firebase: $e');
+      print('Error creating activity: $e');
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-            content: Text('เพิ่มกิจกรรมไม่สำเร็จ: $e'),
-            backgroundColor: Colors.red),
+        const SnackBar(content: Text('เกิดข้อผิดพลาด กรุณาลองใหม่อีกครั้ง')),
       );
+    } finally {
+      setState(() => isLoading = false);
     }
   }
 
@@ -308,12 +348,12 @@ class _CreateActivityScreenState extends State<CreateActivityScreen> {
                         color: const Color(0xFFEFEAE3),
                         shape: BoxShape.circle,
                       ),
-                      child: _image == null
+                      child: selectedImage == null
                           ? const Icon(Icons.add_photo_alternate,
                               size: 40, color: Colors.white)
                           : ClipOval(
                               child: Image.file(
-                                _image!,
+                                selectedImage!,
                                 fit: BoxFit.cover,
                                 width: 100,
                                 height: 100,
@@ -340,8 +380,14 @@ class _CreateActivityScreenState extends State<CreateActivityScreen> {
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: DropdownButtonHideUnderline(
-                      child: DropdownButton<String>(
-                        value: _selectedCategoryLabel,
+                      child: DropdownButton<int>(
+                        // ✅ แก้ไขตรงนี้ - ตรวจสอบว่า categories ไม่ว่างและ selectedCategoryId ตรงกับ items
+                        value: _categories.isNotEmpty &&
+                                _selectedCategoryId != null &&
+                                _categories
+                                    .any((c) => c.id == _selectedCategoryId)
+                            ? _selectedCategoryId
+                            : null,
                         isExpanded: true,
                         dropdownColor: const Color(0xFFC98993),
                         icon: const Icon(Icons.arrow_drop_down,
@@ -352,15 +398,15 @@ class _CreateActivityScreenState extends State<CreateActivityScreen> {
                           'เลือกหมวดหมู่...',
                           style: GoogleFonts.kanit(color: Colors.white70),
                         ),
-                        onChanged: (String? newValue) {
+                        onChanged: (int? newValue) {
                           setState(() {
-                            _selectedCategoryLabel = newValue;
+                            _selectedCategoryId = newValue;
                           });
                         },
-                        items: _categories.map<DropdownMenuItem<String>>(
+                        items: _categories.map<DropdownMenuItem<int>>(
                             (MainScreen.Category category) {
-                          return DropdownMenuItem<String>(
-                            value: category.label,
+                          return DropdownMenuItem<int>(
+                            value: category.id,
                             child: Text(category.label),
                           );
                         }).toList(),
@@ -394,7 +440,7 @@ class _CreateActivityScreenState extends State<CreateActivityScreen> {
                     height: 50,
                     child: ElevatedButton(
                       onPressed:
-                          _addActivity, // เรียกใช้ฟังก์ชันเพิ่มกิจกรรมเมื่อกด
+                          _createActivity, // เรียกใช้ฟังก์ชันเพิ่มกิจกรรมเมื่อกด
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFF564843),
                         shape: RoundedRectangleBorder(
