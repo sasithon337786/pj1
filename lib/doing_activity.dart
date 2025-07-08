@@ -5,6 +5,7 @@ import 'package:pj1/calendar_page.dart';
 import 'package:pj1/chooseactivity.dart';
 import 'package:pj1/grap.dart';
 import 'package:pj1/mains.dart';
+import 'package:pj1/set_time.dart';
 import 'package:pj1/target.dart';
 
 class DoingActivity extends StatefulWidget {
@@ -320,7 +321,7 @@ class TaskCard extends StatelessWidget {
         onTap: () {
           Navigator.push(
             context,
-            MaterialPageRoute(builder: (context) => ChooseactivityPage()),
+            MaterialPageRoute(builder: (context) => CountdownPage()),
           );
         },
       ),

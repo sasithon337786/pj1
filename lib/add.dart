@@ -11,6 +11,7 @@ import 'package:pj1/account.dart';
 import 'package:pj1/chooseactivity.dart'; // ยังไม่ได้ใช้โดยตรงใน MainHomeScreen แต่เผื่อไว้
 import 'package:pj1/custom_Activity.dart'; // CreateActivityScreen ที่เราปรับปรุง
 import 'package:pj1/dialog_coagy.dart';
+import 'package:pj1/doing_activity.dart';
 import 'package:pj1/grap.dart';
 import 'package:pj1/mains.dart'; // HomePage
 import 'package:pj1/target.dart';
@@ -24,12 +25,15 @@ class MainHomeScreen extends StatefulWidget {
 
 // --- Class สำหรับ Category (เหมือนเดิม) ---
 class Category {
+  final int? id;
   final String iconPath;
   final String label;
   final bool isNetworkImage;
 
   Category(
-      {required this.iconPath,
+      {
+      this.id,
+      required this.iconPath,
       required this.label,
       this.isNetworkImage = false});
 }
@@ -136,143 +140,13 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
   }
 
   // ฟังก์ชันเพิ่มหมวดหมู่ (เหมือนเดิม)
-  Future<void> addCustomCategory(File imageFile, String label) async {
-    final user = FirebaseAuth.instance.currentUser;
-    if (user == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-            content: Text('คุณต้องเข้าสู่ระบบก่อนจึงจะเพิ่มหมวดหมู่ได้'),
-            backgroundColor: Colors.orange),
-      );
-      return;
-    }
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-          content: Text('กำลังเพิ่มหมวดหมู่...'),
-          duration: Duration(seconds: 2)),
-    );
-
-    try {
-      final ref = FirebaseStorage.instance
-          .ref()
-          .child('category_images')
-          .child('${user.uid}_${DateTime.now().millisecondsSinceEpoch}.jpg');
-
-      await ref.putFile(imageFile);
-      final imageUrl = await ref.getDownloadURL();
-
-      await FirebaseFirestore.instance.collection('categories').add({
-        'userId': user.uid,
-        'label': label,
-        'iconPath': imageUrl,
-        'timestamp': FieldValue.serverTimestamp(),
-      });
-
-      await loadUserCategories(); // โหลดหมวดหมู่ใหม่ทั้งหมด
-      setState(() {
-        selectedCategoryLabel = label; // เลือกหมวดหมู่ที่เพิ่งเพิ่มทันที
-      });
-      await _loadTasksForSelectedCategory(); // โหลดกิจกรรมของหมวดหมู่ที่เลือกใหม่
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-            content: Text('เพิ่มหมวดหมู่สำเร็จ!'),
-            backgroundColor: Colors.green),
-      );
-    } catch (e) {
-      print('Error adding category to Firebase: $e');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-            content: Text('เพิ่มหมวดหมู่ไม่สำเร็จ: $e'),
-            backgroundColor: Colors.red),
-      );
-    }
-  }
+  Future<void> addCustomCategory(File imageFile, String label) async {}
 
   // ฟังก์ชันโหลดหมวดหมู่ของผู้ใช้ (ปรับให้เรียกว่า _loadTasksForSelectedCategory ด้วย)
-  Future<void> loadUserCategories() async {
-    final user = FirebaseAuth.instance.currentUser;
-
-    List<Category> currentCategories =
-        List.from(_defaultCategories); // เริ่มต้นด้วยหมวดหมู่พื้นฐานเสมอ
-
-    if (user != null) {
-      try {
-        final snapshot = await FirebaseFirestore.instance
-            .collection('categories')
-            .where('userId', isEqualTo: user.uid)
-            .orderBy('timestamp', descending: false)
-            .get();
-
-        List<Category> userCustomCategories = snapshot.docs.map((doc) {
-          return Category(
-            iconPath: doc['iconPath'],
-            label: doc['label'],
-            isNetworkImage: true,
-          );
-        }).toList();
-        currentCategories.addAll(userCustomCategories);
-      } catch (e) {
-        print('Error loading user categories: $e');
-      }
-    }
-
-    setState(() {
-      categories = currentCategories;
-      // ตรวจสอบว่าหมวดหมู่ที่เลือกไว้ยังอยู่ในลิสต์หรือไม่ ถ้าไม่ให้เลือกอันแรกสุด
-      if (!categories.any((cat) => cat.label == selectedCategoryLabel)) {
-        if (categories.isNotEmpty) {
-          selectedCategoryLabel = categories.first.label;
-        } else {
-          selectedCategoryLabel = 'Health'; // Fallback
-        }
-      }
-    });
-    // โหลดกิจกรรมสำหรับหมวดหมู่ที่ถูกเลือกหลังจากโหลดหมวดหมู่เสร็จ
-    _loadTasksForSelectedCategory();
-  }
+  Future<void> loadUserCategories() async {}
 
   // *** ฟังก์ชันใหม่: โหลดกิจกรรมตามหมวดหมู่ที่เลือกและตามผู้ใช้ ***
-  Future<void> _loadTasksForSelectedCategory() async {
-    final user = FirebaseAuth.instance.currentUser;
-    List<Task> tasksToDisplay = [];
-
-    // เพิ่มกิจกรรมเริ่มต้นสำหรับหมวดหมู่ที่เลือก (ถ้ามี)
-    if (_defaultTasksByCategory.containsKey(selectedCategoryLabel)) {
-      tasksToDisplay.addAll(_defaultTasksByCategory[selectedCategoryLabel]!);
-    }
-
-    // โหลดกิจกรรมที่ผู้ใช้สร้างเองสำหรับหมวดหมู่ที่เลือกจาก Firebase
-    if (user != null) {
-      try {
-        final snapshot = await FirebaseFirestore.instance
-            .collection('activities')
-            .where('userId', isEqualTo: user.uid)
-            .where('categoryLabel', isEqualTo: selectedCategoryLabel)
-            .orderBy('timestamp', descending: false)
-            .get();
-
-        List<Task> userCustomTasks = snapshot.docs.map((doc) {
-          return Task(
-            iconPath: doc['iconPath'],
-            label: doc['label'],
-            isNetworkImage:
-                true, // กิจกรรมที่โหลดจาก Firebase เป็น Network Image เสมอ
-          );
-        }).toList();
-        tasksToDisplay.addAll(userCustomTasks);
-      } catch (e) {
-        print(
-            'Error loading user activities for category $selectedCategoryLabel: $e');
-        // ไม่ต้องแสดง SnackBar ถ้า error เพราะอาจจะเกิดจากการไม่มีข้อมูล
-      }
-    }
-
-    setState(() {
-      _displayedTasks = tasksToDisplay;
-    });
-  }
+  Future<void> _loadTasksForSelectedCategory() async {}
 
   // ฟังก์ชันนำทางไปหน้า CreateActivityScreen
   void _navigateToCreateActivityScreen() async {
@@ -341,15 +215,15 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
                               padding: const EdgeInsets.symmetric(
                                   horizontal: 12, vertical: 6),
                             ),
-                            onPressed: () {
-                              categoryController.clear();
-                              showAddCategoryDialog(
-                                context,
-                                categoryController,
-                                (File image, String name) async {
-                                  await addCustomCategory(image, name);
-                                },
+                            onPressed: () async {
+                              final result = await showDialog(
+                                context: context,
+                                builder: (context) => const AddCategoryDialog(),
                               );
+
+                              if (result == true) {
+                                loadUserCategories();
+                              }
                             },
                             child: Text(
                               'เพิ่มหมวดหมู่',
@@ -518,6 +392,8 @@ class CategoryIcon extends StatelessWidget {
   final String label;
   final bool isSelected;
   final bool isNetworkImage;
+  final Function()? onEdit;
+  final Function()? onDelete;
 
   const CategoryIcon({
     super.key,
@@ -525,6 +401,8 @@ class CategoryIcon extends StatelessWidget {
     required this.label,
     this.isSelected = false,
     this.isNetworkImage = false,
+    this.onEdit,
+    this.onDelete,
   });
 
   @override
@@ -536,9 +414,6 @@ class CategoryIcon extends StatelessWidget {
         width: 24,
         height: 24,
         fit: BoxFit.cover,
-        errorBuilder: (context, error, stackTrace) {
-          return const Icon(Icons.error, size: 24, color: Colors.red);
-        },
       );
     } else {
       imageWidget = Image.asset(
@@ -552,12 +427,38 @@ class CategoryIcon extends StatelessWidget {
 
     return Column(
       children: [
-        CircleAvatar(
-          backgroundColor: isSelected ? Colors.white : const Color(0xFFE6D2C0),
-          radius: 24,
-          child: ClipOval(
-            child: imageWidget,
-          ),
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            CircleAvatar(
+              backgroundColor:
+                  isSelected ? Colors.white : const Color(0xFFE6D2C0),
+              radius: 24,
+              child: ClipOval(child: imageWidget),
+            ),
+            if (isNetworkImage) // ถ้าเป็น custom category ให้แสดงปุ่ม 3 จุด
+              PopupMenuButton<String>(
+                icon:
+                    const Icon(Icons.more_vert, color: Colors.white, size: 20),
+                onSelected: (value) {
+                  if (value == 'edit') {
+                    onEdit?.call();
+                  } else if (value == 'delete') {
+                    onDelete?.call();
+                  }
+                },
+                itemBuilder: (context) => [
+                  const PopupMenuItem(
+                    value: 'edit',
+                    child: Text('แก้ไข'),
+                  ),
+                  const PopupMenuItem(
+                    value: 'delete',
+                    child: Text('ลบ'),
+                  ),
+                ],
+              ),
+          ],
         ),
         const SizedBox(height: 4),
         Text(
@@ -620,7 +521,7 @@ class TaskCard extends StatelessWidget {
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         title: Row(
           children: [
-            imageWidget, // ใช้ Widget ที่สร้างตามเงื่อนไข
+            imageWidget,
             const SizedBox(width: 16),
             Text(
               label,
@@ -629,11 +530,54 @@ class TaskCard extends StatelessWidget {
             ),
           ],
         ),
-        trailing: const Icon(Icons.add, color: Color(0xFFC98993)),
+        trailing: PopupMenuButton<String>(
+          icon: const Icon(Icons.more_vert, color: Color(0xFFC98993)),
+          onSelected: (value) {
+            if (value == 'edit') {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text('แก้ไขกิจกรรม: $label')),
+              );
+              // 👉 หรือจะเปิดหน้าแก้ไขหรือ dialog ก็ได้
+            } else if (value == 'delete') {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text('ลบกิจกรรม: $label')),
+              );
+              // 👉 หรือจะลบจาก Firestore ตรงนี้
+            }
+          },
+          itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
+            PopupMenuItem<String>(
+              value: 'edit',
+              child: Row(
+                children: [
+                  const Icon(Icons.edit, color: Color(0xFFC98993)),
+                  const SizedBox(width: 8),
+                  Text('แก้ไข', style: GoogleFonts.kanit()),
+                ],
+              ),
+            ),
+            PopupMenuItem<String>(
+              value: 'delete',
+              child: Row(
+                children: [
+                  const Icon(Icons.delete, color: Color(0xFFC98993)),
+                  const SizedBox(width: 8),
+                  Text('ลบ', style: GoogleFonts.kanit()),
+                ],
+              ),
+            ),
+          ],
+        ),
         onTap: () {
-          // ตรงนี้คือการกดกิจกรรมแต่ละอัน สามารถเพิ่ม logic ไปยังหน้าทำกิจกรรมได้
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('คุณเลือกกิจกรรม: $label')),
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => ChooseactivityPage(
+                  // activityName: label,
+                  // iconPath: iconPath,
+                  // isNetworkImage: isNetworkImage,
+                  ),
+            ),
           );
         },
       ),

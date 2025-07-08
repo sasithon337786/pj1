@@ -256,7 +256,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                 ),
               ),
               const SizedBox(height: 10),
-              
+
               // กล่องข้อมูล
               Container(
                 padding: const EdgeInsets.all(20),
