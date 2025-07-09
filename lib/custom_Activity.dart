@@ -53,49 +53,52 @@ class _CreateActivityScreenState extends State<CreateActivityScreen> {
 
   // --- ฟังก์ชันสำหรับโหลดหมวดหมู่ที่มีอยู่จาก Firebase และ Default ---
   Future<void> _loadCategories() async {
-  try {
-    final response = await http
-        .get(Uri.parse('${ApiEndpoints.baseUrl}/api/category/getCategory?uid=${FirebaseAuth.instance.currentUser?.uid}'));
+    try {
+      final response = await http.get(Uri.parse(
+          '${ApiEndpoints.baseUrl}/api/category/getCategory?uid=${FirebaseAuth.instance.currentUser?.uid}'));
 
-    if (response.statusCode == 200) {
-      final List<dynamic> data = jsonDecode(response.body);
-      List<MainScreen.Category> loadedCategories = data.map((item) {
-        return MainScreen.Category(
-          id: item['cate_id'],
-          iconPath: '',
-          label: item['cate_name'],
-        );
-      }).toList();
+      if (response.statusCode == 200) {
+        final List<dynamic> data = jsonDecode(response.body);
+        List<MainScreen.Category> loadedCategories = data.map((item) {
+          return MainScreen.Category(
+            id: item['cate_id'],
+            iconPath: '',
+            label: item['cate_name'],
+          );
+        }).toList();
 
-      setState(() {
-        _categories = loadedCategories;
+        setState(() {
+          _categories = loadedCategories;
 
-        // ตรวจสอบให้แน่ใจว่า _selectedCategoryId เป็นค่าที่ถูกต้อง
-        if (_categories.isNotEmpty) {
-          // ถ้า _selectedCategoryId ไม่มีค่า หรือ ค่าที่เลือกไม่มีอยู่ในลิสต์ที่โหลดมา
-          if (_selectedCategoryId == null ||
-              !_categories.any((c) => c.id == _selectedCategoryId)) {
-            _selectedCategoryId = _categories.first.id; // ให้เลือกตัวแรกเป็นค่าเริ่มต้น
+          // ตรวจสอบให้แน่ใจว่า _selectedCategoryId เป็นค่าที่ถูกต้อง
+          if (_categories.isNotEmpty) {
+            // ถ้า _selectedCategoryId ไม่มีค่า หรือ ค่าที่เลือกไม่มีอยู่ในลิสต์ที่โหลดมา
+            if (_selectedCategoryId == null ||
+                !_categories.any((c) => c.id == _selectedCategoryId)) {
+              _selectedCategoryId =
+                  _categories.first.id; // ให้เลือกตัวแรกเป็นค่าเริ่มต้น
+            }
+          } else {
+            _selectedCategoryId =
+                null; // ถ้าไม่มีหมวดหมู่เลย ก็ไม่มีค่าที่เลือก
           }
-        } else {
-          _selectedCategoryId = null; // ถ้าไม่มีหมวดหมู่เลย ก็ไม่มีค่าที่เลือก
-        }
-      });
-    } else {
-      print('Failed to load categories: ${response.statusCode}');
+        });
+      } else {
+        print('Failed to load categories: ${response.statusCode}');
+        setState(() {
+          _categories = [];
+          _selectedCategoryId =
+              null; // ตั้งค่าให้เป็น null เมื่อโหลดข้อมูลไม่สำเร็จ
+        });
+      }
+    } catch (e) {
+      print('Error loading categories: $e');
       setState(() {
         _categories = [];
-        _selectedCategoryId = null; // ตั้งค่าให้เป็น null เมื่อโหลดข้อมูลไม่สำเร็จ
+        _selectedCategoryId = null; // ตั้งค่าให้เป็น null เมื่อเกิดข้อผิดพลาด
       });
     }
-  } catch (e) {
-    print('Error loading categories: $e');
-    setState(() {
-      _categories = [];
-      _selectedCategoryId = null; // ตั้งค่าให้เป็น null เมื่อเกิดข้อผิดพลาด
-    });
   }
-}
 
   Future<String?> _uploadActivityImage(String userId, File imageFile) async {
     try {

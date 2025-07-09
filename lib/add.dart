@@ -1,14 +1,17 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:http/http.dart' as http;
 
 // ต้อง import ไฟล์ที่เกี่ยวข้องทั้งหมด
 import 'package:pj1/account.dart';
 import 'package:pj1/chooseactivity.dart'; // ยังไม่ได้ใช้โดยตรงใน MainHomeScreen แต่เผื่อไว้
+import 'package:pj1/constant/api_endpoint.dart';
 import 'package:pj1/custom_Activity.dart'; // CreateActivityScreen ที่เราปรับปรุง
 import 'package:pj1/dialog_coagy.dart';
 import 'package:pj1/doing_activity.dart';
@@ -31,8 +34,7 @@ class Category {
   final bool isNetworkImage;
 
   Category(
-      {
-      this.id,
+      {this.id,
       required this.iconPath,
       required this.label,
       this.isNetworkImage = false});
@@ -55,13 +57,17 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
   // --- ตัวแปรและข้อมูลเริ่มต้น ---
   List<Category> categories =
       []; // ลิสต์ของหมวดหมู่ทั้งหมด (default + user custom)
-
+  int? selectedCategoryId;
   // หมวดหมู่เริ่มต้น (จาก Asset)
   final List<Category> _defaultCategories = [
     Category(iconPath: 'assets/icons/heart-health-muscle.png', label: 'Health'),
     Category(iconPath: 'assets/icons/gym.png', label: 'Sports'),
     Category(iconPath: 'assets/icons/life.png', label: 'Lifestyle'),
     Category(iconPath: 'assets/icons/pending.png', label: 'Time'),
+    //cate_id = default
+    //cate_pic=iconPath
+    //cate_name=label
+    //uid = default
   ];
 
   // กิจกรรมเริ่มต้น (จาก Asset) ที่ผูกกับหมวดหมู่
@@ -89,6 +95,10 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
       Task(iconPath: 'assets/images/skincare-routine.png', label: 'Routine'),
       Task(iconPath: 'assets/images/hair-dryer.png', label: 'Hair routine'),
       Task(iconPath: 'assets/images/popcorn.png', label: 'Free Time'),
+      //act_id = default
+      //act_pic=iconPath
+      //act_name=label
+      //uid = default
     ],
   };
 
@@ -140,13 +150,112 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
   }
 
   // ฟังก์ชันเพิ่มหมวดหมู่ (เหมือนเดิม)
-  Future<void> addCustomCategory(File imageFile, String label) async {}
+  Future<void> loadUserCategories() async {
+  final uid = FirebaseAuth.instance.currentUser?.uid;
 
-  // ฟังก์ชันโหลดหมวดหมู่ของผู้ใช้ (ปรับให้เรียกว่า _loadTasksForSelectedCategory ด้วย)
-  Future<void> loadUserCategories() async {}
+  List<Category> currentCategories = List.from(_defaultCategories);
+
+  if (uid != null) {
+    try {
+      final response = await http.get(
+        Uri.parse('${ApiEndpoints.baseUrl}/api/category/getCategory?uid=$uid'),
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        final categoriesData = (data as List).map((item) {
+          return Category(
+            id: int.tryParse(item['cate_id'].toString()), // แปลงเป็น int
+            iconPath: item['cate_pic'],
+            label: item['cate_name'],
+            isNetworkImage: true,
+          );
+        }).toList();
+
+        currentCategories.addAll(categoriesData);
+      } else {
+        print('Failed to load categories: ${response.statusCode}');
+      }
+    } catch (e) {
+      print('Error loading categories: $e');
+    }
+  }
+
+  setState(() {
+    categories = currentCategories;
+    if (categories.isNotEmpty) {
+      selectedCategoryLabel = categories[0].label;
+      selectedCategoryId = categories[0].id;  // กำหนด id ของหมวดแรกด้วย
+      _loadTasksForSelectedCategory();
+    }
+  });
+}
 
   // *** ฟังก์ชันใหม่: โหลดกิจกรรมตามหมวดหมู่ที่เลือกและตามผู้ใช้ ***
-  Future<void> _loadTasksForSelectedCategory() async {}
+  Future<void> _loadTasksForSelectedCategory() async {
+    final user = FirebaseAuth.instance.currentUser;
+    List<Task> tasksToDisplay = [];
+
+    // 1. กิจกรรม default จาก Asset ตาม label
+    if (_defaultTasksByCategory.containsKey(selectedCategoryLabel)) {
+      tasksToDisplay.addAll(_defaultTasksByCategory[selectedCategoryLabel]!);
+    }
+
+    // 2. กิจกรรมจากฐานข้อมูล ที่ user สร้าง (ส่ง cate_id ไปด้วย)
+    if (user != null && selectedCategoryId != null) {
+      try {
+        final response = await http.get(
+          Uri.parse(
+            '${ApiEndpoints.baseUrl}/api/activity/getAct?uid=${user.uid}&cate_id=$selectedCategoryId',
+          ),
+        );
+
+        if (response.statusCode == 200) {
+          final data = jsonDecode(response.body);
+          final userCustomTasks = (data as List)
+              .map((item) => Task(
+                    iconPath: item['act_pic'],
+                    label: item['act_name'],
+                    isNetworkImage: true,
+                  ))
+              .toList();
+
+          tasksToDisplay.addAll(userCustomTasks);
+        } else {
+          print('Failed to load user tasks: ${response.statusCode}');
+        }
+      } catch (e) {
+        print('Error loading tasks for categoryId $selectedCategoryId: $e');
+      }
+    }
+
+    // 3. อัปเดต state
+    setState(() {
+      _displayedTasks = tasksToDisplay;
+    });
+  }
+
+  Future<List<Task>> getTasksFromDatabase(String uid) async {
+    // final uid = FirebaseAuth.instance.currentUser!.uid;
+    print(uid);
+    final response = await http.get(
+      Uri.parse('${ApiEndpoints.baseUrl}/api/activity/getAct?uid=${uid}'),
+    );
+
+    if (response.statusCode == 200) {
+      final List<dynamic> data = jsonDecode(response.body);
+      return data
+          .map((item) => Task(
+                label: item['act_name'] ?? '', // ✅ ชื่อกิจกรรม
+                iconPath: item['act_pic'] ?? '',
+                isNetworkImage: true,
+              ))
+          .toList();
+    } else {
+      throw Exception(
+          'Failed to load activity with status: ${response.statusCode}');
+    }
+  }
 
   // ฟังก์ชันนำทางไปหน้า CreateActivityScreen
   void _navigateToCreateActivityScreen() async {
@@ -240,28 +349,34 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
                       // แถวไอคอนหมวดหมู่ (ใช้ Wrap เพื่อการจัดวางและช่องไฟ)
                       Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 12),
-                        child: Wrap(
-                          spacing: 16.0, // ระยะห่างแนวนอน
-                          runSpacing: 16.0, // ระยะห่างแนวตั้ง
-                          alignment: WrapAlignment.center, // จัดให้อยู่กึ่งกลาง
-                          children: categories.map((category) {
-                            bool isSelected =
-                                category.label == selectedCategoryLabel;
-                            return GestureDetector(
-                              onTap: () {
-                                setState(() {
-                                  selectedCategoryLabel = category.label;
-                                  _loadTasksForSelectedCategory(); // <<< โหลดกิจกรรมใหม่เมื่อเลือกหมวดหมู่
-                                });
-                              },
-                              child: CategoryIcon(
-                                icon: category.iconPath,
-                                label: category.label,
-                                isSelected: isSelected,
-                                isNetworkImage: category.isNetworkImage,
-                              ),
-                            );
-                          }).toList(),
+                        child: SingleChildScrollView(
+                          scrollDirection: Axis.horizontal, // เลื่อนแนวนอน
+                          child: Row(
+                            children: categories.map((category) {
+                              bool isSelected =
+                                  category.label == selectedCategoryLabel;
+                              return Padding(
+                                padding: const EdgeInsets.only(
+                                    right: 16), // เว้นระยะห่างระหว่างไอคอน
+                                child: GestureDetector(
+                                  onTap: () {
+                                    setState(() {
+                                      selectedCategoryLabel = category.label;
+                                      selectedCategoryId = category
+                                          .id; // <-- เก็บ cate_id ที่เลือก
+                                      _loadTasksForSelectedCategory(); // โหลดกิจกรรมใหม่ตามหมวดหมู่ใหม่
+                                    });
+                                  },
+                                  child: CategoryIcon(
+                                    icon: category.iconPath,
+                                    label: category.label,
+                                    isSelected: isSelected,
+                                    isNetworkImage: category.isNetworkImage,
+                                  ),
+                                ),
+                              );
+                            }).toList(),
+                          ),
                         ),
                       ),
                       const SizedBox(height: 16),
@@ -282,6 +397,40 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
                         }).toList(),
                       ),
                       const SizedBox(height: 8),
+
+                      // FutureBuilder<List<Task>>(
+                      //   future: getTasksFromDatabase(
+                      //       FirebaseAuth.instance.currentUser!.uid),
+                      //   builder: (context, snapshot) {
+                      //     if (snapshot.connectionState ==
+                      //         ConnectionState.waiting) {
+                      //       return const Center(
+                      //           child: CircularProgressIndicator());
+                      //     } else if (snapshot.hasError) {
+                      //       return Center(
+                      //           child:
+                      //               Text('เกิดข้อผิดพลาด: ${snapshot.error}'));
+                      //     } else if (!snapshot.hasData ||
+                      //         snapshot.data!.isEmpty) {
+                      //       return const Center(child: Text('ไม่มีข้อมูล'));
+                      //     }
+
+                      //     final tasks = snapshot.data!;
+
+                      //     return ListView(
+                      //       shrinkWrap: true,
+                      //       physics: const NeverScrollableScrollPhysics(),
+                      //       padding: const EdgeInsets.symmetric(horizontal: 16),
+                      //       children: tasks.map((task) {
+                      //         return TaskCard(
+                      //           iconPath: task.iconPath,
+                      //           label: task.label,
+                      //           isNetworkImage: task.isNetworkImage,
+                      //         );
+                      //       }).toList(),
+                      //     );
+                      //   },
+                      // ),
 
                       // ปุ่ม Custom (เพิ่มกิจกรรม)
                       Padding(
@@ -530,7 +679,7 @@ class TaskCard extends StatelessWidget {
             ),
           ],
         ),
-        trailing: PopupMenuButton<String>(
+        trailing: PopupMenuButton<String>(  
           icon: const Icon(Icons.more_vert, color: Color(0xFFC98993)),
           onSelected: (value) {
             if (value == 'edit') {

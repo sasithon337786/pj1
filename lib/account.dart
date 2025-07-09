@@ -1,7 +1,9 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:pj1/add.dart';
 import 'package:pj1/grap.dart';
+import 'package:pj1/login.dart';
 import 'package:pj1/target.dart';
 
 class AccountPage extends StatefulWidget {
@@ -55,84 +57,122 @@ class _AccountPageState extends State<AccountPage> {
         children: [
           Column(
             children: [
-              // สีด้านบน (แถบสีเข้ม)
+              // สีด้านบน
               Container(
                 height: MediaQuery.of(context).padding.top + 70,
                 color: const Color(0xFF564843),
               ),
-              const SizedBox(height: 54), // สำหรับโลโก้ลอย
+              const SizedBox(height: 54),
               Expanded(
                 child: SingleChildScrollView(
                   child: Center(
-                    child: Container(
-                      margin: const EdgeInsets.symmetric(
-                          horizontal: 32, vertical: 24),
-                      padding: const EdgeInsets.symmetric(
-                          vertical: 24, horizontal: 16),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFF7F1ED),
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.center,
-                        children: [
-                          const CircleAvatar(
-                            radius: 50,
-                            backgroundImage:
-                                AssetImage('assets/images/boy.png'),
+                    child: Column(
+                      children: [
+                        Container(
+                          margin: const EdgeInsets.symmetric(
+                              horizontal: 32, vertical: 24),
+                          padding: const EdgeInsets.symmetric(
+                              vertical: 24, horizontal: 16),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF7F1ED),
+                            borderRadius: BorderRadius.circular(20),
                           ),
-                          const SizedBox(height: 20),
-                          buildUserRow("Name", "Nutty"),
-                          buildUserRow("Email", "nutty337786"),
-                          buildUserRow("Birthday", "21 June 2004"),
-                          buildUserRow("Password", "nutty332547"),
-                          const SizedBox(height: 20),
-                          ElevatedButton.icon(
-                            onPressed: () {
-                              // ตรงนี้ใส่คำสั่งแก้ไขข้อมูลได้
-                            },
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFF564843),
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 20, vertical: 10),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(20),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.center,
+                            children: [
+                              const CircleAvatar(
+                                radius: 50,
+                                backgroundImage:
+                                    AssetImage('assets/images/boy.png'),
                               ),
-                            ),
-                            icon: const Icon(Icons.edit,
-                                size: 18, color: Colors.white),
-                            label: Text(
-                              'แก้ไขข้อมูลส่วนตัว',
-                              style: GoogleFonts.kanit(color: Colors.white),
-                            ),
+                              const SizedBox(height: 20),
+                              buildUserRow("Name", "Nutty"),
+                              buildUserRow("Email", "nutty337786"),
+                              buildUserRow("Birthday", "21 June 2004"),
+                              buildUserRow("Password", "nutty332547"),
+                              const SizedBox(height: 20),
+                              ElevatedButton.icon(
+                                onPressed: () {
+                                  // แก้ไขข้อมูล
+                                },
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: const Color(0xFF564843),
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 20, vertical: 10),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(20),
+                                  ),
+                                ),
+                                icon: const Icon(Icons.edit,
+                                    size: 18, color: Colors.white),
+                                label: Text(
+                                  'แก้ไขข้อมูลส่วนตัว',
+                                  style: GoogleFonts.kanit(color: Colors.white),
+                                ),
+                              ),
+                            ],
                           ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              ),
+                        ),
 
-              // ปุ่ม ส่งคำร้อง อยู่นอก Container ด้านบน
-              Padding(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
-                child: ElevatedButton.icon(
-                  onPressed: () {
-                    // ตรงนี้ใส่คำสั่งส่งคำร้องได้
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF564843),
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 20, vertical: 10),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(20),
+                        // ✅ ปุ่ม ส่งคำร้อง + ออกจากระบบ
+                        Padding(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 32, vertical: 8),
+                          child: Column(
+                            children: [
+                              ElevatedButton.icon(
+                                onPressed: () {
+                                  // ส่งคำร้อง
+                                },
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: const Color(0xFF564843),
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 20, vertical: 10),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(20),
+                                  ),
+                                ),
+                                icon: const Icon(Icons.person,
+                                    color: Colors.white),
+                                label: Text(
+                                  'ส่งคำร้อง',
+                                  style:
+                                      GoogleFonts.kanit(color: Colors.white),
+                                ),
+                              ),
+                              const SizedBox(height: 10),
+                              ElevatedButton.icon(
+                                onPressed: () async {
+                                  await FirebaseAuth.instance.signOut();
+                                  Navigator.pushAndRemoveUntil(
+                                    context,
+                                    MaterialPageRoute(
+                                        builder: (context) =>
+                                            const LoginScreen()),
+                                    (route) => false,
+                                  );
+                                },
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.red[400],
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 20, vertical: 10),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(20),
+                                  ),
+                                ),
+                                icon: const Icon(Icons.logout,
+                                    color: Colors.white),
+                                label: Text(
+                                  'ออกจากระบบ',
+                                  style:
+                                      GoogleFonts.kanit(color: Colors.white),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
                     ),
-                  ),
-                  icon: const Icon(Icons.person, color: Colors.white),
-                  label: Text(
-                    'ส่งคำร้อง',
-                    style: GoogleFonts.kanit(color: Colors.white),
                   ),
                 ),
               ),
@@ -180,7 +220,8 @@ class _AccountPageState extends State<AccountPage> {
             label: 'Graph',
           ),
           BottomNavigationBarItem(
-            icon: Image.asset('assets/icons/accout.png', width: 24, height: 24),
+            icon:
+                Image.asset('assets/icons/accout.png', width: 24, height: 24),
             label: 'Account',
           ),
         ],
