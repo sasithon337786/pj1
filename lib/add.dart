@@ -18,6 +18,7 @@ import 'package:pj1/doing_activity.dart';
 import 'package:pj1/grap.dart';
 import 'package:pj1/mains.dart'; // HomePage
 import 'package:pj1/target.dart';
+import 'package:pj1/edit_activity.dart'; // EditActivity ที่เราปรับปรุง
 
 class MainHomeScreen extends StatefulWidget {
   const MainHomeScreen({super.key});
@@ -45,12 +46,15 @@ class Category {
 class Task {
   final String iconPath;
   final String label;
-  final bool isNetworkImage; // เพิ่ม property นี้
+  final bool isNetworkImage;
+  final int? act_id; // ✅ เพิ่มตัวนี้เข้ามา
 
-  Task(
-      {required this.iconPath,
-      required this.label,
-      this.isNetworkImage = false});
+  Task({
+    required this.iconPath,
+    required this.label,
+    this.isNetworkImage = false,
+    this.act_id,
+  });
 }
 
 class _MainHomeScreenState extends State<MainHomeScreen> {
@@ -151,45 +155,46 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
 
   // ฟังก์ชันเพิ่มหมวดหมู่ (เหมือนเดิม)
   Future<void> loadUserCategories() async {
-  final uid = FirebaseAuth.instance.currentUser?.uid;
+    final uid = FirebaseAuth.instance.currentUser?.uid;
 
-  List<Category> currentCategories = List.from(_defaultCategories);
+    List<Category> currentCategories = List.from(_defaultCategories);
 
-  if (uid != null) {
-    try {
-      final response = await http.get(
-        Uri.parse('${ApiEndpoints.baseUrl}/api/category/getCategory?uid=$uid'),
-      );
+    if (uid != null) {
+      try {
+        final response = await http.get(
+          Uri.parse(
+              '${ApiEndpoints.baseUrl}/api/category/getCategory?uid=$uid'),
+        );
 
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        final categoriesData = (data as List).map((item) {
-          return Category(
-            id: int.tryParse(item['cate_id'].toString()), // แปลงเป็น int
-            iconPath: item['cate_pic'],
-            label: item['cate_name'],
-            isNetworkImage: true,
-          );
-        }).toList();
+        if (response.statusCode == 200) {
+          final data = jsonDecode(response.body);
+          final categoriesData = (data as List).map((item) {
+            return Category(
+              id: int.tryParse(item['cate_id'].toString()), // แปลงเป็น int
+              iconPath: item['cate_pic'],
+              label: item['cate_name'],
+              isNetworkImage: true,
+            );
+          }).toList();
 
-        currentCategories.addAll(categoriesData);
-      } else {
-        print('Failed to load categories: ${response.statusCode}');
+          currentCategories.addAll(categoriesData);
+        } else {
+          print('Failed to load categories: ${response.statusCode}');
+        }
+      } catch (e) {
+        print('Error loading categories: $e');
       }
-    } catch (e) {
-      print('Error loading categories: $e');
     }
-  }
 
-  setState(() {
-    categories = currentCategories;
-    if (categories.isNotEmpty) {
-      selectedCategoryLabel = categories[0].label;
-      selectedCategoryId = categories[0].id;  // กำหนด id ของหมวดแรกด้วย
-      _loadTasksForSelectedCategory();
-    }
-  });
-}
+    setState(() {
+      categories = currentCategories;
+      if (categories.isNotEmpty) {
+        selectedCategoryLabel = categories[0].label;
+        selectedCategoryId = categories[0].id; // กำหนด id ของหมวดแรกด้วย
+        _loadTasksForSelectedCategory();
+      }
+    });
+  }
 
   // *** ฟังก์ชันใหม่: โหลดกิจกรรมตามหมวดหมู่ที่เลือกและตามผู้ใช้ ***
   Future<void> _loadTasksForSelectedCategory() async {
@@ -217,6 +222,7 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
                     iconPath: item['act_pic'],
                     label: item['act_name'],
                     isNetworkImage: true,
+                    act_id: int.tryParse(item['act_id'].toString()),
                   ))
               .toList();
 
@@ -269,6 +275,34 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
     // เพราะอาจจะมีการเพิ่มหมวดหมู่ใหม่ หรือเพิ่มกิจกรรมในหมวดหมู่ที่มีอยู่
     loadUserCategories();
     // _loadTasksForSelectedCategory(); // loadUserCategories() จะเรียกตัวนี้อยู่แล้ว
+  }
+
+  Future<void> deleteActivity(
+      String uid, int actId, BuildContext context) async {
+    try {
+      final response = await http.post(
+        Uri.parse('${ApiEndpoints.baseUrl}/api/activity/deleteAct'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'uid': uid,
+          'act_id': actId,
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('ลบกิจกรรมสำเร็จ')),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('ลบกิจกรรมไม่สำเร็จ')),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('เกิดข้อผิดพลาด: $e')),
+      );
+    }
   }
 
   // --- Life Cycle Methods ---
@@ -393,44 +427,18 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
                             label: task.label,
                             isNetworkImage: task
                                 .isNetworkImage, // <<< ส่งค่า isNetworkImage ไปให้ TaskCard
+                            act_id: task.act_id,
+                            onEditComplete: () {
+                              // โหลดกิจกรรมใหม่เมื่อแก้ไขเสร็จ
+                              _loadTasksForSelectedCategory();
+                            },
+                            onDeleteComplete: () {
+                              _loadTasksForSelectedCategory();
+                            },
                           );
                         }).toList(),
                       ),
                       const SizedBox(height: 8),
-
-                      // FutureBuilder<List<Task>>(
-                      //   future: getTasksFromDatabase(
-                      //       FirebaseAuth.instance.currentUser!.uid),
-                      //   builder: (context, snapshot) {
-                      //     if (snapshot.connectionState ==
-                      //         ConnectionState.waiting) {
-                      //       return const Center(
-                      //           child: CircularProgressIndicator());
-                      //     } else if (snapshot.hasError) {
-                      //       return Center(
-                      //           child:
-                      //               Text('เกิดข้อผิดพลาด: ${snapshot.error}'));
-                      //     } else if (!snapshot.hasData ||
-                      //         snapshot.data!.isEmpty) {
-                      //       return const Center(child: Text('ไม่มีข้อมูล'));
-                      //     }
-
-                      //     final tasks = snapshot.data!;
-
-                      //     return ListView(
-                      //       shrinkWrap: true,
-                      //       physics: const NeverScrollableScrollPhysics(),
-                      //       padding: const EdgeInsets.symmetric(horizontal: 16),
-                      //       children: tasks.map((task) {
-                      //         return TaskCard(
-                      //           iconPath: task.iconPath,
-                      //           label: task.label,
-                      //           isNetworkImage: task.isNetworkImage,
-                      //         );
-                      //       }).toList(),
-                      //     );
-                      //   },
-                      // ),
 
                       // ปุ่ม Custom (เพิ่มกิจกรรม)
                       Padding(
@@ -630,12 +638,18 @@ class TaskCard extends StatelessWidget {
   final String iconPath;
   final String label;
   final bool isNetworkImage; // <<< เพิ่ม property นี้
+  final int? act_id;
+  final VoidCallback? onEditComplete;
+  final VoidCallback? onDeleteComplete;
 
   const TaskCard({
     super.key,
     required this.iconPath,
     required this.label,
     this.isNetworkImage = false, // <<< กำหนดค่าเริ่มต้น
+    this.act_id,
+    this.onEditComplete,
+    this.onDeleteComplete,
   });
 
   @override
@@ -679,19 +693,59 @@ class TaskCard extends StatelessWidget {
             ),
           ],
         ),
-        trailing: PopupMenuButton<String>(  
+        trailing: PopupMenuButton<String>(
           icon: const Icon(Icons.more_vert, color: Color(0xFFC98993)),
-          onSelected: (value) {
+          onSelected: (value) async {
             if (value == 'edit') {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('แก้ไขกิจกรรม: $label')),
+              final result = await Navigator.push<bool>(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => EditActivity(
+                    actId: act_id!,
+                    label: label,
+                    iconPath: iconPath,
+                    isNetworkImage: isNetworkImage,
+                    uid: FirebaseAuth.instance.currentUser!.uid,
+                  ),
+                ),
               );
-              // 👉 หรือจะเปิดหน้าแก้ไขหรือ dialog ก็ได้
+
+              if (result == true) {
+                if (onEditComplete != null) {
+                  onEditComplete!();
+                }
+              }
             } else if (value == 'delete') {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('ลบกิจกรรม: $label')),
-              );
-              // 👉 หรือจะลบจาก Firestore ตรงนี้
+              final uid = FirebaseAuth.instance.currentUser!.uid;
+              final actId = act_id;
+              if (actId != null) {
+                try {
+                  final response = await http.post(
+                    Uri.parse('${ApiEndpoints.baseUrl}/api/activity/deleteAct'),
+                    headers: {'Content-Type': 'application/json'},
+                    body: jsonEncode({'uid': uid, 'act_id': actId}),
+                  );
+
+                  if (response.statusCode == 200) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('ลบกิจกรรมสำเร็จ: $label')),
+                    );
+
+                    // ✅ ตรงนี้เลย!
+                    if (onDeleteComplete != null) {
+                      onDeleteComplete!(); // เรียกฟังก์ชันจากหน้าหลักให้โหลดข้อมูลใหม่
+                    }
+                  } else {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('ลบกิจกรรมไม่สำเร็จ')),
+                    );
+                  }
+                } catch (e) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('เกิดข้อผิดพลาด: $e')),
+                  );
+                }
+              }
             }
           },
           itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
