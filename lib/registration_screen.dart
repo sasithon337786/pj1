@@ -1,11 +1,15 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:pj1/constant/api_endpoint.dart';
 import 'dart:io';
-
+import 'package:http_parser/http_parser.dart';
 import 'package:pj1/login.dart';
 
 class RegistrationScreen extends StatefulWidget {
@@ -107,104 +111,72 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
   Future<void> _registerUser() async {
     if (!_formKey.currentState!.validate()) return;
 
-    // ตรวจสอบว่ารหัสผ่านตรงกันหรือไม่
     if (passwordController.text != confirmPasswordController.text) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('รหัสผ่านไม่ตรงกัน'),
-          backgroundColor: Colors.red,
-        ),
+            content: Text('รหัสผ่านไม่ตรงกัน'), backgroundColor: Colors.red),
       );
       return;
     }
 
-    setState(() {
-      _isLoading = true;
-    });
+    setState(() => _isLoading = true);
 
     try {
-      // สร้าง User ใน Firebase Auth
-      UserCredential userCredential =
-          await _auth.createUserWithEmailAndPassword(
-        email: emailController.text.trim(),
-        password: passwordController.text.trim(),
-      );
+      var uri = Uri.parse(ApiEndpoints.baseUrl + '/api/auth/registerwithemailpassword');
 
-      User? user = userCredential.user;
-      if (user != null) {
-        // อัพโหลดรูปโปรไฟล์ (ถ้ามี)
-        String? profileImageUrl = await _uploadProfileImage(user.uid);
+      var request = http.MultipartRequest('POST', uri);
 
-        // บันทึกข้อมูลผู้ใช้ใน Firestore
-        await _firestore.collection('users').doc(user.uid).set({
-          'name': nameController.text.trim(),
-          'email': emailController.text.trim(),
-          'birthday': birthdayController.text.trim(),
-          'profileImageUrl': profileImageUrl,
-          'createdAt': FieldValue.serverTimestamp(),
-        });
+      // เพิ่มฟิลด์ข้อมูลลงใน request
+      request.fields['email'] = emailController.text.trim();
+      request.fields['password'] = passwordController.text.trim();
+      request.fields['username'] = nameController.text.trim();
+      request.fields['birthday'] = birthdayController.text.trim();
 
-        // อัพเดตชื่อผู้ใช้ใน Firebase Auth
-        await user.updateDisplayName(nameController.text.trim());
-        if (profileImageUrl != null) {
-          await user.updatePhotoURL(profileImageUrl);
-        }
-
-        // ส่งอีเมลยืนยัน
-        await user.sendEmailVerification();
-
-        // แสดงข้อความสำเร็จ
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content:
-                Text('สมัครสมาชิกสำเร็จ! กรุณาตรวจสอบอีเมลเพื่อยืนยันบัญชี'),
-            backgroundColor: Colors.green,
+      // ถ้ามีรูปภาพ ให้แนบไฟล์รูปภาพไปด้วย
+      if (_image != null) {
+        request.files.add(
+          await http.MultipartFile.fromPath(
+            'profileImage', // ชื่อฟิลด์ที่ backend รอรับ
+            _image!.path,
+            // ต้อง import `package:http_parser/http_parser.dart` เพื่อใช้ MediaType
+            contentType:
+                MediaType('image', 'jpeg'), // หรือแก้เป็น png ตามไฟล์จริง
           ),
         );
+      }
 
-        // กลับไปหน้า Login
+      // ส่งคำขอ
+      var streamedResponse = await request.send();
+      var response = await http.Response.fromStream(streamedResponse);
+
+      if (response.statusCode == 201) {
+        // สมัครสำเร็จ
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+              content: Text('สมัครสมาชิกสำเร็จ!'),
+              backgroundColor: Colors.green),
+        );
+
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(builder: (context) => const LoginScreen()),
         );
+      } else {
+        // แสดง error message จาก backend
+        final resBody = jsonDecode(response.body);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+              content: Text(resBody['message'] ?? 'สมัครสมาชิกไม่สำเร็จ'),
+              backgroundColor: Colors.red),
+        );
       }
-    } on FirebaseAuthException catch (e) {
-      String errorMessage;
-
-      switch (e.code) {
-        case 'weak-password':
-          errorMessage = 'รหัสผ่านไม่ปลอดภัย กรุณาใช้รหัสผ่านที่แข็งแกรงขึ้น';
-          break;
-        case 'email-already-in-use':
-          errorMessage = 'อีเมลนี้ถูกใช้งานแล้ว';
-          break;
-        case 'invalid-email':
-          errorMessage = 'รูปแบบอีเมลไม่ถูกต้อง';
-          break;
-        case 'operation-not-allowed':
-          errorMessage = 'การสมัครสมาชิกถูกปิดใช้งาน';
-          break;
-        default:
-          errorMessage = 'เกิดข้อผิดพลาด: ${e.message}';
-      }
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(errorMessage),
-          backgroundColor: Colors.red,
-        ),
-      );
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('เกิดข้อผิดพลาดที่ไม่คาดคิด'),
-          backgroundColor: Colors.red,
-        ),
+            content: Text('เกิดข้อผิดพลาด: $e'), backgroundColor: Colors.red),
       );
     } finally {
-      setState(() {
-        _isLoading = false;
-      });
+      setState(() => _isLoading = false);
     }
   }
 

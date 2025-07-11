@@ -253,7 +253,7 @@ class _DeteiluserSuspendedState extends State<DeteiluserSuspended> {
                                             context,
                                             MaterialPageRoute(
                                                 builder: (context) =>
-                                                    const MainAddmin()),
+                                                    const MainAdmin()),
                                             (Route<dynamic> route) => false,
                                           );
                                         },

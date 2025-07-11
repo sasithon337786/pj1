@@ -1,13 +1,16 @@
 import 'dart:convert';
-
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:google_sign_in/google_sign_in.dart';
-import 'package:pj1/Services/ApiService.dart';
-import 'package:pj1/registration_screen.dart';
 import 'package:http/http.dart' as http;
-import 'package:pj1/constant/api_endpoint.dart';
+import 'package:pj1/Addmin/main_Addmin.dart';
+import 'package:pj1/Services/ApiService.dart'; // Make sure ApiService is correctly implemented
+import 'package:pj1/add.dart'; // This seems to be MainHomeScreen, rename for clarity if needed
+import 'package:pj1/registration_screen.dart';
+import 'package:pj1/constant/api_endpoint.dart'; // Make sure ApiEndpoints.baseUrl is defined
+
+// Assuming you have a separate screen for admin
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -27,46 +30,60 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _isLoading = false;
   bool _isGoogleLoading = false;
   bool _obscurePassword = true;
-  final api = ApiService();
+  final ApiService api =
+      ApiService(); // Assuming ApiService is used elsewhere, kept it here.
+
+  @override
+  void dispose() {
+    _emailController.dispose();
+    _passwordController.dispose();
+    super.dispose();
+  }
+
+  void _showSnackBar(String message, {Color backgroundColor = Colors.red}) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: backgroundColor,
+      ),
+    );
+  }
 
   Future<void> _signInWithGoogle() async {
+    if (_isGoogleLoading) return; // Prevent multiple taps
+
     setState(() {
       _isGoogleLoading = true;
     });
 
     try {
-      // เริ่ม Google Sign-In
-      final GoogleSignInAccount? googleUser = await GoogleSignIn().signIn();
+      final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
       if (googleUser == null) {
-        // ผู้ใช้กดยกเลิก
+        // User cancelled the sign-in
         return;
       }
 
-      // รับ token จาก Google
       final GoogleSignInAuthentication googleAuth =
           await googleUser.authentication;
 
-      // สร้าง credential สำหรับ Firebase
       final credential = GoogleAuthProvider.credential(
         accessToken: googleAuth.accessToken,
         idToken: googleAuth.idToken,
       );
 
-      // ล็อกอินเข้า Firebase
       UserCredential userCredential =
-          await FirebaseAuth.instance.signInWithCredential(credential);
+          await _auth.signInWithCredential(credential);
       final user = userCredential.user;
 
       if (user == null) {
         throw Exception('Failed to sign in with Google');
       }
 
-      // 🔐 รับ Firebase ID Token เพื่อส่งไป Backend
       final idToken = await user.getIdToken();
 
-      // TODO: ส่ง idToken ไป Backend (ตัวอย่างด้านล่าง)
+      // Send ID Token to your backend for role verification and custom JWT
       final response = await http.post(
-        Uri.parse(ApiEndpoints.baseUrl + '/api/auth/verify-token'),
+        Uri.parse('${ApiEndpoints.baseUrl}/api/auth/loginwithgoogle'),
         headers: {
           'Authorization': 'Bearer $idToken',
           'Content-Type': 'application/json',
@@ -79,20 +96,41 @@ class _LoginScreenState extends State<LoginScreen> {
       );
 
       if (response.statusCode == 200) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Google sign-in successful!'),
-            backgroundColor: Colors.green,
-          ),
-        );
-        Navigator.of(context).pushReplacementNamed('/home');
+        final data = jsonDecode(response.body);
+        final role = data['user']['role'];
+        final token = data['token']; // Backend's custom JWT, if any
+
+        // You might want to save 'token' (your backend's JWT) securely, e.g., using flutter_secure_storage.
+        // api.saveToken(token); // Example if ApiService handles token storage
+        print('Google Sign-In User Role: $role');
+        _showSnackBar('Google sign-in successful!',
+            backgroundColor: Colors.green);
+
+        // Navigate based on role
+        if (role == 'admin') {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+                builder: (context) =>
+                    const MainAdmin()), // Navigate to Admin screen
+          );
+        } else {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+                builder: (context) =>
+                    MainHomeScreen()), // Navigate to regular user screen
+          );
+        }
       } else {
-        throw Exception('Server rejected token');
+        final error =
+            jsonDecode(response.body)['message'] ?? 'Server rejected token';
+        throw Exception(error);
       }
     } on FirebaseAuthException catch (e) {
-      _showError('Firebase error: ${e.message}');
+      _showSnackBar('Firebase error: ${e.message}');
     } catch (e) {
-      _showError('Error: ${e.toString()}');
+      _showSnackBar('Error: ${e.toString()}');
     } finally {
       setState(() {
         _isGoogleLoading = false;
@@ -100,61 +138,70 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
-  void _showError(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: Colors.red,
-      ),
-    );
-  }
-
   Future<void> _signInWithEmailAndPassword() async {
-    if (!_formKey.currentState!.validate()) return;
+    if (!_formKey.currentState!.validate() || !isRobotChecked) {
+      if (!isRobotChecked) {
+        _showSnackBar("Please check 'I'm not a robot'.",
+            backgroundColor: Colors.orange);
+      }
+      return;
+    }
 
     setState(() {
       _isLoading = true;
     });
 
     try {
+      // 1. Log in via Firebase Auth
       UserCredential userCredential = await _auth.signInWithEmailAndPassword(
         email: _emailController.text.trim(),
         password: _passwordController.text.trim(),
       );
 
-      // Check if email is verified
-      if (userCredential.user != null && !userCredential.user!.emailVerified) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Please verify your email before logging in.'),
-            backgroundColor: Colors.orange,
-            action: SnackBarAction(
-              label: 'Resend',
-              onPressed: () async {
-                await userCredential.user!.sendEmailVerification();
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('Verification email sent!')),
-                );
-              },
-            ),
-          ),
-        );
-        await _auth.signOut();
-        return;
-      }
+      final user = userCredential.user;
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Login successful!'),
-          backgroundColor: Colors.green,
-        ),
+      // ✅ 2. ไม่ตรวจ emailVerified อีกต่อไป
+
+      // 3. Get Firebase ID Token
+      final idToken = await user!.getIdToken(true);
+
+      // 4. ส่ง token ไป backend
+      final response = await http.post(
+        Uri.parse('${ApiEndpoints.baseUrl}/api/auth/loginwithemail'),
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode({
+          'idToken': idToken,
+        }),
       );
 
-      // Navigate to home page
-      Navigator.of(context).pushReplacementNamed('/home');
+      // 5. ตรวจสอบ response จาก backend
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        final role = data['role'];
+        final token = data['token'];
+
+        _showSnackBar('Login successful!', backgroundColor: Colors.green);
+
+        if (role == 'admin') {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (context) => const MainAdmin()),
+          );
+        } else {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (context) => MainHomeScreen()),
+          );
+        }
+      } else {
+        final error =
+            jsonDecode(response.body)['message'] ?? 'Unknown error from server';
+        _showSnackBar('Login failed: $error');
+      }
     } on FirebaseAuthException catch (e) {
       String errorMessage;
-
       switch (e.code) {
         case 'user-not-found':
           errorMessage = 'No user found with this email.';
@@ -172,15 +219,12 @@ class _LoginScreenState extends State<LoginScreen> {
           errorMessage = 'Too many failed attempts. Please try again later.';
           break;
         default:
-          errorMessage = 'Login failed. Please try again.';
+          errorMessage = 'Login failed. Please try again. (${e.code})';
       }
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(errorMessage),
-          backgroundColor: Colors.red,
-        ),
-      );
+      _showSnackBar(errorMessage);
+    } catch (e) {
+      _showSnackBar('An unexpected error occurred: ${e.toString()}');
+      print('Unexpected error: $e');
     } finally {
       setState(() {
         _isLoading = false;
@@ -191,24 +235,19 @@ class _LoginScreenState extends State<LoginScreen> {
   Future<void> _resetPassword() async {
     String email = _emailController.text.trim();
 
-    if (email.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Please enter your email first')),
-      );
+    if (email.isEmpty || !_emailController.text.contains('@')) {
+      _showSnackBar(
+          'Please enter a valid email address first to reset password.',
+          backgroundColor: Colors.orange);
       return;
     }
 
     try {
       await _auth.sendPasswordResetEmail(email: email);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Password reset email sent!'),
-          backgroundColor: Colors.green,
-        ),
-      );
+      _showSnackBar('Password reset email sent! Check your inbox.',
+          backgroundColor: Colors.green);
     } on FirebaseAuthException catch (e) {
       String errorMessage;
-
       switch (e.code) {
         case 'user-not-found':
           errorMessage = 'No user found with this email.';
@@ -217,15 +256,10 @@ class _LoginScreenState extends State<LoginScreen> {
           errorMessage = 'The email address is not valid.';
           break;
         default:
-          errorMessage = 'Failed to send reset email.';
+          errorMessage =
+              'Failed to send reset email. Please try again. (${e.code})';
       }
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(errorMessage),
-          backgroundColor: Colors.red,
-        ),
-      );
+      _showSnackBar(errorMessage);
     }
   }
 
@@ -235,7 +269,7 @@ class _LoginScreenState extends State<LoginScreen> {
       backgroundColor: const Color(0xFFC98993),
       body: Stack(
         children: [
-          // โลโก้ Positioned
+          // Logo positioned at the top
           Positioned(
             top: MediaQuery.of(context).padding.top + 30,
             left: MediaQuery.of(context).size.width / 2 - 50,
@@ -249,7 +283,7 @@ class _LoginScreenState extends State<LoginScreen> {
             ),
           ),
 
-          // กล่องข้อมูล login
+          // Login form container
           SingleChildScrollView(
             padding: EdgeInsets.only(
               top: MediaQuery.of(context).padding.top + 160,
@@ -263,180 +297,243 @@ class _LoginScreenState extends State<LoginScreen> {
                 color: const Color(0xFFE6D2CD),
                 borderRadius: BorderRadius.circular(20),
               ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  // หัวข้อ Login + ไอคอน
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Image.asset(
-                        'assets/icons/enter.png',
-                        width: 25,
-                        height: 25,
-                      ),
-                      const SizedBox(width: 5),
-                      Text(
-                        'Login',
-                        style: GoogleFonts.kanit(
-                          fontSize: 24,
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ],
-                  ),
-
-                  const SizedBox(height: 20),
-
-                  // Email
-                  _buildTextField(
-                    controller: _emailController,
-                    iconWidget: Image.asset(
-                      'assets/icons/profile.png',
-                      width: 35,
-                      height: 35,
-                    ),
-                    hintText: 'Email',
-                  ),
-                  const SizedBox(height: 15),
-
-                  // Password
-                  _buildTextField(
-                    controller: _passwordController,
-                    iconWidget: Image.asset(
-                      'assets/icons/lock.png',
-                      width: 35,
-                      height: 35,
-                    ),
-                    hintText: 'Password',
-                    obscureText: true,
-                  ),
-                  const SizedBox(height: 15),
-
-                  // Login with Google
-                  ElevatedButton(
-                    onPressed: () {
-                      _signInWithGoogle();
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFFC98993),
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 15, vertical: 12),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                    child: Row(
+              child: Form(
+                // Added Form widget for validation
+                key: _formKey,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    // Login title + icon
+                    Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Image.asset(
-                          'assets/icons/google.png',
-                          width: 24,
-                          height: 24,
+                          'assets/icons/enter.png',
+                          width: 25,
+                          height: 25,
                         ),
-                        const SizedBox(width: 10),
+                        const SizedBox(width: 5),
                         Text(
-                          'Login with Google',
+                          'Login',
                           style: GoogleFonts.kanit(
+                            fontSize: 24,
                             color: Colors.white,
-                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
                           ),
                         ),
                       ],
                     ),
-                  ),
 
-                  const SizedBox(height: 15),
+                    const SizedBox(height: 20),
 
-                  // I'm not a robot checkbox
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 10, vertical: 12),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(12),
+                    // Email input
+                    _buildTextField(
+                      controller: _emailController,
+                      iconWidget: Image.asset(
+                        'assets/icons/profile.png',
+                        width: 35,
+                        height: 35,
+                      ),
+                      hintText: 'Email',
+                      keyboardType: TextInputType.emailAddress,
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return 'Please enter your email';
+                        }
+                        if (!value.contains('@') || !value.contains('.')) {
+                          return 'Enter a valid email address';
+                        }
+                        return null;
+                      },
                     ),
-                    child: Row(
-                      children: [
-                        Checkbox(
-                          value: isRobotChecked,
-                          onChanged: (value) {
-                            setState(() {
-                              isRobotChecked = value!;
-                            });
-                          },
-                          activeColor: const Color(0xFFD08C94),
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          "I'm not a robot",
-                          style: GoogleFonts.kanit(fontSize: 16),
-                        ),
-                        const Spacer(),
-                        Image.asset(
-                          'assets/icons/life.png',
-                          width: 24,
-                          height: 24,
-                        ),
-                      ],
-                    ),
-                  ),
+                    const SizedBox(height: 15),
 
-                  const SizedBox(height: 20),
-
-                  // ปุ่มสมัครสมาชิกและเข้าสู่ระบบ
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      ElevatedButton(
+                    // Password input
+                    _buildTextField(
+                      controller: _passwordController,
+                      iconWidget: Image.asset(
+                        'assets/icons/lock.png',
+                        width: 35,
+                        height: 35,
+                      ),
+                      hintText: 'Password',
+                      obscureText: _obscurePassword,
+                      suffixIcon: IconButton(
+                        icon: Icon(
+                          _obscurePassword
+                              ? Icons.visibility_off
+                              : Icons.visibility,
+                          color: Colors.white70,
+                        ),
                         onPressed: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => const RegistrationScreen(),
-                            ),
-                          );
+                          setState(() {
+                            _obscurePassword = !_obscurePassword;
+                          });
                         },
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF564843),
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 20, vertical: 12),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                        ),
-                        child: Text(
-                          'สมัครสมาชิก',
-                          style: GoogleFonts.kanit(
-                            color: Colors.white,
-                            fontSize: 16,
-                          ),
+                      ),
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return 'Please enter your password';
+                        }
+                        if (value.length < 6) {
+                          return 'Password must be at least 6 characters';
+                        }
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 10),
+
+                    // Forgot password
+                    // Align(
+                    //   alignment: Alignment.centerRight,
+                    //   child: TextButton(
+                    //     onPressed: _resetPassword,
+                    //     child: Text(
+                    //       'Forgot Password?',
+                    //       style: GoogleFonts.kanit(
+                    //         color: Colors.white,
+                    //         fontSize: 14,
+                    //       ),
+                    //     ),
+                    //   ),
+                    // ),
+                    // const SizedBox(height: 5),
+
+                    // Login with Google button
+                    ElevatedButton(
+                      onPressed: _isGoogleLoading ? null : _signInWithGoogle,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFFC98993),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 15, vertical: 12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
                         ),
                       ),
-                      ElevatedButton(
-                        onPressed: isRobotChecked && !_isLoading
-                            ? _signInWithEmailAndPassword
-                            : null,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF564843),
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 30, vertical: 12),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                        ),
-                        child: Text(
-                          'เข้าสู่ระบบ',
-                          style: GoogleFonts.kanit(
-                            color: Colors.white,
-                            fontSize: 16,
-                          ),
-                        ),
+                      child: _isGoogleLoading
+                          ? const CircularProgressIndicator(color: Colors.white)
+                          : Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Image.asset(
+                                  'assets/icons/google.png',
+                                  width: 24,
+                                  height: 24,
+                                ),
+                                const SizedBox(width: 10),
+                                Text(
+                                  'Login with Google',
+                                  style: GoogleFonts.kanit(
+                                    color: Colors.white,
+                                    fontSize: 16,
+                                  ),
+                                ),
+                              ],
+                            ),
+                    ),
+
+                    const SizedBox(height: 15),
+
+                    // "I'm not a robot" checkbox
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 0), // Reduced vertical padding
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(12),
                       ),
-                    ],
-                  ),
-                ],
+                      child: Row(
+                        children: [
+                          Checkbox(
+                            value: isRobotChecked,
+                            onChanged: (value) {
+                              setState(() {
+                                isRobotChecked = value!;
+                              });
+                            },
+                            activeColor: const Color(0xFFD08C94),
+                            checkColor: Colors.white,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            "I'm not a robot",
+                            style: GoogleFonts.kanit(fontSize: 16),
+                          ),
+                          const Spacer(),
+                          Image.asset(
+                            'assets/icons/life.png', // Assuming this is your reCAPTCHA-like icon
+                            width: 24,
+                            height: 24,
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    const SizedBox(height: 20),
+
+                    // Register and Login buttons
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Expanded(
+                          // Use Expanded to make buttons fill available space
+                          child: ElevatedButton(
+                            onPressed: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) =>
+                                      const RegistrationScreen(),
+                                ),
+                              );
+                            },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFF564843),
+                              padding: const EdgeInsets.symmetric(
+                                  vertical: 12), // Adjusted padding
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                            ),
+                            child: Text(
+                              'สมัครสมาชิก',
+                              style: GoogleFonts.kanit(
+                                color: Colors.white,
+                                fontSize: 16,
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 15), // Space between buttons
+                        Expanded(
+                          child: ElevatedButton(
+                            onPressed:
+                                _isLoading ? null : _signInWithEmailAndPassword,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFF564843),
+                              padding: const EdgeInsets.symmetric(
+                                  vertical: 12), // Adjusted padding
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                            ),
+                            child: _isLoading
+                                ? const CircularProgressIndicator(
+                                    color: Colors.white)
+                                : Text(
+                                    'เข้าสู่ระบบ',
+                                    style: GoogleFonts.kanit(
+                                      color: Colors.white,
+                                      fontSize: 16,
+                                    ),
+                                  ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
@@ -445,25 +542,33 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
-  // ฟังก์ชันสร้าง TextField พร้อม Icon Asset
+  // Helper function to build TextField with consistent styling
   Widget _buildTextField({
     required TextEditingController controller,
     required Widget iconWidget,
     required String hintText,
     bool obscureText = false,
+    Widget? suffixIcon,
+    TextInputType keyboardType = TextInputType.text,
+    String? Function(String?)? validator,
   }) {
-    return TextField(
+    return TextFormField(
+      // Changed to TextFormField for built-in validation
       controller: controller,
       obscureText: obscureText,
       style: GoogleFonts.kanit(
         color: Colors.white,
         fontSize: 16,
       ),
+      keyboardType: keyboardType,
+      validator: validator, // Added validator
       decoration: InputDecoration(
         prefixIcon: Padding(
           padding: const EdgeInsets.all(12.0),
           child: iconWidget,
         ),
+        suffixIcon:
+            suffixIcon, // Added suffixIcon for password visibility toggle
         hintText: hintText,
         hintStyle: GoogleFonts.kanit(
           color: Colors.white70,
@@ -475,6 +580,8 @@ class _LoginScreenState extends State<LoginScreen> {
           borderRadius: BorderRadius.circular(12),
           borderSide: BorderSide.none,
         ),
+        errorStyle: GoogleFonts.kanit(
+            color: Colors.white), // Style for validation errors
       ),
     );
   }
