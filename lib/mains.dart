@@ -56,7 +56,6 @@ class _HomePageState extends State<HomePage> {
         children: [
           Column(
             children: [
-              // ทำให้แถบด้านบนครอบคลุม status bar
               Container(
                 color: const Color(0xFF564843),
                 height: MediaQuery.of(context).padding.top + 80,
@@ -76,7 +75,7 @@ class _HomePageState extends State<HomePage> {
             ],
           ),
           Positioned(
-            top: MediaQuery.of(context).padding.top + 30, // ปรับตำแหน่งให้พอดี
+            top: MediaQuery.of(context).padding.top + 30, 
             left: MediaQuery.of(context).size.width / 2 - 50,
             child: ClipOval(
               child: Image.asset(

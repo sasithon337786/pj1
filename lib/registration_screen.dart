@@ -1,5 +1,4 @@
 import 'dart:convert';
-
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:http/http.dart' as http;
@@ -126,31 +125,26 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
 
       var request = http.MultipartRequest('POST', uri);
 
-      // เพิ่มฟิลด์ข้อมูลลงใน request
       request.fields['email'] = emailController.text.trim();
       request.fields['password'] = passwordController.text.trim();
       request.fields['username'] = nameController.text.trim();
       request.fields['birthday'] = birthdayController.text.trim();
 
-      // ถ้ามีรูปภาพ ให้แนบไฟล์รูปภาพไปด้วย
       if (_image != null) {
         request.files.add(
           await http.MultipartFile.fromPath(
-            'profileImage', // ชื่อฟิลด์ที่ backend รอรับ
+            'profileImage', 
             _image!.path,
-            // ต้อง import `package:http_parser/http_parser.dart` เพื่อใช้ MediaType
             contentType:
-                MediaType('image', 'jpeg'), // หรือแก้เป็น png ตามไฟล์จริง
+                MediaType('image', 'jpeg'), 
           ),
         );
       }
 
-      // ส่งคำขอ
       var streamedResponse = await request.send();
       var response = await http.Response.fromStream(streamedResponse);
 
       if (response.statusCode == 201) {
-        // สมัครสำเร็จ
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
               content: Text('สมัครสมาชิกสำเร็จ!'),
@@ -162,7 +156,6 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
           MaterialPageRoute(builder: (context) => const LoginScreen()),
         );
       } else {
-        // แสดง error message จาก backend
         final resBody = jsonDecode(response.body);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -190,7 +183,6 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
           key: _formKey,
           child: Column(
             children: [
-              // รูปภาพโปรไฟล์
               GestureDetector(
                 onTap: _pickImage,
                 child: Stack(
@@ -229,7 +221,6 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
               ),
               const SizedBox(height: 10),
 
-              // กล่องข้อมูล
               Container(
                 padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
@@ -248,7 +239,6 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                     ),
                     const SizedBox(height: 20),
 
-                    // Name
                     _buildTextField(
                       controller: nameController,
                       iconWidget: Image.asset(
@@ -267,7 +257,6 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
 
                     const SizedBox(height: 15),
 
-                    // Email
                     _buildTextField(
                       controller: emailController,
                       iconWidget: Image.asset(
@@ -291,7 +280,6 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
 
                     const SizedBox(height: 15),
 
-                    // Password
                     _buildTextField(
                       controller: passwordController,
                       iconWidget: Image.asset(
@@ -314,7 +302,6 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
 
                     const SizedBox(height: 15),
 
-                    // Confirm Password
                     _buildTextField(
                       controller: confirmPasswordController,
                       iconWidget: Image.asset(
@@ -337,7 +324,6 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
 
                     const SizedBox(height: 15),
 
-                    // Birthday
                     _buildTextField(
                       controller: birthdayController,
                       iconWidget: Image.asset(
@@ -363,7 +349,6 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
 
                     const SizedBox(height: 25),
 
-                    // ปุ่มสมัครสมาชิก
                     SizedBox(
                       width: double.infinity,
                       child: ElevatedButton(
@@ -396,19 +381,18 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
 
                     const SizedBox(height: 15),
 
-                    // ปุ่มกลับไปหน้า Login
-                    // TextButton(
-                    //   onPressed: () {
-                    //     Navigator.pop(context);
-                    //   },
-                    //   child: Text(
-                    //     'มีบัญชีแล้ว? เข้าสู่ระบบ',
-                    //     style: GoogleFonts.kanit(
-                    //       color: Colors.white,
-                    //       fontSize: 16,
-                    //     ),
-                    //   ),
-                    // ),
+                    TextButton(
+                      onPressed: () {
+                        Navigator.pop(context);
+                      },
+                      child: Text(
+                        'มีบัญชีแล้ว? เข้าสู่ระบบ',
+                        style: GoogleFonts.kanit(
+                          color: Colors.white,
+                          fontSize: 16,
+                        ),
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -419,7 +403,6 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
     );
   }
 
-  // ฟังก์ชันสร้าง TextField พร้อม Icon Asset และ Validation
   Widget _buildTextField({
     required TextEditingController controller,
     required Widget iconWidget,

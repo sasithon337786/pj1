@@ -70,17 +70,15 @@ class _CreateActivityScreenState extends State<CreateActivityScreen> {
         setState(() {
           _categories = loadedCategories;
 
-          // ตรวจสอบให้แน่ใจว่า _selectedCategoryId เป็นค่าที่ถูกต้อง
           if (_categories.isNotEmpty) {
-            // ถ้า _selectedCategoryId ไม่มีค่า หรือ ค่าที่เลือกไม่มีอยู่ในลิสต์ที่โหลดมา
             if (_selectedCategoryId == null ||
                 !_categories.any((c) => c.id == _selectedCategoryId)) {
               _selectedCategoryId =
-                  _categories.first.id; // ให้เลือกตัวแรกเป็นค่าเริ่มต้น
+                  _categories.first.id;
             }
           } else {
             _selectedCategoryId =
-                null; // ถ้าไม่มีหมวดหมู่เลย ก็ไม่มีค่าที่เลือก
+                null; 
           }
         });
       } else {
@@ -88,14 +86,14 @@ class _CreateActivityScreenState extends State<CreateActivityScreen> {
         setState(() {
           _categories = [];
           _selectedCategoryId =
-              null; // ตั้งค่าให้เป็น null เมื่อโหลดข้อมูลไม่สำเร็จ
+              null;
         });
       }
     } catch (e) {
       print('Error loading categories: $e');
       setState(() {
         _categories = [];
-        _selectedCategoryId = null; // ตั้งค่าให้เป็น null เมื่อเกิดข้อผิดพลาด
+        _selectedCategoryId = null; 
       });
     }
   }
@@ -104,12 +102,12 @@ class _CreateActivityScreenState extends State<CreateActivityScreen> {
     try {
       final random = Random();
       final randomNumber =
-          random.nextInt(90000) + 10000; // เลข 5 หลัก 10000-99999
+          random.nextInt(90000) + 10000; 
 
       final ref = _storage
           .ref()
           .child('activity_pics')
-          .child('${userId}_$randomNumber.jpg'); // ตั้งชื่อไฟล์แบบใหม่
+          .child('${userId}_$randomNumber.jpg');
 
       final uploadTask = ref.putFile(imageFile);
       final snapshot = await uploadTask;
@@ -121,12 +119,10 @@ class _CreateActivityScreenState extends State<CreateActivityScreen> {
     }
   }
 
-  // --- ฟังก์ชันสำหรับเพิ่มกิจกรรมใหม่ลง Firebase ---
   Future<void> _createActivity() async {
     final uid = FirebaseAuth.instance.currentUser?.uid;
     String activityName = activityNameController.text.trim();
     print(activityName);
-    // ✅ เพิ่มการตรวจสอบ category ที่เลือก
     if (activityName.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('กรุณาใส่ชื่อกิจกรรม')),
@@ -201,7 +197,6 @@ class _CreateActivityScreenState extends State<CreateActivityScreen> {
     }
   }
 
-  // --- ฟังก์ชันสำหรับ Bottom Navigation Bar ---
   void _onItemTapped(int index) {
     setState(() {
       _selectedIndex = index;
@@ -235,11 +230,10 @@ class _CreateActivityScreenState extends State<CreateActivityScreen> {
     }
   }
 
-  // --- Life Cycle Methods ---
   @override
   void initState() {
     super.initState();
-    _loadCategories(); // โหลดหมวดหมู่เมื่อ Widget ถูกสร้างขึ้น
+    _loadCategories(); 
   }
 
   @override
@@ -248,7 +242,6 @@ class _CreateActivityScreenState extends State<CreateActivityScreen> {
     super.dispose();
   }
 
-  // --- Build Method ---
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -281,13 +274,12 @@ class _CreateActivityScreenState extends State<CreateActivityScreen> {
                     ),
                   ),
                 ),
-                // ปุ่มย้อนกลับ
                 Positioned(
                   top: MediaQuery.of(context).padding.top + 16,
                   left: 16,
                   child: GestureDetector(
                     onTap: () {
-                      Navigator.pop(context); // กลับไปหน้าก่อนหน้า
+                      Navigator.pop(context); 
                     },
                     child: Row(
                       children: [
@@ -311,7 +303,6 @@ class _CreateActivityScreenState extends State<CreateActivityScreen> {
             ),
             const SizedBox(height: 20),
 
-            // กล่องกรอกข้อมูล
             Container(
               margin: const EdgeInsets.symmetric(horizontal: 20),
               padding: const EdgeInsets.all(20),
@@ -341,7 +332,6 @@ class _CreateActivityScreenState extends State<CreateActivityScreen> {
                   ),
                   const SizedBox(height: 20),
 
-                  // ปุ่มเลือกรูปภาพ
                   GestureDetector(
                     onTap: _pickImage,
                     child: Container(
@@ -375,7 +365,6 @@ class _CreateActivityScreenState extends State<CreateActivityScreen> {
                   ),
                   const SizedBox(height: 20),
 
-                  // Dropdown สำหรับเลือก Category
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 16),
                     decoration: BoxDecoration(
@@ -384,7 +373,6 @@ class _CreateActivityScreenState extends State<CreateActivityScreen> {
                     ),
                     child: DropdownButtonHideUnderline(
                       child: DropdownButton<int>(
-                        // ✅ แก้ไขตรงนี้ - ตรวจสอบว่า categories ไม่ว่างและ selectedCategoryId ตรงกับ items
                         value: _categories.isNotEmpty &&
                                 _selectedCategoryId != null &&
                                 _categories
@@ -437,13 +425,12 @@ class _CreateActivityScreenState extends State<CreateActivityScreen> {
                   ),
                   const SizedBox(height: 30),
 
-                  // ปุ่ม Complete
                   SizedBox(
                     width: 200,
                     height: 50,
                     child: ElevatedButton(
                       onPressed:
-                          _createActivity, // เรียกใช้ฟังก์ชันเพิ่มกิจกรรมเมื่อกด
+                          _createActivity,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFF564843),
                         shape: RoundedRectangleBorder(
@@ -465,7 +452,6 @@ class _CreateActivityScreenState extends State<CreateActivityScreen> {
         ),
       ),
 
-      // Bottom Navigation Bar (เหมือนเดิม)
       bottomNavigationBar: BottomNavigationBar(
         backgroundColor: const Color(0xFFE6D2CD),
         selectedItemColor: Colors.white,

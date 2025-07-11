@@ -1,25 +1,18 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:io';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:http/http.dart' as http;
-
-// ต้อง import ไฟล์ที่เกี่ยวข้องทั้งหมด
 import 'package:pj1/account.dart';
-import 'package:pj1/chooseactivity.dart'; // ยังไม่ได้ใช้โดยตรงใน MainHomeScreen แต่เผื่อไว้
+import 'package:pj1/chooseactivity.dart';
 import 'package:pj1/constant/api_endpoint.dart';
-import 'package:pj1/custom_Activity.dart'; // CreateActivityScreen ที่เราปรับปรุง
-import 'package:pj1/dialog_coagy.dart';
-import 'package:pj1/doing_activity.dart';
+import 'package:pj1/custom_Activity.dart';
 import 'package:pj1/grap.dart';
-import 'package:pj1/mains.dart'; // HomePage
+import 'package:pj1/mains.dart';
 import 'package:pj1/manage_categories_dialog.dart';
 import 'package:pj1/target.dart';
-import 'package:pj1/edit_activity.dart'; // EditActivity ที่เราปรับปรุง
+import 'package:pj1/edit_activity.dart';
 
 class MainHomeScreen extends StatefulWidget {
   const MainHomeScreen({super.key});
@@ -28,7 +21,6 @@ class MainHomeScreen extends StatefulWidget {
   State<MainHomeScreen> createState() => _MainHomeScreenState();
 }
 
-// --- Class สำหรับ Category (เหมือนเดิม) ---
 class Category {
   final int? id;
   final String iconPath;
@@ -42,13 +34,12 @@ class Category {
       this.isNetworkImage = false});
 }
 
-// --- Class สำหรับ Task (กิจกรรม) ---
-// *** เพิ่ม isNetworkImage เข้ามาใน Task Class ด้วยนะจ๊ะ ***
+
 class Task {
   final String iconPath;
   final String label;
   final bool isNetworkImage;
-  final int? act_id; // ✅ เพิ่มตัวนี้เข้ามา
+  final int? act_id;
 
   Task({
     required this.iconPath,
@@ -59,23 +50,15 @@ class Task {
 }
 
 class _MainHomeScreenState extends State<MainHomeScreen> {
-  // --- ตัวแปรและข้อมูลเริ่มต้น ---
-  List<Category> categories =
-      []; // ลิสต์ของหมวดหมู่ทั้งหมด (default + user custom)
+  List<Category> categories = [];
   int? selectedCategoryId;
-  // หมวดหมู่เริ่มต้น (จาก Asset)
   final List<Category> _defaultCategories = [
     Category(iconPath: 'assets/icons/heart-health-muscle.png', label: 'Health'),
     Category(iconPath: 'assets/icons/gym.png', label: 'Sports'),
     Category(iconPath: 'assets/icons/life.png', label: 'Lifestyle'),
     Category(iconPath: 'assets/icons/pending.png', label: 'Time'),
-    //cate_id = default
-    //cate_pic=iconPath
-    //cate_name=label
-    //uid = default
   ];
 
-  // กิจกรรมเริ่มต้น (จาก Asset) ที่ผูกกับหมวดหมู่
   Map<String, List<Task>> _defaultTasksByCategory = {
     'Health': [
       Task(iconPath: 'assets/images/raindrops.png', label: 'Drink Water'),
@@ -100,26 +83,17 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
       Task(iconPath: 'assets/images/skincare-routine.png', label: 'Routine'),
       Task(iconPath: 'assets/images/hair-dryer.png', label: 'Hair routine'),
       Task(iconPath: 'assets/images/popcorn.png', label: 'Free Time'),
-      //act_id = default
-      //act_pic=iconPath
-      //act_name=label
-      //uid = default
     ],
   };
 
-  List<Task> _displayedTasks = []; // ลิสต์ของกิจกรรมที่จะแสดงผลในปัจจุบัน
-  int _selectedIndex = 0; // สำหรับ Bottom Navigation Bar
-  TextEditingController categoryController =
-      TextEditingController(); // สำหรับเพิ่มหมวดหมู่
+  List<Task> _displayedTasks = [];
+  int _selectedIndex = 0;
+  TextEditingController categoryController = TextEditingController();
 
-  String selectedCategoryLabel = 'Health'; // หมวดหมู่ที่ถูกเลือกอยู่ในปัจจุบัน
+  String selectedCategoryLabel = 'Health';
 
-  StreamSubscription<User?>?
-      _authStateChangesSubscription; // สำหรับฟังสถานะ Login
+  StreamSubscription<User?>? _authStateChangesSubscription;
 
-  // --- ฟังก์ชันสำหรับการโหลดข้อมูลและนำทาง ---
-
-  // ฟังก์ชันสำหรับ Bottom Navigation Bar
   void _onItemTapped(int index) {
     setState(() {
       _selectedIndex = index;
@@ -128,7 +102,6 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
     switch (index) {
       case 0:
         Navigator.pushReplacement(
-          // ใช้ Replacement เพื่อไม่ให้ย้อนกลับมาหน้านี้ได้ง่ายๆ
           context,
           MaterialPageRoute(builder: (context) => const HomePage()),
         );
@@ -154,7 +127,6 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
     }
   }
 
-  // ฟังก์ชันเพิ่มหมวดหมู่ (เหมือนเดิม)
   Future<void> loadUserCategories() async {
     final uid = FirebaseAuth.instance.currentUser?.uid;
 
@@ -171,7 +143,7 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
           final data = jsonDecode(response.body);
           final categoriesData = (data as List).map((item) {
             return Category(
-              id: int.tryParse(item['cate_id'].toString()), // แปลงเป็น int
+              id: int.tryParse(item['cate_id'].toString()),
               iconPath: item['cate_pic'],
               label: item['cate_name'],
               isNetworkImage: true,
@@ -191,23 +163,18 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
       categories = currentCategories;
       if (categories.isNotEmpty) {
         selectedCategoryLabel = categories[0].label;
-        selectedCategoryId = categories[0].id; // กำหนด id ของหมวดแรกด้วย
+        selectedCategoryId = categories[0].id;
         _loadTasksForSelectedCategory();
       }
     });
   }
 
-  // *** ฟังก์ชันใหม่: โหลดกิจกรรมตามหมวดหมู่ที่เลือกและตามผู้ใช้ ***
   Future<void> _loadTasksForSelectedCategory() async {
     final user = FirebaseAuth.instance.currentUser;
     List<Task> tasksToDisplay = [];
-
-    // 1. กิจกรรม default จาก Asset ตาม label
     if (_defaultTasksByCategory.containsKey(selectedCategoryLabel)) {
       tasksToDisplay.addAll(_defaultTasksByCategory[selectedCategoryLabel]!);
     }
-
-    // 2. กิจกรรมจากฐานข้อมูล ที่ user สร้าง (ส่ง cate_id ไปด้วย)
     if (user != null && selectedCategoryId != null) {
       try {
         final response = await http.get(
@@ -243,7 +210,6 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
   }
 
   Future<List<Task>> getTasksFromDatabase(String uid) async {
-    // final uid = FirebaseAuth.instance.currentUser!.uid;
     print(uid);
     final response = await http.get(
       Uri.parse('${ApiEndpoints.baseUrl}/api/activity/getAct?uid=${uid}'),
@@ -253,7 +219,7 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
       final List<dynamic> data = jsonDecode(response.body);
       return data
           .map((item) => Task(
-                label: item['act_name'] ?? '', // ✅ ชื่อกิจกรรม
+                label: item['act_name'] ?? '',
                 iconPath: item['act_pic'] ?? '',
                 isNetworkImage: true,
               ))
@@ -264,7 +230,6 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
     }
   }
 
-  // ฟังก์ชันนำทางไปหน้า CreateActivityScreen
   void _navigateToCreateActivityScreen() async {
     await Navigator.push(
       context,
@@ -272,10 +237,7 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
         builder: (context) => const CreateActivityScreen(),
       ),
     );
-    // เมื่อกลับมาจาก CreateActivityScreen ให้โหลดหมวดหมู่และกิจกรรมใหม่
-    // เพราะอาจจะมีการเพิ่มหมวดหมู่ใหม่ หรือเพิ่มกิจกรรมในหมวดหมู่ที่มีอยู่
     loadUserCategories();
-    // _loadTasksForSelectedCategory(); // loadUserCategories() จะเรียกตัวนี้อยู่แล้ว
   }
 
   Future<void> deleteActivity(
@@ -306,16 +268,13 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
     }
   }
 
-  // --- Life Cycle Methods ---
   @override
   void initState() {
     super.initState();
-    // ฟังการเปลี่ยนแปลงสถานะผู้ใช้
     _authStateChangesSubscription =
         FirebaseAuth.instance.authStateChanges().listen((user) {
-      loadUserCategories(); // โหลดหมวดหมู่และกิจกรรมใหม่ทุกครั้งที่สถานะผู้ใช้เปลี่ยน
+      loadUserCategories();
     });
-    // เรียกโหลดหมวดหมู่และกิจกรรมครั้งแรกเมื่อ Widget ถูกสร้างขึ้น
     loadUserCategories();
   }
 
@@ -326,7 +285,6 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
     super.dispose();
   }
 
-  // --- Build Method ---
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -335,81 +293,71 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
         children: [
           Column(
             children: [
-              // ส่วนหัวของหน้าจอ
               Container(
                 color: const Color(0xFF564843),
                 height: MediaQuery.of(context).padding.top + 80,
                 width: double.infinity,
               ),
               Expanded(
-              child: SingleChildScrollView(
-                child: Column(
-                  children: [
-                    // ส่วนของปุ่ม
-                    Align(
-                      alignment: Alignment.topRight,
-                      child: Padding(
-                        padding: const EdgeInsets.all(16.0),
-                        child: Column(
-                          children: [
-                            // ✅ ลบ ElevatedButton สำหรับ "เพิ่มหมวดหมู่" ออกไป
-                            // const SizedBox(height: 8), // อาจจะลบ SizedBox นี้ออกด้วย ถ้าไม่มีปุ่มด้านบนแล้ว
-                            // ปุ่มจัดการหมวดหมู่ (คงไว้)
-                            ElevatedButton(
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: const Color(0xFF564843),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 12, vertical: 6),
-                              ),
-                              onPressed: () async {
-                                // เปิด Dialog จัดการหมวดหมู่
-                                await showDialog(
-                                  context: context,
-                                  builder: (context) => ManageCategoriesDialog(
-                                    onCategoriesUpdated: () {
-                                      loadUserCategories(); // เรียกโหลดหมวดหมู่และกิจกรรมใหม่หลังจากมีการแก้ไข/ลบ
-                                    },
+                child: SingleChildScrollView(
+                  child: Column(
+                    children: [
+                      Align(
+                        alignment: Alignment.topRight,
+                        child: Padding(
+                          padding: const EdgeInsets.all(16.0),
+                          child: Column(
+                            children: [
+                              ElevatedButton(
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: const Color(0xFF564843),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
                                   ),
-                                );
-                                // หลังจาก Dialog ปิดลง อาจจะต้องการโหลดข้อมูลใหม่ใน MainHomeScreen อีกครั้ง
-                                loadUserCategories();
-                              },
-                              child: Text(
-                                'จัดการหมวดหมู่',
-                                style: GoogleFonts.kanit(
-                                  color: Colors.white,
-                                  fontSize: 14,
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 12, vertical: 6),
+                                ),
+                                onPressed: () async {
+                                  await showDialog(
+                                    context: context,
+                                    builder: (context) =>
+                                        ManageCategoriesDialog(
+                                      onCategoriesUpdated: () {
+                                        loadUserCategories();
+                                      },
+                                    ),
+                                  );
+                                  loadUserCategories();
+                                },
+                                child: Text(
+                                  'จัดการหมวดหมู่',
+                                  style: GoogleFonts.kanit(
+                                    color: Colors.white,
+                                    fontSize: 14,
+                                  ),
                                 ),
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
                       ),
-                    ),
                       const SizedBox(height: 16),
-
-                      // แถวไอคอนหมวดหมู่ (ใช้ Wrap เพื่อการจัดวางและช่องไฟ)
                       Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 12),
                         child: SingleChildScrollView(
-                          scrollDirection: Axis.horizontal, // เลื่อนแนวนอน
+                          scrollDirection: Axis.horizontal,
                           child: Row(
                             children: categories.map((category) {
                               bool isSelected =
                                   category.label == selectedCategoryLabel;
                               return Padding(
-                                padding: const EdgeInsets.only(
-                                    right: 16), // เว้นระยะห่างระหว่างไอคอน
+                                padding: const EdgeInsets.only(right: 16),
                                 child: GestureDetector(
                                   onTap: () {
                                     setState(() {
                                       selectedCategoryLabel = category.label;
-                                      selectedCategoryId = category
-                                          .id; // <-- เก็บ cate_id ที่เลือก
-                                      _loadTasksForSelectedCategory(); // โหลดกิจกรรมใหม่ตามหมวดหมู่ใหม่
+                                      selectedCategoryId = category.id;
+                                      _loadTasksForSelectedCategory();
                                     });
                                   },
                                   child: CategoryIcon(
@@ -421,27 +369,21 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
                                 ),
                               );
                             }).toList(),
-                            
                           ),
                         ),
                       ),
                       const SizedBox(height: 16),
-
-                      // รายการกิจกรรม
                       ListView(
                         shrinkWrap: true,
                         physics: const NeverScrollableScrollPhysics(),
                         padding: const EdgeInsets.symmetric(horizontal: 16),
                         children: _displayedTasks.map((task) {
-                          // <<< ใช้ _displayedTasks ที่โหลดมา
                           return TaskCard(
                             iconPath: task.iconPath,
                             label: task.label,
-                            isNetworkImage: task
-                                .isNetworkImage, // <<< ส่งค่า isNetworkImage ไปให้ TaskCard
+                            isNetworkImage: task.isNetworkImage,
                             act_id: task.act_id,
                             onEditComplete: () {
-                              // โหลดกิจกรรมใหม่เมื่อแก้ไขเสร็จ
                               _loadTasksForSelectedCategory();
                             },
                             onDeleteComplete: () {
@@ -451,8 +393,6 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
                         }).toList(),
                       ),
                       const SizedBox(height: 8),
-
-                      // ปุ่ม Custom (เพิ่มกิจกรรม)
                       Padding(
                         padding: const EdgeInsets.only(bottom: 16),
                         child: ElevatedButton(
@@ -465,7 +405,7 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
                                 horizontal: 24, vertical: 12),
                           ),
                           onPressed: () {
-                            _navigateToCreateActivityScreen(); // เรียกใช้ฟังก์ชันนำทาง
+                            _navigateToCreateActivityScreen();
                           },
                           child: const Text(
                             'Custom',
@@ -479,8 +419,6 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
               ),
             ],
           ),
-
-          // Logo และปุ่มย้อนกลับ (เหมือนเดิม)
           Positioned(
             top: MediaQuery.of(context).padding.top + 30,
             left: MediaQuery.of(context).size.width / 2 - 50,
@@ -520,8 +458,6 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
           ),
         ],
       ),
-
-      // Bottom Navigation Bar (เหมือนเดิม)
       bottomNavigationBar: BottomNavigationBar(
         backgroundColor: const Color(0xFFE6D2CD),
         selectedItemColor: Colors.white,
@@ -555,14 +491,12 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
   }
 }
 
-// --- CategoryIcon Widget (เหมือนเดิมตามที่หนูให้มา) ---
 class CategoryIcon extends StatelessWidget {
   final String icon;
   final String label;
   final bool isSelected;
   final bool isNetworkImage;
-  // Removed: final Function()? onEdit;
-  // Removed: final Function()? onDelete;
+  // Removed: final Fu
 
   const CategoryIcon({
     super.key,
@@ -570,53 +504,45 @@ class CategoryIcon extends StatelessWidget {
     required this.label,
     this.isSelected = false,
     this.isNetworkImage = false,
-    // Removed: this.onEdit,
-    // Removed: this.onDelete,
   });
 
   @override
   Widget build(BuildContext context) {
     Widget imageWidget;
     if (isNetworkImage) {
-      // สำหรับรูปภาพจาก Network
       imageWidget = Image.network(
         icon,
         width: 24,
         height: 24,
         fit: BoxFit.cover,
-        errorBuilder: (context, error, stackTrace) => // เพิ่ม errorBuilder เพื่อจัดการรูปเสีย
+        errorBuilder: (context, error, stackTrace) =>
             const Icon(Icons.broken_image, size: 24, color: Colors.grey),
       );
     } else {
-      // สำหรับรูปภาพจาก Asset
       imageWidget = Image.asset(
         icon,
         width: 24,
         height: 24,
         fit: BoxFit.contain,
-        color: isSelected ? Colors.black : null, // ถ้าถูกเลือก ให้เปลี่ยนสี icon
+        color: isSelected ? Colors.black : null,
       );
     }
 
     return Column(
       children: [
-        // ส่วนของ Icon และกรอบวงกลม
         CircleAvatar(
-          backgroundColor:
-              isSelected ? Colors.white : const Color(0xFFE6D2C0), // สีพื้นหลังตามสถานะ isSelected
+          backgroundColor: isSelected ? Colors.white : const Color(0xFFE6D2C0),
           radius: 24, // ขนาดวงกลม
-          child: ClipOval(child: imageWidget), // ตัดรูปเป็นวงกลม
+          child: ClipOval(child: imageWidget),
         ),
-        // Removed: PopupMenuButton<String> section
         const SizedBox(height: 4),
-        // ส่วนของ Text Label
         Text(
           label,
           textAlign: TextAlign.center,
           style: GoogleFonts.kanit(
             fontSize: 12,
             color: Colors.white,
-            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal, // ตัวหนาถ้าถูกเลือก
+            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
           ),
         ),
       ],
@@ -624,12 +550,10 @@ class CategoryIcon extends StatelessWidget {
   }
 }
 
-// --- TaskCard Widget ---
-// *** มีการแก้ไขให้รับ isNetworkImage และแสดงผลรูปจาก Network/Asset ได้ถูกต้อง ***
 class TaskCard extends StatelessWidget {
   final String iconPath;
   final String label;
-  final bool isNetworkImage; // <<< เพิ่ม property นี้
+  final bool isNetworkImage;
   final int? act_id;
   final VoidCallback? onEditComplete;
   final VoidCallback? onDeleteComplete;
@@ -638,7 +562,7 @@ class TaskCard extends StatelessWidget {
     super.key,
     required this.iconPath,
     required this.label,
-    this.isNetworkImage = false, // <<< กำหนดค่าเริ่มต้น
+    this.isNetworkImage = false,
     this.act_id,
     this.onEditComplete,
     this.onDeleteComplete,
@@ -658,8 +582,6 @@ class TaskCard extends StatelessWidget {
         },
       );
     } else {
-      // ตรวจสอบว่าเป็น assets/ หรือไม่ เพราะบางทีอาจจะเก็บเป็น File path ในอนาคต (ถ้ามาจาก gallery โดยตรง)
-      // แต่ในกรณีนี้เราจะอัปโหลดขึ้น Firebase เสมอ ถ้า isNetworkImage เป็น false แสดงว่าเป็น Asset แน่นอน
       imageWidget = Image.asset(
         iconPath,
         width: 48,
@@ -723,9 +645,8 @@ class TaskCard extends StatelessWidget {
                       SnackBar(content: Text('ลบกิจกรรมสำเร็จ: $label')),
                     );
 
-                    // ✅ ตรงนี้เลย!
                     if (onDeleteComplete != null) {
-                      onDeleteComplete!(); // เรียกฟังก์ชันจากหน้าหลักให้โหลดข้อมูลใหม่
+                      onDeleteComplete!();
                     }
                   } else {
                     ScaffoldMessenger.of(context).showSnackBar(
@@ -767,11 +688,7 @@ class TaskCard extends StatelessWidget {
           Navigator.push(
             context,
             MaterialPageRoute(
-              builder: (context) => ChooseactivityPage(
-                  // activityName: label,
-                  // iconPath: iconPath,
-                  // isNetworkImage: isNetworkImage,
-                  ),
+              builder: (context) => ChooseactivityPage(),
             ),
           );
         },

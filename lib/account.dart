@@ -8,19 +8,15 @@ import 'package:pj1/target.dart';
 
 class AccountPage extends StatefulWidget {
   const AccountPage({super.key});
-
   @override
   State<AccountPage> createState() => _AccountPageState();
 }
-
 class _AccountPageState extends State<AccountPage> {
   int _selectedIndex = 0;
-
   void _onItemTapped(int index) {
     setState(() {
       _selectedIndex = index;
     });
-
     switch (index) {
       case 0:
         Navigator.push(
@@ -57,7 +53,6 @@ class _AccountPageState extends State<AccountPage> {
         children: [
           Column(
             children: [
-              // สีด้านบน
               Container(
                 height: MediaQuery.of(context).padding.top + 70,
                 color: const Color(0xFF564843),
@@ -93,7 +88,7 @@ class _AccountPageState extends State<AccountPage> {
                               const SizedBox(height: 20),
                               ElevatedButton.icon(
                                 onPressed: () {
-                                  // แก้ไขข้อมูล
+
                                 },
                                 style: ElevatedButton.styleFrom(
                                   backgroundColor: const Color(0xFF564843),
@@ -114,7 +109,6 @@ class _AccountPageState extends State<AccountPage> {
                           ),
                         ),
 
-                        // ✅ ปุ่ม ส่งคำร้อง + ออกจากระบบ
                         Padding(
                           padding: const EdgeInsets.symmetric(
                               horizontal: 32, vertical: 8),
@@ -122,7 +116,7 @@ class _AccountPageState extends State<AccountPage> {
                             children: [
                               ElevatedButton.icon(
                                 onPressed: () {
-                                  // ส่งคำร้อง
+
                                 },
                                 style: ElevatedButton.styleFrom(
                                   backgroundColor: const Color(0xFF564843),
@@ -179,7 +173,6 @@ class _AccountPageState extends State<AccountPage> {
             ],
           ),
 
-          // โลโก้บนสุด
           Positioned(
             top: MediaQuery.of(context).padding.top + 30,
             left: MediaQuery.of(context).size.width / 2 - 50,
@@ -195,7 +188,6 @@ class _AccountPageState extends State<AccountPage> {
         ],
       ),
 
-      // Bottom Navigation Bar
       bottomNavigationBar: BottomNavigationBar(
         backgroundColor: const Color(0xFFE6D2CD),
         selectedItemColor: Colors.white,

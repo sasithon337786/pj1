@@ -17,7 +17,7 @@ class _DrinkWaterGoalPageState extends State<ChooseactivityPage> {
   TextEditingController goalController = TextEditingController();
   TextEditingController messageController = TextEditingController();
 
-  bool isWeekSelected = true; // เริ่มต้นเลือก Week
+  bool isWeekSelected = true; 
   int _selectedIndex = 0;
   String selectedUnit = 'Type';
   void _onItemTapped(int index) {
@@ -197,7 +197,6 @@ class _DrinkWaterGoalPageState extends State<ChooseactivityPage> {
                     style: GoogleFonts.kanit(
                       fontSize: 22,
                       color: Color(0xFF564843),
-                      // fontWeight: FontWeight.bold,
                     ),
                   ),
                   SizedBox(height: 20),
@@ -232,7 +231,7 @@ class _DrinkWaterGoalPageState extends State<ChooseactivityPage> {
                       SizedBox(width: 8),
                       GestureDetector(
                         onTap:
-                            _showUnitPicker, // เปลี่ยนเป็นเรียก _showUnitPicker() อันใหม่นี้
+                            _showUnitPicker, 
                         child: Container(
                           padding:
                               EdgeInsets.symmetric(horizontal: 12, vertical: 6),

@@ -125,15 +125,14 @@ class _ManageCategoriesDialogState extends State<ManageCategoriesDialog> {
             'cate_id': categoryId,
           }),
         );
-
         if (response.statusCode == 200) {
           if (context.mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(content: Text('ลบหมวดหมู่ "$categoryName" สำเร็จ')),
             );
           }
-          _loadUserCategoriesForManagement(); // โหลดใหม่หลังจากลบ
-          widget.onCategoriesUpdated.call(); // แจ้งหน้าหลักให้อัปเดตหมวดหมู่
+          _loadUserCategoriesForManagement();
+          widget.onCategoriesUpdated.call();
         } else {
           final message = jsonDecode(response.body)['message'] ?? 'ลบหมวดหมู่ล้มเหลว';
           if (context.mounted) {
@@ -150,7 +149,7 @@ class _ManageCategoriesDialogState extends State<ManageCategoriesDialog> {
         }
       } finally {
         setState(() {
-          isLoading = false; // ซ่อน loading หลังลบเสร็จ
+          isLoading = false; 
         });
       }
     }
@@ -231,11 +230,10 @@ class _ManageCategoriesDialogState extends State<ManageCategoriesDialog> {
                       ),
                     ),
       actions: [
-        // ✅ เพิ่มปุ่ม "เพิ่มหมวดหมู่" ตรงนี้
         Align(
-          alignment: Alignment.center, // จัดให้อยู่ซ้ายของปุ่ม "ปิด"
+          alignment: Alignment.center,
           child: Padding(
-            padding: const EdgeInsets.only(left: 8.0), // เพิ่ม padding เล็กน้อย
+            padding: const EdgeInsets.only(left: 8.0), 
             child: ElevatedButton.icon(
               onPressed: () async {
                 final result = await showDialog(
@@ -243,19 +241,18 @@ class _ManageCategoriesDialogState extends State<ManageCategoriesDialog> {
                   builder: (context) => const AddCategoryDialog(),
                 );
                 if (result == true) {
-                  // ถ้าเพิ่มหมวดหมู่สำเร็จ ให้โหลดรายการหมวดหมู่ใหม่
                   _loadUserCategoriesForManagement();
-                  widget.onCategoriesUpdated.call(); // แจ้งหน้าหลักให้อัปเดต
+                  widget.onCategoriesUpdated.call(); 
                 }
               },
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF564843), // สีเดียวกับปุ่มอื่นๆ
+                backgroundColor: const Color(0xFF564843), 
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               ),
-              icon: const Icon(Icons.add, color: Colors.white, size: 20), // ไอคอนเพิ่ม
+              icon: const Icon(Icons.add, color: Colors.white, size: 20), 
               label: Text(
                 'เพิ่มหมวดหมู่',
                 style: GoogleFonts.kanit(color: Colors.white, fontSize: 16),
@@ -263,7 +260,7 @@ class _ManageCategoriesDialogState extends State<ManageCategoriesDialog> {
             ),
           ),
         ),
-        const Spacer(), // เพิ่ม Spacer เพื่อดันปุ่ม "ปิด" ไปทางขวา
+        const Spacer(), 
         TextButton(
           onPressed: () {
             Navigator.of(context).pop();

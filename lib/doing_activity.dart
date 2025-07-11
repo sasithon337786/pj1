@@ -240,7 +240,7 @@ class _DoingActivityState extends State<DoingActivity> {
 }
 
 class CategoryIcon extends StatelessWidget {
-  final String icon; // เปลี่ยนจาก IconData เป็น String สำหรับ path รูปภาพ
+  final String icon; 
   final String label;
 
   const CategoryIcon({super.key, required this.icon, required this.label});
@@ -254,16 +254,16 @@ class CategoryIcon extends StatelessWidget {
           radius: 24,
           child: Image.asset(
             icon,
-            width: 24, // ขนาดของไอคอน
+            width: 24,
             height: 24,
-            fit: BoxFit.contain, // ให้รูปอยู่ในขอบเขตของ CircleAvatar
+            fit: BoxFit.contain,
           ),
         ),
         const SizedBox(height: 4),
         Text(
           label,
           style: GoogleFonts.kanit(
-              fontSize: 12, color: Colors.white), // เปลี่ยนสีข้อความเป็นขาว
+              fontSize: 12, color: Colors.white), 
         ),
       ],
     );

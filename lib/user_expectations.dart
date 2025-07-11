@@ -17,7 +17,7 @@ class _ExpectationResultScreenState extends State<ExpectationResultScreen> {
   String expectationText =
       'ฉันมีปัญหาเรื่องการดื่มน้ำมากลำกลักเล่นแอปนี้ ตั้งเป้าว่าจะดื่มน้ำ 300 ml ต่อวันซึ่งที่ผ่านมาอาจดื่มได้น้อย\nอยากดื่มน้ำให้ได้อีก 50% จากที่ตั้งเป้าไว้';
   int percentTarget = 87;
-  int _selectedIndex = 2; // default อยู่ที่ Graph
+  int _selectedIndex = 2; 
 
   void _onItemTapped(int index) {
     setState(() {
