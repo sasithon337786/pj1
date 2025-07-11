@@ -11,8 +11,11 @@ import 'package:pj1/mains.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp();
-  final uid = FirebaseAuth.instance.currentUser!.uid;
-print('UID: $uid');
+  final user = FirebaseAuth.instance.currentUser;
+  if (user != null) {
+    print('UID: ${user.uid}');
+  }
+
   runApp(const MyApp());
 }
 
@@ -30,7 +33,6 @@ class MyApp extends StatelessWidget {
       home: FirebaseAuth.instance.currentUser == null
           ? const LoginScreen()
           : const MainHomeScreen(), // <-- เช็คสถานะผู้ใช้ตรงนี้
-          
     );
   }
 }
