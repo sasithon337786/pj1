@@ -158,7 +158,6 @@ class _CountdownPageState extends State<CountdownPage> {
               ],
             ),
             SizedBox(height: 20),
-            // ส่วนเนื้อหา
             Container(
               padding: EdgeInsets.all(24),
               margin: EdgeInsets.symmetric(horizontal: 24, vertical: 20),

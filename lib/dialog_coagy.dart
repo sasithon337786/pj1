@@ -7,7 +7,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:path/path.dart' as path;
-import 'package:pj1/constant/api_endpoint.dart'; // ✅ เปลี่ยนให้ถูกกับโปรเจกต์ของคุณ
+import 'package:pj1/constant/api_endpoint.dart';
 import 'dart:math';
 
 class AddCategoryDialog extends StatefulWidget {
@@ -27,12 +27,12 @@ class _AddCategoryDialogState extends State<AddCategoryDialog> {
     try {
       final random = Random();
       final randomNumber =
-          random.nextInt(90000) + 10000; // เลข 5 หลัก 10000-99999
+          random.nextInt(90000) + 10000; 
 
       final ref = _storage
           .ref()
           .child('category_pics')
-          .child('${userId}_$randomNumber.jpg'); // ตั้งชื่อไฟล์แบบใหม่
+          .child('${userId}_$randomNumber.jpg');
 
       final uploadTask = ref.putFile(imageFile);
       final snapshot = await uploadTask;
@@ -68,7 +68,7 @@ class _AddCategoryDialogState extends State<AddCategoryDialog> {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(content: Text('เพิ่มหมวดหมู่สำเร็จ')),
             );
-            Navigator.pop(context, true); // ✅ ส่ง true กลับ
+            Navigator.pop(context, true); 
           }
         } else {
           final message =

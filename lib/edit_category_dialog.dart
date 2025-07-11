@@ -11,10 +11,9 @@ import 'package:pj1/add.dart';
 import 'dart:math';
 
 import 'package:pj1/constant/api_endpoint.dart';
-import 'package:pj1/mains.dart'; // ตรวจสอบ path ของ Category class ให้ถูกต้อง
 
 class EditCategoryDialog extends StatefulWidget {
-  final Category category; // รับข้อมูลหมวดหมู่ที่จะแก้ไขเข้ามา
+  final Category category;
 
   const EditCategoryDialog({super.key, required this.category});
 
@@ -27,14 +26,14 @@ class _EditCategoryDialogState extends State<EditCategoryDialog> {
   late TextEditingController categoryController;
   final FirebaseStorage _storage = FirebaseStorage.instance;
   bool isLoading = false;
-  String? currentImageUrl; // เก็บ URL รูปภาพปัจจุบันของหมวดหมู่
+  String? currentImageUrl;
 
   @override
   void initState() {
     super.initState();
-    // ตั้งค่า Controller ด้วยชื่อหมวดหมู่เดิม
+    
     categoryController = TextEditingController(text: widget.category.label);
-    // ตั้งค่า URL รูปภาพปัจจุบัน
+  
     currentImageUrl = widget.category.iconPath;
   }
 
@@ -47,12 +46,12 @@ class _EditCategoryDialogState extends State<EditCategoryDialog> {
   Future<String?> _uploadCategoryImage(String userId, File imageFile) async {
     try {
       final random = Random();
-      final randomNumber = random.nextInt(90000) + 10000; // เลข 5 หลัก 10000-99999
+      final randomNumber = random.nextInt(90000) + 10000; 
 
       final ref = _storage
           .ref()
           .child('category_pics')
-          .child('${userId}_$randomNumber.jpg'); // ตั้งชื่อไฟล์แบบใหม่
+          .child('${userId}_$randomNumber.jpg'); 
 
       final uploadTask = ref.putFile(imageFile);
       final snapshot = await uploadTask;
@@ -97,9 +96,9 @@ class _EditCategoryDialogState extends State<EditCategoryDialog> {
     }
 
     setState(() => isLoading = true);
-    String? finalImageUrl = currentImageUrl; // ใช้รูปภาพเดิมเป็นค่าเริ่มต้น
+    String? finalImageUrl = currentImageUrl; 
 
-    // ถ้ามีการเลือกรูปภาพใหม่ ให้อัปโหลดรูปภาพใหม่
+  
     if (selectedImage != null) {
       finalImageUrl = await _uploadCategoryImage(uid, selectedImage!);
       if (finalImageUrl == null) {
@@ -112,8 +111,7 @@ class _EditCategoryDialogState extends State<EditCategoryDialog> {
         return;
       }
     } else if (finalImageUrl == null) {
-      // กรณีที่ไม่มีรูปภาพเดิมและไม่ได้เลือกรูปภาพใหม่
-      // (อาจเกิดขึ้นได้หากรูปภาพเดิมมีปัญหา หรือเป็นหมวดหมู่ที่ไม่มีรูปภาพมาก่อน)
+
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('กรุณาเลือกรูปภาพสำหรับหมวดหมู่')),
@@ -124,7 +122,7 @@ class _EditCategoryDialogState extends State<EditCategoryDialog> {
     }
 
     try {
-      final response = await http.put( // ✅ เปลี่ยนจาก http.post เป็น http.put ตรงนี้
+      final response = await http.put( 
         Uri.parse('${ApiEndpoints.baseUrl}/api/category/updateCategory'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
@@ -140,7 +138,7 @@ class _EditCategoryDialogState extends State<EditCategoryDialog> {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('แก้ไขหมวดหมู่สำเร็จ')),
           );
-          Navigator.pop(context, true); // ส่ง true กลับไปเพื่อบอกว่ามีการอัปเดต
+          Navigator.pop(context, true);
         }
       } else {
         final message = jsonDecode(response.body)['message'] ?? 'แก้ไขหมวดหมู่ล้มเหลว';
@@ -169,7 +167,7 @@ class _EditCategoryDialogState extends State<EditCategoryDialog> {
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       title: Row(
         children: [
-          // ใช้ไอคอนที่สื่อถึงการแก้ไข (edit.png หรือ icons.edit)
+
           Image.asset('assets/icons/winking-face.png', width: 30, height: 30,),
           const SizedBox(width: 8),
           Text('แก้ไขหมวดหมู่', style: GoogleFonts.kanit(fontSize: 22, color: const Color(0xFF564843))),
@@ -193,15 +191,15 @@ class _EditCategoryDialogState extends State<EditCategoryDialog> {
               decoration: BoxDecoration(
                 color: const Color(0xFFE6D2CD),
                 borderRadius: BorderRadius.circular(50),
-                image: selectedImage != null // ถ้าเลือกรูปใหม่ ให้ใช้รูปใหม่
+                image: selectedImage != null 
                     ? DecorationImage(image: FileImage(selectedImage!), fit: BoxFit.cover)
-                    : (currentImageUrl != null && currentImageUrl!.isNotEmpty // ถ้าไม่มีรูปใหม่ แต่มีรูปเดิม ให้ใช้รูปเดิม
+                    : (currentImageUrl != null && currentImageUrl!.isNotEmpty 
                         ? DecorationImage(image: NetworkImage(currentImageUrl!), fit: BoxFit.cover)
                         : null),
               ),
               child: selectedImage == null && (currentImageUrl == null || currentImageUrl!.isEmpty)
                   ? const Icon(Icons.add_photo_alternate, size: 50, color: Colors.white)
-                  : null, // ถ้ามีรูปอยู่แล้ว (เลือกใหม่หรือรูปเดิม) ไม่ต้องแสดงไอคอน add
+                  : null, 
             ),
           ),
           const SizedBox(height: 12),

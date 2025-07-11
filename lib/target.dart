@@ -13,7 +13,7 @@ class Targetpage extends StatefulWidget {
 }
 
 class _TargetpageScreenState extends State<Targetpage> {
-  int _selectedIndex = 0; // กำหนดค่าเริ่มต้นให้กับ _selectedIndex
+  int _selectedIndex = 0; 
 
   void _onItemTapped(int index) {
     setState(() {
@@ -80,7 +80,7 @@ class _TargetpageScreenState extends State<Targetpage> {
                               Row(
                                 children: [
                                   Image.asset(
-                                    'assets/images/expectional.png', // แก้เป็น path ที่คุณใช้จริง
+                                    'assets/images/expectional.png', 
                                     width: 24,
                                     height: 24,
                                   ),
@@ -97,7 +97,6 @@ class _TargetpageScreenState extends State<Targetpage> {
                               ),
 
                               const SizedBox(height: 16),
-                              // Task List
                               TaskCard(label: 'Dring Water'),
                               TaskCard(label: 'Eat'),
                               TaskCard(label: 'Maditation'),
@@ -113,7 +112,6 @@ class _TargetpageScreenState extends State<Targetpage> {
               ),
             ],
           ),
-          // Logo
           Positioned(
             top: MediaQuery.of(context).padding.top + 40,
             left: MediaQuery.of(context).size.width / 2 - 40,
@@ -126,7 +124,6 @@ class _TargetpageScreenState extends State<Targetpage> {
               ),
             ),
           ),
-          // Back button
           Positioned(
             top: MediaQuery.of(context).padding.top + 16,
             left: 16,

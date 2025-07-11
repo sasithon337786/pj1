@@ -5,15 +5,13 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:http/http.dart' as http;
 import 'package:pj1/Addmin/main_Addmin.dart';
-import 'package:pj1/Services/ApiService.dart'; // Make sure ApiService is correctly implemented
-import 'package:pj1/add.dart'; // This seems to be MainHomeScreen, rename for clarity if needed
+import 'package:pj1/add.dart'; 
 import 'package:pj1/registration_screen.dart';
 import 'package:http/http.dart' as http;
 import 'package:pj1/constant/api_endpoint.dart';
 import 'package:slider_captcha/slider_captcha.dart';
-import 'package:pj1/constant/api_endpoint.dart'; // Make sure ApiEndpoints.baseUrl is defined
+import 'package:pj1/constant/api_endpoint.dart'; 
 
-// Assuming you have a separate screen for admin
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -35,11 +33,10 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _isLoading = false;
   bool _isGoogleLoading = false;
   bool _obscurePassword = true;
-  final api = ApiService();
   Future<bool?> _showCaptchaDialog() async {
     return await showDialog<bool>(
       context: context,
-      barrierDismissible: false, // ป้องกันกดนอก dialog ปิด
+      barrierDismissible: false, 
       builder: (BuildContext context) {
         String localCaptchaErrorText = "";
         SliderController localSliderController = SliderController();
@@ -47,9 +44,7 @@ class _LoginScreenState extends State<LoginScreen> {
         return StatefulBuilder(
           builder: (context, setState) {
             return WillPopScope(
-              // ป้องกันกดปุ่ม back ปิด dialog
               onWillPop: () async {
-                // ถ้ามี error หรือยังไม่ผ่าน captcha ให้บล็อกการปิด
                 if (localCaptchaErrorText.isNotEmpty) {
                   return false;
                 }
@@ -83,14 +78,14 @@ class _LoginScreenState extends State<LoginScreen> {
                           setState(() {
                             localCaptchaErrorText = "";
                           });
-                          Navigator.pop(context, true); // ส่ง true กลับไป
+                          Navigator.pop(context, true);
                         } else {
                           setState(() {
                             localCaptchaErrorText =
                                 "พบข้อผิดพลาด กรุณาลองใหม่อีกครั้ง";
                           });
                           await Future.delayed(const Duration(seconds: 3));
-                          localSliderController.create.call(); // reset captcha
+                          localSliderController.create.call(); 
                           setState(() {
                             localCaptchaErrorText = "";
                           });
@@ -115,9 +110,6 @@ class _LoginScreenState extends State<LoginScreen> {
       },
     );
   }
-
-  final ApiService api =
-      ApiService(); // Assuming ApiService is used elsewhere, kept it here.
 
   @override
   void dispose() {
@@ -145,7 +137,6 @@ class _LoginScreenState extends State<LoginScreen> {
     try {
       final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
       if (googleUser == null) {
-        // User cancelled the sign-in
         return;
       }
 
@@ -164,12 +155,8 @@ class _LoginScreenState extends State<LoginScreen> {
       if (user == null) {
         throw Exception('Failed to sign in with Google');
       }
-
       final idToken = await user.getIdToken();
-
-      // Send ID Token to your backend for role verification and custom JWT
       final response = await http.post(
-        Uri.parse(ApiEndpoints.baseUrl + '/api/auth/loginwithgoogle'),
         Uri.parse('${ApiEndpoints.baseUrl}/api/auth/loginwithgoogle'),
         headers: {
           'Authorization': 'Bearer $idToken',
@@ -185,28 +172,25 @@ class _LoginScreenState extends State<LoginScreen> {
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         final role = data['user']['role'];
-        final token = data['token']; // Backend's custom JWT, if any
+        final token = data['token']; 
 
-        // You might want to save 'token' (your backend's JWT) securely, e.g., using flutter_secure_storage.
-        // api.saveToken(token); // Example if ApiService handles token storage
         print('Google Sign-In User Role: $role');
         _showSnackBar('Google sign-in successful!',
             backgroundColor: Colors.green);
 
-        // Navigate based on role
         if (role == 'admin') {
           Navigator.pushReplacement(
             context,
             MaterialPageRoute(
                 builder: (context) =>
-                    const MainAdmin()), // Navigate to Admin screen
+                    const MainAdmin()),
           );
         } else {
           Navigator.pushReplacement(
             context,
             MaterialPageRoute(
                 builder: (context) =>
-                    MainHomeScreen()), // Navigate to regular user screen
+                    MainHomeScreen()), 
           );
         }
       } else {
@@ -249,7 +233,6 @@ class _LoginScreenState extends State<LoginScreen> {
     });
 
     try {
-      // 1. Log in via Firebase Auth
       UserCredential userCredential = await _auth.signInWithEmailAndPassword(
         email: _emailController.text.trim(),
         password: _passwordController.text.trim(),
@@ -257,12 +240,8 @@ class _LoginScreenState extends State<LoginScreen> {
 
       final user = userCredential.user;
 
-      // ✅ 2. ไม่ตรวจ emailVerified อีกต่อไป
-
-      // 3. Get Firebase ID Token
       final idToken = await user!.getIdToken(true);
 
-      // 4. ส่ง token ไป backend
       final response = await http.post(
         Uri.parse('${ApiEndpoints.baseUrl}/api/auth/loginwithemail'),
         headers: {
@@ -273,7 +252,6 @@ class _LoginScreenState extends State<LoginScreen> {
         }),
       );
 
-      // 5. ตรวจสอบ response จาก backend
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         final role = data['role'];
@@ -329,44 +307,12 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
-  Future<void> _resetPassword() async {
-    String email = _emailController.text.trim();
-
-    if (email.isEmpty || !_emailController.text.contains('@')) {
-      _showSnackBar(
-          'Please enter a valid email address first to reset password.',
-          backgroundColor: Colors.orange);
-      return;
-    }
-
-    try {
-      await _auth.sendPasswordResetEmail(email: email);
-      _showSnackBar('Password reset email sent! Check your inbox.',
-          backgroundColor: Colors.green);
-    } on FirebaseAuthException catch (e) {
-      String errorMessage;
-      switch (e.code) {
-        case 'user-not-found':
-          errorMessage = 'No user found with this email.';
-          break;
-        case 'invalid-email':
-          errorMessage = 'The email address is not valid.';
-          break;
-        default:
-          errorMessage =
-              'Failed to send reset email. Please try again. (${e.code})';
-      }
-      _showSnackBar(errorMessage);
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFC98993),
       body: Stack(
         children: [
-          // Logo positioned at the top
           Positioned(
             top: MediaQuery.of(context).padding.top + 30,
             left: MediaQuery.of(context).size.width / 2 - 50,
@@ -380,7 +326,6 @@ class _LoginScreenState extends State<LoginScreen> {
             ),
           ),
 
-          // Login form container
           SingleChildScrollView(
             padding: EdgeInsets.only(
               top: MediaQuery.of(context).padding.top + 160,
@@ -395,12 +340,10 @@ class _LoginScreenState extends State<LoginScreen> {
                 borderRadius: BorderRadius.circular(20),
               ),
               child: Form(
-                // Added Form widget for validation
                 key: _formKey,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    // Login title + icon
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
@@ -423,7 +366,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
                     const SizedBox(height: 20),
 
-                    // Email input
+
                     _buildTextField(
                       controller: _emailController,
                       iconWidget: Image.asset(
@@ -445,7 +388,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                     const SizedBox(height: 15),
 
-                    // Password input
+
                     _buildTextField(
                       controller: _passwordController,
                       iconWidget: Image.asset(
@@ -496,7 +439,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     // ),
                     // const SizedBox(height: 5),
 
-                    // Login with Google button
+
                     ElevatedButton(
                       onPressed: _isGoogleLoading ? null : _signInWithGoogle,
                       style: ElevatedButton.styleFrom(
@@ -531,7 +474,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
                     const SizedBox(height: 15),
 
-                    // I'm not a robot checkbox
+
                     Container(
                       padding: const EdgeInsets.symmetric(
                           horizontal: 10, vertical: 12),
@@ -566,50 +509,14 @@ class _LoginScreenState extends State<LoginScreen> {
                         ],
                       ),
                     ),
-                    // "I'm not a robot" checkbox
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 0), // Reduced vertical padding
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Row(
-                        children: [
-                          Checkbox(
-                            value: isRobotChecked,
-                            onChanged: (value) {
-                              setState(() {
-                                isRobotChecked = value!;
-                              });
-                            },
-                            activeColor: const Color(0xFFD08C94),
-                            checkColor: Colors.white,
-                          ),
-                          const SizedBox(width: 8),
-                          Text(
-                            "I'm not a robot",
-                            style: GoogleFonts.kanit(fontSize: 16),
-                          ),
-                          const Spacer(),
-                          Image.asset(
-                            'assets/icons/life.png', // Assuming this is your reCAPTCHA-like icon
-                            width: 24,
-                            height: 24,
-                          ),
-                        ],
-                      ),
-                    ),
 
                     const SizedBox(height: 20),
 
-                    // Register and Login buttons
+
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Expanded(
-                          // Use Expanded to make buttons fill available space
                           child: ElevatedButton(
                             onPressed: () {
                               Navigator.push(
@@ -623,7 +530,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             style: ElevatedButton.styleFrom(
                               backgroundColor: const Color(0xFF564843),
                               padding: const EdgeInsets.symmetric(
-                                  vertical: 12), // Adjusted padding
+                                  vertical: 12),
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(20),
                               ),
@@ -637,7 +544,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             ),
                           ),
                         ),
-                        const SizedBox(width: 15), // Space between buttons
+                        const SizedBox(width: 15),
                         Expanded(
                           child: ElevatedButton(
                             onPressed:
@@ -645,7 +552,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             style: ElevatedButton.styleFrom(
                               backgroundColor: const Color(0xFF564843),
                               padding: const EdgeInsets.symmetric(
-                                  vertical: 12), // Adjusted padding
+                                  vertical: 12), 
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(20),
                               ),
@@ -674,7 +581,7 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
-  // Helper function to build TextField with consistent styling
+
   Widget _buildTextField({
     required TextEditingController controller,
     required Widget iconWidget,
@@ -685,7 +592,7 @@ class _LoginScreenState extends State<LoginScreen> {
     String? Function(String?)? validator,
   }) {
     return TextFormField(
-      // Changed to TextFormField for built-in validation
+
       controller: controller,
       obscureText: obscureText,
       style: GoogleFonts.kanit(
@@ -693,14 +600,14 @@ class _LoginScreenState extends State<LoginScreen> {
         fontSize: 16,
       ),
       keyboardType: keyboardType,
-      validator: validator, // Added validator
+      validator: validator,
       decoration: InputDecoration(
         prefixIcon: Padding(
           padding: const EdgeInsets.all(12.0),
           child: iconWidget,
         ),
         suffixIcon:
-            suffixIcon, // Added suffixIcon for password visibility toggle
+            suffixIcon,
         hintText: hintText,
         hintStyle: GoogleFonts.kanit(
           color: Colors.white70,
@@ -713,7 +620,7 @@ class _LoginScreenState extends State<LoginScreen> {
           borderSide: BorderSide.none,
         ),
         errorStyle: GoogleFonts.kanit(
-            color: Colors.white), // Style for validation errors
+            color: Colors.white),
       ),
     );
   }

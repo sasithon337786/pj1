@@ -15,7 +15,7 @@ class UserGraphlineScreen extends StatefulWidget {
 
 class _UserGraphlineScreenState extends State<UserGraphlineScreen> {
   String selectedTab = 'Week';
-  int _selectedIndex = 2; // default อยู่ที่ Graph
+  int _selectedIndex = 2; 
 
   void _onItemTapped(int index) {
     setState(() {
@@ -36,7 +36,6 @@ class _UserGraphlineScreenState extends State<UserGraphlineScreen> {
         );
         break;
       case 2:
-        // อยู่หน้า Graph อยู่แล้ว ไม่ต้องทำอะไร
         break;
       case 3:
         Navigator.pushReplacement(
@@ -105,7 +104,6 @@ class _UserGraphlineScreenState extends State<UserGraphlineScreen> {
             ),
             const SizedBox(height: 16),
 
-            // การ์ดข้อมูล
             Container(
               margin: const EdgeInsets.all(16),
               padding: const EdgeInsets.all(16),
@@ -115,7 +113,6 @@ class _UserGraphlineScreenState extends State<UserGraphlineScreen> {
               ),
               child: Column(
                 children: [
-                  // Header + ปุ่ม Week Month Year
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
@@ -173,7 +170,6 @@ class _UserGraphlineScreenState extends State<UserGraphlineScreen> {
                   ),
                   const SizedBox(height: 16),
 
-                  // กราฟเส้น
                   SizedBox(
                     height: 250,
                     child: LineChart(
@@ -240,7 +236,6 @@ class _UserGraphlineScreenState extends State<UserGraphlineScreen> {
                   ),
                   const SizedBox(height: 16),
 
-                  // ข้อความสรุปผล
                   Container(
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
@@ -263,7 +258,6 @@ class _UserGraphlineScreenState extends State<UserGraphlineScreen> {
         ),
       ),
 
-      // Bottom Navigation
       bottomNavigationBar: BottomNavigationBar(
         backgroundColor: const Color(0xFFE6D2CD),
         selectedItemColor: Colors.white,

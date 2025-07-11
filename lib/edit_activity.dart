@@ -1,7 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -82,7 +81,7 @@ class _EditActivityState extends State<EditActivity> {
     final newName = activityNameController.text;
 
     try {
-      String imageUrl = widget.iconPath; // ใช้รูปเดิมถ้าไม่เลือกรูปใหม่
+      String imageUrl = widget.iconPath;
 
       if (selectedImage != null) {
         final uploadedUrl = await _uploadActivityImage(uid, selectedImage!);
@@ -109,7 +108,7 @@ class _EditActivityState extends State<EditActivity> {
 
       if (response.statusCode == 200) {
         print('✅ อัปเดตกิจกรรมสำเร็จ');
-        if (mounted) Navigator.pop(context, true); // ส่ง true กลับ
+        if (mounted) Navigator.pop(context, true); 
       } else {
         print('❌ อัปเดตไม่สำเร็จ: ${response.statusCode}');
       }
@@ -217,12 +216,7 @@ class _EditActivityState extends State<EditActivity> {
                     ),
                   ),
                   const SizedBox(height: 10),
-                  // Text('แก้ไขรูปภาพ',
-                  //     style: GoogleFonts.kanit(
-                  //         fontSize: 14, color: Color(0xFF564843))),
-                  // const SizedBox(height: 20),
-
-                  // ช่องกรอกชื่อกิจกรรม
+               
                   TextFormField(
                     controller: activityNameController,
                     decoration: InputDecoration(
@@ -241,7 +235,6 @@ class _EditActivityState extends State<EditActivity> {
                   ),
                   const SizedBox(height: 30),
 
-                  // ปุ่ม Save
                   SizedBox(
                     width: 200,
                     height: 50,

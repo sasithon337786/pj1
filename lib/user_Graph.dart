@@ -97,7 +97,6 @@ class _UserGraphBarScreenState extends State<UserGraphBarScreen> {
             ),
             const SizedBox(height: 16),
 
-            // Card ข้อมูล
             Container(
               margin: const EdgeInsets.all(16),
               padding: const EdgeInsets.all(16),
@@ -165,7 +164,6 @@ class _UserGraphBarScreenState extends State<UserGraphBarScreen> {
 
                   const SizedBox(height: 16),
 
-                  // Bar Chart
                   SizedBox(
                     height: 250,
                     child: BarChart(
@@ -219,7 +217,6 @@ class _UserGraphBarScreenState extends State<UserGraphBarScreen> {
                   ),
                   const SizedBox(height: 16),
 
-                  // ข้อความสรุปผล
                   Container(
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
@@ -240,7 +237,6 @@ class _UserGraphBarScreenState extends State<UserGraphBarScreen> {
         ),
       ),
 
-      // Bottom Navigation
       bottomNavigationBar: BottomNavigationBar(
         backgroundColor: const Color(0xFFE6D2CD),
         selectedItemColor: Colors.white,
