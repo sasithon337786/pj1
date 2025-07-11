@@ -17,6 +17,7 @@ import 'package:pj1/dialog_coagy.dart';
 import 'package:pj1/doing_activity.dart';
 import 'package:pj1/grap.dart';
 import 'package:pj1/mains.dart'; // HomePage
+import 'package:pj1/manage_categories_dialog.dart';
 import 'package:pj1/target.dart';
 import 'package:pj1/edit_activity.dart'; // EditActivity ที่เราปรับปรุง
 
@@ -341,43 +342,53 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
                 width: double.infinity,
               ),
               Expanded(
-                child: SingleChildScrollView(
-                  child: Column(
-                    children: [
-                      // ปุ่มเพิ่มหมวดหมู่
-                      Align(
-                        alignment: Alignment.topRight,
-                        child: Padding(
-                          padding: const EdgeInsets.all(16.0),
-                          child: ElevatedButton(
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFF564843),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
+              child: SingleChildScrollView(
+                child: Column(
+                  children: [
+                    // ส่วนของปุ่ม
+                    Align(
+                      alignment: Alignment.topRight,
+                      child: Padding(
+                        padding: const EdgeInsets.all(16.0),
+                        child: Column(
+                          children: [
+                            // ✅ ลบ ElevatedButton สำหรับ "เพิ่มหมวดหมู่" ออกไป
+                            // const SizedBox(height: 8), // อาจจะลบ SizedBox นี้ออกด้วย ถ้าไม่มีปุ่มด้านบนแล้ว
+                            // ปุ่มจัดการหมวดหมู่ (คงไว้)
+                            ElevatedButton(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFF564843),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 12, vertical: 6),
                               ),
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 12, vertical: 6),
-                            ),
-                            onPressed: () async {
-                              final result = await showDialog(
-                                context: context,
-                                builder: (context) => const AddCategoryDialog(),
-                              );
-
-                              if (result == true) {
+                              onPressed: () async {
+                                // เปิด Dialog จัดการหมวดหมู่
+                                await showDialog(
+                                  context: context,
+                                  builder: (context) => ManageCategoriesDialog(
+                                    onCategoriesUpdated: () {
+                                      loadUserCategories(); // เรียกโหลดหมวดหมู่และกิจกรรมใหม่หลังจากมีการแก้ไข/ลบ
+                                    },
+                                  ),
+                                );
+                                // หลังจาก Dialog ปิดลง อาจจะต้องการโหลดข้อมูลใหม่ใน MainHomeScreen อีกครั้ง
                                 loadUserCategories();
-                              }
-                            },
-                            child: Text(
-                              'เพิ่มหมวดหมู่',
-                              style: GoogleFonts.kanit(
-                                color: Colors.white,
-                                fontSize: 14,
+                              },
+                              child: Text(
+                                'จัดการหมวดหมู่',
+                                style: GoogleFonts.kanit(
+                                  color: Colors.white,
+                                  fontSize: 14,
+                                ),
                               ),
                             ),
-                          ),
+                          ],
                         ),
                       ),
+                    ),
                       const SizedBox(height: 16),
 
                       // แถวไอคอนหมวดหมู่ (ใช้ Wrap เพื่อการจัดวางและช่องไฟ)
@@ -410,6 +421,7 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
                                 ),
                               );
                             }).toList(),
+                            
                           ),
                         ),
                       ),
@@ -549,8 +561,8 @@ class CategoryIcon extends StatelessWidget {
   final String label;
   final bool isSelected;
   final bool isNetworkImage;
-  final Function()? onEdit;
-  final Function()? onDelete;
+  // Removed: final Function()? onEdit;
+  // Removed: final Function()? onDelete;
 
   const CategoryIcon({
     super.key,
@@ -558,73 +570,53 @@ class CategoryIcon extends StatelessWidget {
     required this.label,
     this.isSelected = false,
     this.isNetworkImage = false,
-    this.onEdit,
-    this.onDelete,
+    // Removed: this.onEdit,
+    // Removed: this.onDelete,
   });
 
   @override
   Widget build(BuildContext context) {
     Widget imageWidget;
     if (isNetworkImage) {
+      // สำหรับรูปภาพจาก Network
       imageWidget = Image.network(
         icon,
         width: 24,
         height: 24,
         fit: BoxFit.cover,
+        errorBuilder: (context, error, stackTrace) => // เพิ่ม errorBuilder เพื่อจัดการรูปเสีย
+            const Icon(Icons.broken_image, size: 24, color: Colors.grey),
       );
     } else {
+      // สำหรับรูปภาพจาก Asset
       imageWidget = Image.asset(
         icon,
         width: 24,
         height: 24,
         fit: BoxFit.contain,
-        color: isSelected ? Colors.black : null,
+        color: isSelected ? Colors.black : null, // ถ้าถูกเลือก ให้เปลี่ยนสี icon
       );
     }
 
     return Column(
       children: [
-        Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            CircleAvatar(
-              backgroundColor:
-                  isSelected ? Colors.white : const Color(0xFFE6D2C0),
-              radius: 24,
-              child: ClipOval(child: imageWidget),
-            ),
-            if (isNetworkImage) // ถ้าเป็น custom category ให้แสดงปุ่ม 3 จุด
-              PopupMenuButton<String>(
-                icon:
-                    const Icon(Icons.more_vert, color: Colors.white, size: 20),
-                onSelected: (value) {
-                  if (value == 'edit') {
-                    onEdit?.call();
-                  } else if (value == 'delete') {
-                    onDelete?.call();
-                  }
-                },
-                itemBuilder: (context) => [
-                  const PopupMenuItem(
-                    value: 'edit',
-                    child: Text('แก้ไข'),
-                  ),
-                  const PopupMenuItem(
-                    value: 'delete',
-                    child: Text('ลบ'),
-                  ),
-                ],
-              ),
-          ],
+        // ส่วนของ Icon และกรอบวงกลม
+        CircleAvatar(
+          backgroundColor:
+              isSelected ? Colors.white : const Color(0xFFE6D2C0), // สีพื้นหลังตามสถานะ isSelected
+          radius: 24, // ขนาดวงกลม
+          child: ClipOval(child: imageWidget), // ตัดรูปเป็นวงกลม
         ),
+        // Removed: PopupMenuButton<String> section
         const SizedBox(height: 4),
+        // ส่วนของ Text Label
         Text(
           label,
           textAlign: TextAlign.center,
           style: GoogleFonts.kanit(
             fontSize: 12,
             color: Colors.white,
-            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal, // ตัวหนาถ้าถูกเลือก
           ),
         ),
       ],

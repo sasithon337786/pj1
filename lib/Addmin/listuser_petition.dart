@@ -26,7 +26,7 @@ class _ListuserPetitionState extends State<ListuserPetition> {
       case 0:
         Navigator.push(
           context,
-          MaterialPageRoute(builder: (context) => const MainAddmin()),
+          MaterialPageRoute(builder: (context) => const MainAdmin()),
         );
         break;
       case 1:

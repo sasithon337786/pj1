@@ -153,7 +153,7 @@ class _AddCategoryDialogState extends State<AddCategoryDialog> {
                   ),
                   onPressed: _createCategory,
                   child:
-                      Text('Complete', style: GoogleFonts.kanit(fontSize: 18)),
+                      Text('Complete', style: GoogleFonts.kanit(fontSize: 18, color: Colors.white)),
                 ),
         ],
       ),
