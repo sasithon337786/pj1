@@ -8,6 +8,9 @@ import 'package:pj1/Addmin/main_Addmin.dart';
 import 'package:pj1/Services/ApiService.dart'; // Make sure ApiService is correctly implemented
 import 'package:pj1/add.dart'; // This seems to be MainHomeScreen, rename for clarity if needed
 import 'package:pj1/registration_screen.dart';
+import 'package:http/http.dart' as http;
+import 'package:pj1/constant/api_endpoint.dart';
+import 'package:slider_captcha/slider_captcha.dart';
 import 'package:pj1/constant/api_endpoint.dart'; // Make sure ApiEndpoints.baseUrl is defined
 
 // Assuming you have a separate screen for admin
@@ -25,11 +28,94 @@ class _LoginScreenState extends State<LoginScreen> {
   final TextEditingController _passwordController = TextEditingController();
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final GoogleSignIn _googleSignIn = GoogleSignIn();
+  final SliderController _sliderController = SliderController();
+  String _captchaErrorText = "";
 
   bool isRobotChecked = false;
   bool _isLoading = false;
   bool _isGoogleLoading = false;
   bool _obscurePassword = true;
+  final api = ApiService();
+  Future<bool?> _showCaptchaDialog() async {
+    return await showDialog<bool>(
+      context: context,
+      barrierDismissible: false, // ป้องกันกดนอก dialog ปิด
+      builder: (BuildContext context) {
+        String localCaptchaErrorText = "";
+        SliderController localSliderController = SliderController();
+
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return WillPopScope(
+              // ป้องกันกดปุ่ม back ปิด dialog
+              onWillPop: () async {
+                // ถ้ามี error หรือยังไม่ผ่าน captcha ให้บล็อกการปิด
+                if (localCaptchaErrorText.isNotEmpty) {
+                  return false;
+                }
+                return true;
+              },
+              child: AlertDialog(
+                backgroundColor: const Color(0xFFE6D2CD),
+                title: Text(
+                  "ยืนยันความเป็นมนุษย์",
+                  style: GoogleFonts.kanit(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: const Color(0xFF564843),
+                  ),
+                ),
+                content: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    SliderCaptcha(
+                      controller: localSliderController,
+                      image: Image.asset(
+                        'assets/images/catty.jpg',
+                        fit: BoxFit.fitWidth,
+                      ),
+                      colorBar: const Color(0xFFC98993),
+                      colorCaptChar: const Color(0xFFE6D2CD),
+                      onConfirm: (value) async {
+                        print('Captcha result: $value');
+
+                        if (value) {
+                          setState(() {
+                            localCaptchaErrorText = "";
+                          });
+                          Navigator.pop(context, true); // ส่ง true กลับไป
+                        } else {
+                          setState(() {
+                            localCaptchaErrorText =
+                                "พบข้อผิดพลาด กรุณาลองใหม่อีกครั้ง";
+                          });
+                          await Future.delayed(const Duration(seconds: 3));
+                          localSliderController.create.call(); // reset captcha
+                          setState(() {
+                            localCaptchaErrorText = "";
+                          });
+                        }
+                      },
+                    ),
+                    const SizedBox(height: 10),
+                    if (localCaptchaErrorText.isNotEmpty)
+                      Text(
+                        localCaptchaErrorText,
+                        style: GoogleFonts.kanit(
+                          color: Colors.red,
+                          fontSize: 16,
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
   final ApiService api =
       ApiService(); // Assuming ApiService is used elsewhere, kept it here.
 
@@ -83,6 +169,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
       // Send ID Token to your backend for role verification and custom JWT
       final response = await http.post(
+        Uri.parse(ApiEndpoints.baseUrl + '/api/auth/loginwithgoogle'),
         Uri.parse('${ApiEndpoints.baseUrl}/api/auth/loginwithgoogle'),
         headers: {
           'Authorization': 'Bearer $idToken',
@@ -136,6 +223,16 @@ class _LoginScreenState extends State<LoginScreen> {
         _isGoogleLoading = false;
       });
     }
+  }
+
+  void _showError(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Colors.red,
+      ),
+    );
+    print(message);
   }
 
   Future<void> _signInWithEmailAndPassword() async {
@@ -434,6 +531,41 @@ class _LoginScreenState extends State<LoginScreen> {
 
                     const SizedBox(height: 15),
 
+                    // I'm not a robot checkbox
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 12),
+                      decoration: BoxDecoration(
+                        color: Color.fromARGB(255, 255, 255, 255),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Row(
+                        children: [
+                          IconButton(
+                            onPressed: () async {
+                              final result = await _showCaptchaDialog();
+                              if (result == true) {
+                                setState(() {
+                                  isRobotChecked = true;
+                                });
+                              }
+                            },
+                            icon: Icon(
+                              isRobotChecked
+                                  ? Icons.check_circle
+                                  : Icons.check_circle_outline,
+                              color:
+                                  isRobotChecked ? Colors.green : Colors.grey,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            "I'M NOT A ROBOT",
+                            style: GoogleFonts.kanit(fontSize: 16),
+                          ),
+                        ],
+                      ),
+                    ),
                     // "I'm not a robot" checkbox
                     Container(
                       padding: const EdgeInsets.symmetric(
