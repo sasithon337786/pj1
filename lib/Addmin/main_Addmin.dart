@@ -287,28 +287,37 @@ class _MainAdminState extends State<MainAdmin> {
               ),
             ],
           ),
-          ElevatedButton.icon(
-            onPressed: () async {
-              await FirebaseAuth.instance.signOut();
-              Navigator.pushAndRemoveUntil(
-                context,
-                MaterialPageRoute(builder: (context) => const LoginScreen()),
-                (route) => false,
-              );
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red[400],
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(20),
-              ),
-            ),
-            icon: const Icon(Icons.logout, color: Colors.white),
-            label: Text(
-              'ออกจากระบบ',
-              style: GoogleFonts.kanit(color: Colors.white),
-            ),
+        // ...
+Row(
+  mainAxisAlignment: MainAxisAlignment.end,
+  children: [
+    Padding(
+      padding: const EdgeInsets.only(right: 16.0), // ✨ เพิ่ม padding ด้านขวาเฉพาะปุ่มนี้
+      child: ElevatedButton.icon(
+        onPressed: () async {
+          await FirebaseAuth.instance.signOut();
+          Navigator.pushAndRemoveUntil(
+            context,
+            MaterialPageRoute(builder: (context) => const LoginScreen()),
+            (route) => false,
+          );
+        },
+        style: ElevatedButton.styleFrom(
+          backgroundColor: Color(0xFF564843),
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
           ),
+        ),
+        icon: const Icon(Icons.logout, color: Colors.white),
+        label: Text(
+          'ออกจากระบบ',
+          style: GoogleFonts.kanit(color: Colors.white),
+        ),
+      ),
+    ),
+  ],
+),
           Expanded(
             child: SingleChildScrollView(
               child: Padding(
@@ -465,23 +474,21 @@ class _MainAdminState extends State<MainAdmin> {
           fontWeight: FontWeight.normal,
           color: Colors.white60,
         ),
-        items: [
+    items: [
           BottomNavigationBarItem(
             icon: Image.asset('assets/icons/accout.png', width: 24, height: 24),
             label: 'User',
           ),
           BottomNavigationBarItem(
-            icon: Image.asset('assets/icons/deactivate.png',
-                width: 30, height: 30),
+            icon: Image.asset('assets/icons/deactivate.png', width: 30, height: 30),
             label: 'บัญชีที่ระงับ',
           ),
           BottomNavigationBarItem(
-            icon: Image.asset('assets/icons/deleat.png', width: 24, height: 24),
-            label: 'บัญชีที่ลบ',
+            icon: Image.asset('assets/icons/social-media-management.png', width: 24, height: 24), // เปลี่ยนไอคอน
+            label: 'Manage', // เปลี่ยนข้อความ
           ),
           BottomNavigationBarItem(
-            icon: Image.asset('assets/icons/wishlist-heart.png',
-                width: 24, height: 24),
+            icon: Image.asset('assets/icons/wishlist-heart.png', width: 24, height: 24),
             label: 'คำร้อง',
           ),
         ],

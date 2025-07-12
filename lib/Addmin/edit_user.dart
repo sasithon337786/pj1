@@ -226,28 +226,24 @@ class _UserProfileEditPageState extends State<UserProfileEditPage> {
             fontWeight: FontWeight.normal,
             color: Colors.white60,
           ),
-          items: [
-            BottomNavigationBarItem(
-              icon:
-                  Image.asset('assets/icons/accout.png', width: 24, height: 24),
-              label: 'User',
-            ),
-            BottomNavigationBarItem(
-              icon: Image.asset('assets/icons/deactivate.png',
-                  width: 30, height: 30),
-              label: 'บัญชีที่ระงับ',
-            ),
-            BottomNavigationBarItem(
-              icon:
-                  Image.asset('assets/icons/deleat.png', width: 24, height: 24),
-              label: 'บัญชีที่ลบ',
-            ),
-            BottomNavigationBarItem(
-              icon: Image.asset('assets/icons/wishlist-heart.png',
-                  width: 24, height: 24),
-              label: 'คำร้อง',
-            ),
-          ],
+         items: [
+          BottomNavigationBarItem(
+            icon: Image.asset('assets/icons/accout.png', width: 24, height: 24),
+            label: 'User',
+          ),
+          BottomNavigationBarItem(
+            icon: Image.asset('assets/icons/deactivate.png', width: 30, height: 30),
+            label: 'บัญชีที่ระงับ',
+          ),
+          BottomNavigationBarItem(
+            icon: Image.asset('assets/icons/social-media-management.png', width: 24, height: 24), // เปลี่ยนไอคอน
+            label: 'Manage', // เปลี่ยนข้อความ
+          ),
+          BottomNavigationBarItem(
+            icon: Image.asset('assets/icons/wishlist-heart.png', width: 24, height: 24),
+            label: 'คำร้อง',
+          ),
+        ],
         ));
   }
 
