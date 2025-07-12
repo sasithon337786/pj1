@@ -158,7 +158,7 @@ class _EditCategoryDialogState extends State<EditCategoryDialog> {
 
       // 🌐 เลือก API URL ตาม role
       final Uri url = role == 'admin'
-          ? Uri.parse('${ApiEndpoints.baseUrl}/api/admin/updateDefaultCategory')
+          ? Uri.parse('${ApiEndpoints.baseUrl}/api/adminCate/updateDefaultCategory')
           : Uri.parse('${ApiEndpoints.baseUrl}/api/category/updateCategory');
 
       // 🛰️ ส่งคำขอไปยัง backend
