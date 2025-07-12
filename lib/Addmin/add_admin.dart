@@ -34,7 +34,6 @@ class Category {
       this.isNetworkImage = false});
 }
 
-
 class Task {
   final String iconPath;
   final String label;
@@ -128,35 +127,39 @@ class _MainHomeAdminScreenState extends State<MainHomeAdminScreen> {
   }
 
   Future<void> loadUserCategories() async {
-    final uid = FirebaseAuth.instance.currentUser?.uid;
+    // This method currently loads user-specific categories.
+    // If you intend for this screen to manage *default* categories as per the Express.js routes,
+    // you'll need to modify this to fetch from /api/admin/getDefaultCategories
+    // and potentially remove the 'uid' parameter if default categories are not user-specific.
+
+    // For now, I'll update it to use the new getDefaultCategories route for the admin's view.
+    // If you still need user-specific categories, you'll need a separate API for that.
 
     List<Category> currentCategories = List.from(_defaultCategories);
 
-    if (uid != null) {
-      try {
-        final response = await http.get(
-          Uri.parse(
-              '${ApiEndpoints.baseUrl}/api/category/getCategory?uid=$uid'),
-        );
+    try {
+      final response = await http.get(
+        Uri.parse(
+            '${ApiEndpoints.baseUrl}/api/admin/getDefaultCategories'), // Changed API endpoint
+      );
 
-        if (response.statusCode == 200) {
-          final data = jsonDecode(response.body);
-          final categoriesData = (data as List).map((item) {
-            return Category(
-              id: int.tryParse(item['cate_id'].toString()),
-              iconPath: item['cate_pic'],
-              label: item['cate_name'],
-              isNetworkImage: true,
-            );
-          }).toList();
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        final categoriesData = (data as List).map((item) {
+          return Category(
+            id: int.tryParse(item['cate_id'].toString()),
+            iconPath: item['cate_pic'],
+            label: item['cate_name'],
+            isNetworkImage: true,
+          );
+        }).toList();
 
-          currentCategories.addAll(categoriesData);
-        } else {
-          print('Failed to load categories: ${response.statusCode}');
-        }
-      } catch (e) {
-        print('Error loading categories: $e');
+        currentCategories.addAll(categoriesData);
+      } else {
+        print('Failed to load categories: ${response.statusCode}');
       }
+    } catch (e) {
+      print('Error loading categories: $e');
     }
 
     setState(() {
@@ -175,6 +178,9 @@ class _MainHomeAdminScreenState extends State<MainHomeAdminScreen> {
     if (_defaultTasksByCategory.containsKey(selectedCategoryLabel)) {
       tasksToDisplay.addAll(_defaultTasksByCategory[selectedCategoryLabel]!);
     }
+
+    // Assuming tasks for selected category are still user-specific or a different API.
+    // If you have default tasks tied to default categories, you'd need a new Express route for that.
     if (user != null && selectedCategoryId != null) {
       try {
         final response = await http.get(
@@ -254,11 +260,11 @@ class _MainHomeAdminScreenState extends State<MainHomeAdminScreen> {
 
       if (response.statusCode == 200) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('ลบกิจกรรมสำเร็จ')),
+          const SnackBar(content: Text('ลบกิจกรรมสำเร็จ')),
         );
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('ลบกิจกรรมไม่สำเร็จ')),
+          const SnackBar(content: Text('ลบกิจกรรมไม่สำเร็จ')),
         );
       }
     } catch (e) {
@@ -483,15 +489,18 @@ class _MainHomeAdminScreenState extends State<MainHomeAdminScreen> {
             label: 'User',
           ),
           BottomNavigationBarItem(
-            icon: Image.asset('assets/icons/deactivate.png', width: 30, height: 30),
+            icon:
+                Image.asset('assets/icons/deactivate.png', width: 30, height: 30),
             label: 'บัญชีที่ระงับ',
           ),
           BottomNavigationBarItem(
-            icon: Image.asset('assets/icons/social-media-management.png', width: 24, height: 24), // เปลี่ยนไอคอน
+            icon: Image.asset('assets/icons/social-media-management.png',
+                width: 24, height: 24), // เปลี่ยนไอคอน
             label: 'Manage', // เปลี่ยนข้อความ
           ),
           BottomNavigationBarItem(
-            icon: Image.asset('assets/icons/wishlist-heart.png', width: 24, height: 24),
+            icon:
+                Image.asset('assets/icons/wishlist-heart.png', width: 24, height: 24),
             label: 'คำร้อง',
           ),
         ],
@@ -659,7 +668,7 @@ class TaskCard extends StatelessWidget {
                     }
                   } else {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('ลบกิจกรรมไม่สำเร็จ')),
+                      const SnackBar(content: Text('ลบกิจกรรมไม่สำเร็จ')),
                     );
                   }
                 } catch (e) {

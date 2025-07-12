@@ -31,9 +31,9 @@ class _EditCategoryDialogState extends State<EditCategoryDialog> {
   @override
   void initState() {
     super.initState();
-    
+
     categoryController = TextEditingController(text: widget.category.label);
-  
+
     currentImageUrl = widget.category.iconPath;
   }
 
@@ -43,15 +43,38 @@ class _EditCategoryDialogState extends State<EditCategoryDialog> {
     super.dispose();
   }
 
+  Future<String?> _getUserRole(String uid) async {
+    // Example: Make an API call to get the user's role
+    // Replace with your actual API call
+    try {
+      final response = await http.get(
+        Uri.parse(
+            '${ApiEndpoints.baseUrl}/api/auth/getRole?uid=$uid'), // Example API route
+        headers: {'Content-Type': 'application/json'},
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        return data['role']; // Assuming the response has a 'role' field
+      } else {
+        print('Failed to get user role: ${response.statusCode}');
+        return null;
+      }
+    } catch (e) {
+      print('Error getting user role: $e');
+      return null;
+    }
+  }
+
   Future<String?> _uploadCategoryImage(String userId, File imageFile) async {
     try {
       final random = Random();
-      final randomNumber = random.nextInt(90000) + 10000; 
+      final randomNumber = random.nextInt(90000) + 10000;
 
       final ref = _storage
           .ref()
           .child('category_pics')
-          .child('${userId}_$randomNumber.jpg'); 
+          .child('${userId}_$randomNumber.jpg');
 
       final uploadTask = ref.putFile(imageFile);
       final snapshot = await uploadTask;
@@ -96,9 +119,9 @@ class _EditCategoryDialogState extends State<EditCategoryDialog> {
     }
 
     setState(() => isLoading = true);
-    String? finalImageUrl = currentImageUrl; 
+    String? finalImageUrl = currentImageUrl;
 
-  
+    // 📤 Upload รูปใหม่ถ้ามี
     if (selectedImage != null) {
       finalImageUrl = await _uploadCategoryImage(uid, selectedImage!);
       if (finalImageUrl == null) {
@@ -111,7 +134,6 @@ class _EditCategoryDialogState extends State<EditCategoryDialog> {
         return;
       }
     } else if (finalImageUrl == null) {
-
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('กรุณาเลือกรูปภาพสำหรับหมวดหมู่')),
@@ -122,8 +144,26 @@ class _EditCategoryDialogState extends State<EditCategoryDialog> {
     }
 
     try {
-      final response = await http.put( 
-        Uri.parse('${ApiEndpoints.baseUrl}/api/category/updateCategory'),
+      // ✅ ตรวจสอบ role
+      final role = await _getUserRole(uid);
+      if (role == null) {
+        setState(() => isLoading = false);
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('ไม่สามารถตรวจสอบสิทธิ์ผู้ใช้ได้')),
+          );
+        }
+        return;
+      }
+
+      // 🌐 เลือก API URL ตาม role
+      final Uri url = role == 'admin'
+          ? Uri.parse('${ApiEndpoints.baseUrl}/api/admin/updateDefaultCategory')
+          : Uri.parse('${ApiEndpoints.baseUrl}/api/category/updateCategory');
+
+      // 🛰️ ส่งคำขอไปยัง backend
+      final response = await http.put(
+        url,
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
           'uid': uid,
@@ -141,7 +181,8 @@ class _EditCategoryDialogState extends State<EditCategoryDialog> {
           Navigator.pop(context, true);
         }
       } else {
-        final message = jsonDecode(response.body)['message'] ?? 'แก้ไขหมวดหมู่ล้มเหลว';
+        final message =
+            jsonDecode(response.body)['message'] ?? 'แก้ไขหมวดหมู่ล้มเหลว';
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text(message)),
@@ -167,10 +208,15 @@ class _EditCategoryDialogState extends State<EditCategoryDialog> {
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       title: Row(
         children: [
-
-          Image.asset('assets/icons/winking-face.png', width: 30, height: 30,),
+          Image.asset(
+            'assets/icons/winking-face.png',
+            width: 30,
+            height: 30,
+          ),
           const SizedBox(width: 8),
-          Text('แก้ไขหมวดหมู่', style: GoogleFonts.kanit(fontSize: 22, color: const Color(0xFF564843))),
+          Text('แก้ไขหมวดหมู่',
+              style: GoogleFonts.kanit(
+                  fontSize: 22, color: const Color(0xFF564843))),
         ],
       ),
       content: Column(
@@ -178,7 +224,8 @@ class _EditCategoryDialogState extends State<EditCategoryDialog> {
         children: [
           GestureDetector(
             onTap: () async {
-              final pickedFile = await ImagePicker().pickImage(source: ImageSource.gallery);
+              final pickedFile =
+                  await ImagePicker().pickImage(source: ImageSource.gallery);
               if (pickedFile != null) {
                 setState(() {
                   selectedImage = File(pickedFile.path);
@@ -191,15 +238,20 @@ class _EditCategoryDialogState extends State<EditCategoryDialog> {
               decoration: BoxDecoration(
                 color: const Color(0xFFE6D2CD),
                 borderRadius: BorderRadius.circular(50),
-                image: selectedImage != null 
-                    ? DecorationImage(image: FileImage(selectedImage!), fit: BoxFit.cover)
-                    : (currentImageUrl != null && currentImageUrl!.isNotEmpty 
-                        ? DecorationImage(image: NetworkImage(currentImageUrl!), fit: BoxFit.cover)
+                image: selectedImage != null
+                    ? DecorationImage(
+                        image: FileImage(selectedImage!), fit: BoxFit.cover)
+                    : (currentImageUrl != null && currentImageUrl!.isNotEmpty
+                        ? DecorationImage(
+                            image: NetworkImage(currentImageUrl!),
+                            fit: BoxFit.cover)
                         : null),
               ),
-              child: selectedImage == null && (currentImageUrl == null || currentImageUrl!.isEmpty)
-                  ? const Icon(Icons.add_photo_alternate, size: 50, color: Colors.white)
-                  : null, 
+              child: selectedImage == null &&
+                      (currentImageUrl == null || currentImageUrl!.isEmpty)
+                  ? const Icon(Icons.add_photo_alternate,
+                      size: 50, color: Colors.white)
+                  : null,
             ),
           ),
           const SizedBox(height: 12),
@@ -209,7 +261,8 @@ class _EditCategoryDialogState extends State<EditCategoryDialog> {
               hintText: 'ชื่อหมวดหมู่',
               filled: true,
               fillColor: const Color(0xFF564843),
-              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              contentPadding:
+                  const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
                   borderSide: BorderSide.none),
@@ -226,7 +279,9 @@ class _EditCategoryDialogState extends State<EditCategoryDialog> {
                         borderRadius: BorderRadius.circular(20)),
                   ),
                   onPressed: _updateCategory,
-                  child: Text('บันทึกการแก้ไข', style: GoogleFonts.kanit(fontSize: 18 , color: Colors.white)),
+                  child: Text('บันทึกการแก้ไข',
+                      style:
+                          GoogleFonts.kanit(fontSize: 18, color: Colors.white)),
                 ),
         ],
       ),

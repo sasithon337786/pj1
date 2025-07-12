@@ -26,8 +26,7 @@ class _AddCategoryDialogState extends State<AddCategoryDialog> {
   Future<String?> _uploadCategoryImage(String userId, File imageFile) async {
     try {
       final random = Random();
-      final randomNumber =
-          random.nextInt(90000) + 10000; 
+      final randomNumber = random.nextInt(90000) + 10000;
 
       final ref = _storage
           .ref()
@@ -44,40 +43,88 @@ class _AddCategoryDialogState extends State<AddCategoryDialog> {
     }
   }
 
+  Future<String?> _getUserRole(String uid) async {
+    // Example: Make an API call to get the user's role
+    // Replace with your actual API call
+    try {
+      final response = await http.get(
+        Uri.parse(
+            '${ApiEndpoints.baseUrl}/api/user/getRole?uid=$uid'), // Example API route
+        headers: {'Content-Type': 'application/json'},
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        return data['role']; // Assuming the response has a 'role' field
+      } else {
+        print('Failed to get user role: ${response.statusCode}');
+        return null;
+      }
+    } catch (e) {
+      print('Error getting user role: $e');
+      return null;
+    }
+  }
+
   Future<void> _createCategory() async {
     final uid = FirebaseAuth.instance.currentUser?.uid;
     String categoryName = categoryController.text.trim();
-    print(uid);
+
     if (categoryName.isNotEmpty && selectedImage != null && uid != null) {
       setState(() => isLoading = true);
-      final imageUrl = await _uploadCategoryImage(uid, selectedImage!);
-      print('Image URL: $imageUrl');
-      if (imageUrl != null) {
-        final response = await http.post(
-          Uri.parse('${ApiEndpoints.baseUrl}/api/category/createCate'),
-          headers: {'Content-Type': 'application/json'},
-          body: jsonEncode({
-            'uid': uid,
-            'cate_name': categoryName,
-            'cate_pic': imageUrl,
-          }),
-        );
 
-        if (response.statusCode == 200) {
-          if (context.mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('เพิ่มหมวดหมู่สำเร็จ')),
-            );
-            Navigator.pop(context, true); 
-          }
-        } else {
-          final message =
-              jsonDecode(response.body)['message'] ?? 'บันทึกหมวดหมู่ล้มเหลว';
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(message)),
-          );
-        }
+      // 🔍 เรียก API เพื่อเช็ค role
+      final role = await _getUserRole(uid);
+
+      if (role == null) {
+        setState(() => isLoading = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('ไม่สามารถตรวจสอบสิทธิ์ผู้ใช้ได้')),
+        );
+        return;
       }
+
+      // 📤 อัปโหลดรูป
+      final imageUrl = await _uploadCategoryImage(uid, selectedImage!);
+      if (imageUrl == null) {
+        setState(() => isLoading = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('อัปโหลดรูปภาพไม่สำเร็จ')),
+        );
+        return;
+      }
+
+      // 🌐 เลือก API URL ตาม role
+      final url = role == 'admin'
+          ? Uri.parse('${ApiEndpoints.baseUrl}/api/admin/addDefaultCategory')
+          : Uri.parse('${ApiEndpoints.baseUrl}/api/category/createCate');
+
+      // 🚀 เรียก API
+      final response = await http.post(
+        url,
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'uid': uid,
+          'cate_name': categoryName,
+          'cate_pic': imageUrl,
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('เพิ่มหมวดหมู่สำเร็จ')),
+          );
+          Navigator.pop(context, true);
+        }
+      } else {
+        final message =
+            jsonDecode(response.body)['message'] ?? 'บันทึกหมวดหมู่ล้มเหลว';
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(message)),
+        );
+      }
+
       setState(() => isLoading = false);
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -152,8 +199,9 @@ class _AddCategoryDialogState extends State<AddCategoryDialog> {
                         borderRadius: BorderRadius.circular(20)),
                   ),
                   onPressed: _createCategory,
-                  child:
-                      Text('Complete', style: GoogleFonts.kanit(fontSize: 18, color: Colors.white)),
+                  child: Text('Complete',
+                      style:
+                          GoogleFonts.kanit(fontSize: 18, color: Colors.white)),
                 ),
         ],
       ),

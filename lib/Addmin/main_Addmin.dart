@@ -155,69 +155,67 @@ class _MainAdminState extends State<MainAdmin> {
   }
 
   Future<void> _fetchUsers() async {
-    // **กลับมาแล้ว: ตรวจสอบ token ก่อนส่ง request**
-    if (_adminAccessToken == null) {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
       setState(() {
-        _isLoading = false; // หยุดโหลดถ้าไม่มี token
+        _isLoading = false;
       });
-      return; // ไม่ต้องไปต่อถ้าไม่มี token
+      return;
     }
 
-    setState(() {
-      _isLoading = true;
-    });
-
     try {
+      final idToken = await user.getIdToken(true);
+
+      setState(() {
+        _isLoading = true;
+      });
+
       final response = await http.get(
-        Uri.parse('${ApiEndpoints.baseUrl}/api/auth/users'), // Endpoint ของคุณ
+        Uri.parse('${ApiEndpoints.baseUrl}/api/auth/users'),
         headers: {
           'Content-Type': 'application/json',
-          'Authorization':
-              'Bearer $_adminAccessToken', // **กลับมาแล้ว: เพิ่มบรรทัดนี้**
+          'Authorization': 'Bearer $idToken',
         },
       );
 
       if (response.statusCode == 200) {
-        final Map<String, dynamic> responseData = jsonDecode(response.body);
-        final List<dynamic> userJsonList = responseData['users'];
-
-        setState(() {
-          _users =
-              userJsonList.map((json) => UserModel.fromJson(json)).toList();
-        });
-      } else if (response.statusCode == 401 || response.statusCode == 403) {
-        // จัดการกรณี Unauthorized หรือ Forbidden
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-                'สิทธิ์การเข้าถึงไม่ถูกต้องหรือหมดอายุ กรุณาเข้าสู่ระบบใหม่'),
-            backgroundColor: Colors.orange,
-          ),
-        );
-        print('Authentication error: ${response.statusCode} ${response.body}');
-        // คุณอาจต้องการนำทางผู้ใช้กลับไปหน้า Login ที่นี่
+        final data = jsonDecode(response.body);
+        if (data['users'] != null) {
+          final List<dynamic> userJsonList = data['users'];
+          print('Fetched users count: ${userJsonList.length}');
+          setState(() {
+            _users =
+                userJsonList.map((json) => UserModel.fromJson(json)).toList();
+          });
+        } else {
+          print('No users key in response JSON');
+        }
       } else {
+        print(
+            'Failed to fetch users. Status: ${response.statusCode}, Body: ${response.body}');
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(
-                'Failed to load users: ${response.statusCode} ${response.body}'),
+            content: Text('Failed to fetch users: ${response.statusCode}'),
             backgroundColor: Colors.red,
           ),
         );
-        print('Failed to load users: ${response.statusCode} ${response.body}');
       }
     } catch (e) {
+      print('Error in _fetchUsers: $e');
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Error fetching users: $e'),
           backgroundColor: Colors.red,
         ),
       );
-      print('Error fetching users: $e');
     } finally {
       setState(() {
         _isLoading = false;
       });
+      print('--- Loaded users ---');
+      for (var u in _users) {
+        print('${u.email} | ${u.username} | ${u.photoUrl}');
+      }
     }
   }
 
@@ -287,37 +285,40 @@ class _MainAdminState extends State<MainAdmin> {
               ),
             ],
           ),
-        // ...
-Row(
-  mainAxisAlignment: MainAxisAlignment.end,
-  children: [
-    Padding(
-      padding: const EdgeInsets.only(right: 16.0), // ✨ เพิ่ม padding ด้านขวาเฉพาะปุ่มนี้
-      child: ElevatedButton.icon(
-        onPressed: () async {
-          await FirebaseAuth.instance.signOut();
-          Navigator.pushAndRemoveUntil(
-            context,
-            MaterialPageRoute(builder: (context) => const LoginScreen()),
-            (route) => false,
-          );
-        },
-        style: ElevatedButton.styleFrom(
-          backgroundColor: Color(0xFF564843),
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
+          // ...
+          Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              Padding(
+                padding: const EdgeInsets.only(
+                    right: 16.0), // ✨ เพิ่ม padding ด้านขวาเฉพาะปุ่มนี้
+                child: ElevatedButton.icon(
+                  onPressed: () async {
+                    await FirebaseAuth.instance.signOut();
+                    Navigator.pushAndRemoveUntil(
+                      context,
+                      MaterialPageRoute(
+                          builder: (context) => const LoginScreen()),
+                      (route) => false,
+                    );
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Color(0xFF564843),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 20, vertical: 10),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                  ),
+                  icon: const Icon(Icons.logout, color: Colors.white),
+                  label: Text(
+                    'ออกจากระบบ',
+                    style: GoogleFonts.kanit(color: Colors.white),
+                  ),
+                ),
+              ),
+            ],
           ),
-        ),
-        icon: const Icon(Icons.logout, color: Colors.white),
-        label: Text(
-          'ออกจากระบบ',
-          style: GoogleFonts.kanit(color: Colors.white),
-        ),
-      ),
-    ),
-  ],
-),
           Expanded(
             child: SingleChildScrollView(
               child: Padding(
@@ -474,21 +475,24 @@ Row(
           fontWeight: FontWeight.normal,
           color: Colors.white60,
         ),
-    items: [
+        items: [
           BottomNavigationBarItem(
             icon: Image.asset('assets/icons/accout.png', width: 24, height: 24),
             label: 'User',
           ),
           BottomNavigationBarItem(
-            icon: Image.asset('assets/icons/deactivate.png', width: 30, height: 30),
+            icon: Image.asset('assets/icons/deactivate.png',
+                width: 30, height: 30),
             label: 'บัญชีที่ระงับ',
           ),
           BottomNavigationBarItem(
-            icon: Image.asset('assets/icons/social-media-management.png', width: 24, height: 24), // เปลี่ยนไอคอน
+            icon: Image.asset('assets/icons/social-media-management.png',
+                width: 24, height: 24), // เปลี่ยนไอคอน
             label: 'Manage', // เปลี่ยนข้อความ
           ),
           BottomNavigationBarItem(
-            icon: Image.asset('assets/icons/wishlist-heart.png', width: 24, height: 24),
+            icon: Image.asset('assets/icons/wishlist-heart.png',
+                width: 24, height: 24),
             label: 'คำร้อง',
           ),
         ],
