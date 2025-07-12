@@ -96,7 +96,7 @@ class _AddCategoryDialogState extends State<AddCategoryDialog> {
 
       // 🌐 เลือก API URL ตาม role
       final url = role == 'admin'
-          ? Uri.parse('${ApiEndpoints.baseUrl}/api/admin/addDefaultCategory')
+          ? Uri.parse('${ApiEndpoints.baseUrl}/api/adminAct/addDefaultCategory')
           : Uri.parse('${ApiEndpoints.baseUrl}/api/category/createCate');
 
       // 🚀 เรียก API

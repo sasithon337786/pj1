@@ -277,7 +277,7 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
       if (roleResponse.statusCode == 200) {
         final roleData = jsonDecode(roleResponse.body);
         if (roleData['role'] == 'admin') {
-          deleteUrl = '${ApiEndpoints.baseUrl}/api/admin/deleteDefaultActivity';
+          deleteUrl = '${ApiEndpoints.baseUrl}/api/adminAct/deleteDefaultActivity';
         }
       }
 
@@ -687,7 +687,7 @@ class TaskCard extends StatelessWidget {
                     final roleData = jsonDecode(roleResponse.body);
                     if (roleData['role'] == 'admin') {
                       deleteUrl =
-                          '${ApiEndpoints.baseUrl}/api/admin/deleteDefaultActivity';
+                          '${ApiEndpoints.baseUrl}/api/adminAct/deleteDefaultActivity';
                     }
                   }
 

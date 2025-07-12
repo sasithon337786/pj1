@@ -79,7 +79,7 @@ class _ManageCategoriesDialogState extends State<ManageCategoriesDialog> {
 
     // 🌐 เลือก API ตาม role
     final Uri url = role == 'admin'
-        ? Uri.parse('${ApiEndpoints.baseUrl}/api/admin/getDefaultCategories')
+        ? Uri.parse('${ApiEndpoints.baseUrl}/api/adminCate/getDefaultCategories')
         : Uri.parse(
             '${ApiEndpoints.baseUrl}/api/category/getCategory?uid=$uid');
 
@@ -177,7 +177,7 @@ class _ManageCategoriesDialogState extends State<ManageCategoriesDialog> {
         // 🌐 เลือก URL ตาม role
         final Uri url = role == 'admin'
             ? Uri.parse(
-                '${ApiEndpoints.baseUrl}/api/admin/deleteDefaultCategory')
+                '${ApiEndpoints.baseUrl}/api/adminCate/deleteDefaultCategory')
             : Uri.parse('${ApiEndpoints.baseUrl}/api/category/deleteCategory');
 
         final response = await http.post(

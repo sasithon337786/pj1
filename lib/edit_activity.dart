@@ -132,7 +132,7 @@ class _EditActivityState extends State<EditActivity> {
 
       // 🔁 เลือก URL ตาม role
       final Uri url = role == 'admin'
-          ? Uri.parse('${ApiEndpoints.baseUrl}/api/admin/updateDefaultActivity')
+          ? Uri.parse('${ApiEndpoints.baseUrl}/api/adminAct/updateDefaultActivity')
           : Uri.parse('${ApiEndpoints.baseUrl}/api/activity/updateAct');
 
       final response = await http.put(

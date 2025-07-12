@@ -191,7 +191,7 @@ class _CreateActivityScreenState extends State<CreateActivityScreen> {
         final roleData = jsonDecode(roleResponse.body);
         if (roleData['role'] == 'admin') {
           postUrl =
-              '${ApiEndpoints.baseUrl}/api/admin/createDefaultActivity'; // ตัวอย่าง URL สำหรับ admin
+              '${ApiEndpoints.baseUrl}/api/adminAct/createDefaultActivity'; // ตัวอย่าง URL สำหรับ admin
         }
       }
 
