@@ -51,6 +51,29 @@ class _CreateActivityScreenState extends State<CreateActivityScreen> {
     }
   }
 
+  Future<String?> _getUserRole(String uid) async {
+    // Example: Make an API call to get the user's role
+    // Replace with your actual API call
+    try {
+      final response = await http.get(
+        Uri.parse(
+            '${ApiEndpoints.baseUrl}/api/auth/getRole?uid=$uid'), // Example API route
+        headers: {'Content-Type': 'application/json'},
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        return data['role']; // Assuming the response has a 'role' field
+      } else {
+        print('Failed to get user role: ${response.statusCode}');
+        return null;
+      }
+    } catch (e) {
+      print('Error getting user role: $e');
+      return null;
+    }
+  }
+
   // --- ฟังก์ชันสำหรับโหลดหมวดหมู่ที่มีอยู่จาก Firebase และ Default ---
   Future<void> _loadCategories() async {
     try {
@@ -73,27 +96,24 @@ class _CreateActivityScreenState extends State<CreateActivityScreen> {
           if (_categories.isNotEmpty) {
             if (_selectedCategoryId == null ||
                 !_categories.any((c) => c.id == _selectedCategoryId)) {
-              _selectedCategoryId =
-                  _categories.first.id;
+              _selectedCategoryId = _categories.first.id;
             }
           } else {
-            _selectedCategoryId =
-                null; 
+            _selectedCategoryId = null;
           }
         });
       } else {
         print('Failed to load categories: ${response.statusCode}');
         setState(() {
           _categories = [];
-          _selectedCategoryId =
-              null;
+          _selectedCategoryId = null;
         });
       }
     } catch (e) {
       print('Error loading categories: $e');
       setState(() {
         _categories = [];
-        _selectedCategoryId = null; 
+        _selectedCategoryId = null;
       });
     }
   }
@@ -101,8 +121,7 @@ class _CreateActivityScreenState extends State<CreateActivityScreen> {
   Future<String?> _uploadActivityImage(String userId, File imageFile) async {
     try {
       final random = Random();
-      final randomNumber =
-          random.nextInt(90000) + 10000; 
+      final randomNumber = random.nextInt(90000) + 10000;
 
       final ref = _storage
           .ref()
@@ -122,7 +141,7 @@ class _CreateActivityScreenState extends State<CreateActivityScreen> {
   Future<void> _createActivity() async {
     final uid = FirebaseAuth.instance.currentUser?.uid;
     String activityName = activityNameController.text.trim();
-    print(activityName);
+
     if (activityName.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('กรุณาใส่ชื่อกิจกรรม')),
@@ -155,37 +174,51 @@ class _CreateActivityScreenState extends State<CreateActivityScreen> {
 
     try {
       final imageUrl = await _uploadActivityImage(uid, selectedImage!);
-      print('Image URL: $imageUrl');
-      print(uid);
-      print(_selectedCategoryId);
-      print(activityName);
 
-      if (imageUrl != null) {
-        final response = await http.post(
-          Uri.parse('${ApiEndpoints.baseUrl}/api/activity/createAct'),
-          headers: {'Content-Type': 'application/json'},
-          body: jsonEncode({
-            'uid': uid,
-            'cate_id': _selectedCategoryId,
-            'act_name': activityName,
-            'act_pic': imageUrl,
-          }),
-        );
+      if (imageUrl == null) {
+        throw Exception('Upload image failed');
+      }
 
-        if (response.statusCode == 200) {
-          if (context.mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('เพิ่มกิจกรรมสำเร็จ')),
-            );
-            Navigator.pop(context, true);
-          }
-        } else {
-          final message =
-              jsonDecode(response.body)['message'] ?? 'บันทึกกิจกรรมล้มเหลว';
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(message)),
-          );
+      // เช็ค role ก่อนจะส่งข้อมูลสร้างกิจกรรม
+      final roleResponse = await http.get(
+        Uri.parse('${ApiEndpoints.baseUrl}/api/auth/getRole?uid=$uid'),
+        headers: {'Content-Type': 'application/json'},
+      );
+
+      String postUrl = '${ApiEndpoints.baseUrl}/api/activity/createAct';
+
+      if (roleResponse.statusCode == 200) {
+        final roleData = jsonDecode(roleResponse.body);
+        if (roleData['role'] == 'admin') {
+          postUrl =
+              '${ApiEndpoints.baseUrl}/api/admin/createDefaultActivity'; // ตัวอย่าง URL สำหรับ admin
         }
+      }
+
+      final response = await http.post(
+        Uri.parse(postUrl),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'uid': uid,
+          'cate_id': _selectedCategoryId,
+          'act_name': activityName,
+          'act_pic': imageUrl,
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('เพิ่มกิจกรรมสำเร็จ')),
+          );
+          Navigator.pop(context, true);
+        }
+      } else {
+        final message =
+            jsonDecode(response.body)['message'] ?? 'บันทึกกิจกรรมล้มเหลว';
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(message)),
+        );
       }
     } catch (e) {
       print('Error creating activity: $e');
@@ -233,7 +266,7 @@ class _CreateActivityScreenState extends State<CreateActivityScreen> {
   @override
   void initState() {
     super.initState();
-    _loadCategories(); 
+    _loadCategories();
   }
 
   @override
@@ -279,7 +312,7 @@ class _CreateActivityScreenState extends State<CreateActivityScreen> {
                   left: 16,
                   child: GestureDetector(
                     onTap: () {
-                      Navigator.pop(context); 
+                      Navigator.pop(context);
                     },
                     child: Row(
                       children: [
@@ -302,7 +335,6 @@ class _CreateActivityScreenState extends State<CreateActivityScreen> {
               ],
             ),
             const SizedBox(height: 20),
-
             Container(
               margin: const EdgeInsets.symmetric(horizontal: 20),
               padding: const EdgeInsets.all(20),
@@ -429,8 +461,7 @@ class _CreateActivityScreenState extends State<CreateActivityScreen> {
                     width: 200,
                     height: 50,
                     child: ElevatedButton(
-                      onPressed:
-                          _createActivity,
+                      onPressed: _createActivity,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFF564843),
                         shape: RoundedRectangleBorder(
@@ -451,7 +482,6 @@ class _CreateActivityScreenState extends State<CreateActivityScreen> {
           ],
         ),
       ),
-
       bottomNavigationBar: BottomNavigationBar(
         backgroundColor: const Color(0xFFE6D2CD),
         selectedItemColor: Colors.white,

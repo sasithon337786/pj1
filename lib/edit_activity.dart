@@ -4,6 +4,7 @@ import 'dart:math';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
 import 'package:pj1/constant/api_endpoint.dart';
 
@@ -75,6 +76,29 @@ class _EditActivityState extends State<EditActivity> {
     }
   }
 
+  Future<String?> _getUserRole(String uid) async {
+    // Example: Make an API call to get the user's role
+    // Replace with your actual API call
+    try {
+      final response = await http.get(
+        Uri.parse(
+            '${ApiEndpoints.baseUrl}/api/auth/getRole?uid=$uid'), // Example API route
+        headers: {'Content-Type': 'application/json'},
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        return data['role']; // Assuming the response has a 'role' field
+      } else {
+        print('Failed to get user role: ${response.statusCode}');
+        return null;
+      }
+    } catch (e) {
+      print('Error getting user role: $e');
+      return null;
+    }
+  }
+
   Future<void> _updateActivity() async {
     final uid = widget.uid;
     final actId = widget.actId;
@@ -83,6 +107,7 @@ class _EditActivityState extends State<EditActivity> {
     try {
       String imageUrl = widget.iconPath;
 
+      // อัปโหลดรูปใหม่ถ้ามี
       if (selectedImage != null) {
         final uploadedUrl = await _uploadActivityImage(uid, selectedImage!);
         if (uploadedUrl != null) {
@@ -93,22 +118,37 @@ class _EditActivityState extends State<EditActivity> {
         }
       }
 
-      final response = await HttpClient()
-          .putUrl(Uri.parse('${ApiEndpoints.baseUrl}/api/activity/updateAct'))
-          .then((req) {
-        req.headers.contentType = ContentType.json;
-        req.write(jsonEncode({
+      // 🔍 ตรวจสอบ role
+      String role = 'member';
+      final roleResponse = await http.get(
+        Uri.parse('${ApiEndpoints.baseUrl}/api/auth/getRole?uid=$uid'),
+        headers: {'Content-Type': 'application/json'},
+      );
+
+      if (roleResponse.statusCode == 200) {
+        final roleData = jsonDecode(roleResponse.body);
+        role = roleData['role'];
+      }
+
+      // 🔁 เลือก URL ตาม role
+      final Uri url = role == 'admin'
+          ? Uri.parse('${ApiEndpoints.baseUrl}/api/admin/updateDefaultActivity')
+          : Uri.parse('${ApiEndpoints.baseUrl}/api/activity/updateAct');
+
+      final response = await http.put(
+        url,
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
           'act_id': actId,
           'uid': uid,
           'act_name': newName,
           'act_pic': imageUrl,
-        }));
-        return req.close();
-      });
+        }),
+      );
 
       if (response.statusCode == 200) {
         print('✅ อัปเดตกิจกรรมสำเร็จ');
-        if (mounted) Navigator.pop(context, true); 
+        if (mounted) Navigator.pop(context, true);
       } else {
         print('❌ อัปเดตไม่สำเร็จ: ${response.statusCode}');
       }
@@ -216,7 +256,7 @@ class _EditActivityState extends State<EditActivity> {
                     ),
                   ),
                   const SizedBox(height: 10),
-               
+
                   TextFormField(
                     controller: activityNameController,
                     decoration: InputDecoration(

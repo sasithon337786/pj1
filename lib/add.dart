@@ -34,7 +34,6 @@ class Category {
       this.isNetworkImage = false});
 }
 
-
 class Task {
   final String iconPath;
   final String label;
@@ -240,11 +239,51 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
     loadUserCategories();
   }
 
+  Future<String?> _getUserRole(String uid) async {
+    // Example: Make an API call to get the user's role
+    // Replace with your actual API call
+    try {
+      final response = await http.get(
+        Uri.parse(
+            '${ApiEndpoints.baseUrl}/api/auth/getRole?uid=$uid'), // Example API route
+        headers: {'Content-Type': 'application/json'},
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        return data['role']; // Assuming the response has a 'role' field
+      } else {
+        print('Failed to get user role: ${response.statusCode}');
+        return null;
+      }
+    } catch (e) {
+      print('Error getting user role: $e');
+      return null;
+    }
+  }
+
   Future<void> deleteActivity(
       String uid, int actId, BuildContext context) async {
     try {
+      // 🔍 ตรวจสอบ role ก่อน
+      final roleResponse = await http.get(
+        Uri.parse('${ApiEndpoints.baseUrl}/api/auth/getRole?uid=$uid'),
+        headers: {'Content-Type': 'application/json'},
+      );
+
+      String deleteUrl =
+          '${ApiEndpoints.baseUrl}/api/activity/deleteAct'; // default
+
+      if (roleResponse.statusCode == 200) {
+        final roleData = jsonDecode(roleResponse.body);
+        if (roleData['role'] == 'admin') {
+          deleteUrl = '${ApiEndpoints.baseUrl}/api/admin/deleteDefaultActivity';
+        }
+      }
+
+      // 🔥 เรียก API ลบกิจกรรม
       final response = await http.post(
-        Uri.parse('${ApiEndpoints.baseUrl}/api/activity/deleteAct'),
+        Uri.parse(deleteUrl),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
           'uid': uid,
@@ -254,11 +293,11 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
 
       if (response.statusCode == 200) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('ลบกิจกรรมสำเร็จ')),
+          const SnackBar(content: Text('ลบกิจกรรมสำเร็จ')),
         );
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('ลบกิจกรรมไม่สำเร็จ')),
+          const SnackBar(content: Text('ลบกิจกรรมไม่สำเร็จ')),
         );
       }
     } catch (e) {
@@ -634,8 +673,27 @@ class TaskCard extends StatelessWidget {
               final actId = act_id;
               if (actId != null) {
                 try {
+                  // 🔍 ตรวจสอบ role
+                  final roleResponse = await http.get(
+                    Uri.parse(
+                        '${ApiEndpoints.baseUrl}/api/auth/getRole?uid=$uid'),
+                    headers: {'Content-Type': 'application/json'},
+                  );
+
+                  String deleteUrl =
+                      '${ApiEndpoints.baseUrl}/api/activity/deleteAct'; // default
+
+                  if (roleResponse.statusCode == 200) {
+                    final roleData = jsonDecode(roleResponse.body);
+                    if (roleData['role'] == 'admin') {
+                      deleteUrl =
+                          '${ApiEndpoints.baseUrl}/api/admin/deleteDefaultActivity';
+                    }
+                  }
+
+                  // 🔥 เรียก API ลบ
                   final response = await http.post(
-                    Uri.parse('${ApiEndpoints.baseUrl}/api/activity/deleteAct'),
+                    Uri.parse(deleteUrl),
                     headers: {'Content-Type': 'application/json'},
                     body: jsonEncode({'uid': uid, 'act_id': actId}),
                   );
@@ -650,7 +708,7 @@ class TaskCard extends StatelessWidget {
                     }
                   } else {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('ลบกิจกรรมไม่สำเร็จ')),
+                      const SnackBar(content: Text('ลบกิจกรรมไม่สำเร็จ')),
                     );
                   }
                 } catch (e) {
