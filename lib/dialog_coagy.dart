@@ -49,7 +49,7 @@ class _AddCategoryDialogState extends State<AddCategoryDialog> {
     try {
       final response = await http.get(
         Uri.parse(
-            '${ApiEndpoints.baseUrl}/api/user/getRole?uid=$uid'), // Example API route
+            '${ApiEndpoints.baseUrl}/api/auth/getRole?uid=$uid'), // Example API route
         headers: {'Content-Type': 'application/json'},
       );
 
@@ -81,6 +81,7 @@ class _AddCategoryDialogState extends State<AddCategoryDialog> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('ไม่สามารถตรวจสอบสิทธิ์ผู้ใช้ได้')),
         );
+        print("ไม่สามารถตรวจสอบสิทธิ์ผู้ใช้ได้");
         return;
       }
 
@@ -96,7 +97,7 @@ class _AddCategoryDialogState extends State<AddCategoryDialog> {
 
       // 🌐 เลือก API URL ตาม role
       final url = role == 'admin'
-          ? Uri.parse('${ApiEndpoints.baseUrl}/api/adminAct/addDefaultCategory')
+          ? Uri.parse('${ApiEndpoints.baseUrl}/api/adminCate/addDefaultCategory')
           : Uri.parse('${ApiEndpoints.baseUrl}/api/category/createCate');
 
       // 🚀 เรียก API

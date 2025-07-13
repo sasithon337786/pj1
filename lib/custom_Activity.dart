@@ -138,7 +138,7 @@ class _CreateActivityScreenState extends State<CreateActivityScreen> {
     }
   }
 
-  Future<void> _createActivity() async {
+  Future _createActivity() async {
     final uid = FirebaseAuth.instance.currentUser?.uid;
     String activityName = activityNameController.text.trim();
 
@@ -174,36 +174,30 @@ class _CreateActivityScreenState extends State<CreateActivityScreen> {
 
     try {
       final imageUrl = await _uploadActivityImage(uid, selectedImage!);
+      if (imageUrl == null) throw Exception('Upload image failed');
 
-      if (imageUrl == null) {
-        throw Exception('Upload image failed');
-      }
-
-      // เช็ค role ก่อนจะส่งข้อมูลสร้างกิจกรรม
-      final roleResponse = await http.get(
-        Uri.parse('${ApiEndpoints.baseUrl}/api/auth/getRole?uid=$uid'),
-        headers: {'Content-Type': 'application/json'},
-      );
+      // ✅ ใช้ฟังก์ชัน _getUserRole
+      final role = await _getUserRole(uid);
 
       String postUrl = '${ApiEndpoints.baseUrl}/api/activity/createAct';
+      Map<String, dynamic> bodyData = {
+        'cate_id': _selectedCategoryId,
+        'act_name': activityName,
+        'act_pic': imageUrl,
+      };
 
-      if (roleResponse.statusCode == 200) {
-        final roleData = jsonDecode(roleResponse.body);
-        if (roleData['role'] == 'admin') {
-          postUrl =
-              '${ApiEndpoints.baseUrl}/api/adminAct/createDefaultActivity'; // ตัวอย่าง URL สำหรับ admin
-        }
+      if (role == 'admin') {
+        postUrl = '${ApiEndpoints.baseUrl}/api/adminAct/addDefaultActivity';
+        // ไม่ส่ง uid ใน body สำหรับ admin
+      } else {
+        // สำหรับ member ให้ส่ง uid ด้วย
+        bodyData['uid'] = uid;
       }
 
       final response = await http.post(
         Uri.parse(postUrl),
         headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          'uid': uid,
-          'cate_id': _selectedCategoryId,
-          'act_name': activityName,
-          'act_pic': imageUrl,
-        }),
+        body: jsonEncode(bodyData),
       );
 
       if (response.statusCode == 200) {
