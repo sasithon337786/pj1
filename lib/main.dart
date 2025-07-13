@@ -14,7 +14,10 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp();
   final user = FirebaseAuth.instance.currentUser;
+
   if (user != null) {
+    final idToken = await user.getIdToken(true);
+    print('ID Token: $idToken');
     print('UID: ${user.uid}');
   }
 
