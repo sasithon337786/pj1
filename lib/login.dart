@@ -5,13 +5,13 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:http/http.dart' as http;
 import 'package:pj1/Addmin/main_Addmin.dart';
-import 'package:pj1/add.dart'; 
+import 'package:pj1/add.dart';
+import 'package:pj1/mains.dart';
 import 'package:pj1/registration_screen.dart';
 import 'package:http/http.dart' as http;
 import 'package:pj1/constant/api_endpoint.dart';
 import 'package:slider_captcha/slider_captcha.dart';
-import 'package:pj1/constant/api_endpoint.dart'; 
-
+import 'package:pj1/constant/api_endpoint.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -36,7 +36,7 @@ class _LoginScreenState extends State<LoginScreen> {
   Future<bool?> _showCaptchaDialog() async {
     return await showDialog<bool>(
       context: context,
-      barrierDismissible: false, 
+      barrierDismissible: false,
       builder: (BuildContext context) {
         String localCaptchaErrorText = "";
         SliderController localSliderController = SliderController();
@@ -85,7 +85,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                 "พบข้อผิดพลาด กรุณาลองใหม่อีกครั้ง";
                           });
                           await Future.delayed(const Duration(seconds: 3));
-                          localSliderController.create.call(); 
+                          localSliderController.create.call();
                           setState(() {
                             localCaptchaErrorText = "";
                           });
@@ -172,7 +172,7 @@ class _LoginScreenState extends State<LoginScreen> {
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         final role = data['user']['role'];
-        final token = data['token']; 
+        final token = data['token'];
 
         print('Google Sign-In User Role: $role');
         _showSnackBar('Google sign-in successful!',
@@ -181,16 +181,12 @@ class _LoginScreenState extends State<LoginScreen> {
         if (role == 'admin') {
           Navigator.pushReplacement(
             context,
-            MaterialPageRoute(
-                builder: (context) =>
-                    const MainAdmin()),
+            MaterialPageRoute(builder: (context) => const MainAdmin()),
           );
         } else {
           Navigator.pushReplacement(
             context,
-            MaterialPageRoute(
-                builder: (context) =>
-                    MainHomeScreen()), 
+            MaterialPageRoute(builder: (context) => HomePage()),
           );
         }
       } else {
@@ -267,7 +263,7 @@ class _LoginScreenState extends State<LoginScreen> {
         } else {
           Navigator.pushReplacement(
             context,
-            MaterialPageRoute(builder: (context) => MainHomeScreen()),
+            MaterialPageRoute(builder: (context) => HomePage()),
           );
         }
       } else {
@@ -325,7 +321,6 @@ class _LoginScreenState extends State<LoginScreen> {
               ),
             ),
           ),
-
           SingleChildScrollView(
             padding: EdgeInsets.only(
               top: MediaQuery.of(context).padding.top + 160,
@@ -366,7 +361,6 @@ class _LoginScreenState extends State<LoginScreen> {
 
                     const SizedBox(height: 20),
 
-
                     _buildTextField(
                       controller: _emailController,
                       iconWidget: Image.asset(
@@ -387,7 +381,6 @@ class _LoginScreenState extends State<LoginScreen> {
                       },
                     ),
                     const SizedBox(height: 15),
-
 
                     _buildTextField(
                       controller: _passwordController,
@@ -439,7 +432,6 @@ class _LoginScreenState extends State<LoginScreen> {
                     // ),
                     // const SizedBox(height: 5),
 
-
                     ElevatedButton(
                       onPressed: _isGoogleLoading ? null : _signInWithGoogle,
                       style: ElevatedButton.styleFrom(
@@ -473,7 +465,6 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
 
                     const SizedBox(height: 15),
-
 
                     Container(
                       padding: const EdgeInsets.symmetric(
@@ -512,7 +503,6 @@ class _LoginScreenState extends State<LoginScreen> {
 
                     const SizedBox(height: 20),
 
-
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
@@ -529,8 +519,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             },
                             style: ElevatedButton.styleFrom(
                               backgroundColor: const Color(0xFF564843),
-                              padding: const EdgeInsets.symmetric(
-                                  vertical: 12),
+                              padding: const EdgeInsets.symmetric(vertical: 12),
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(20),
                               ),
@@ -551,8 +540,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                 _isLoading ? null : _signInWithEmailAndPassword,
                             style: ElevatedButton.styleFrom(
                               backgroundColor: const Color(0xFF564843),
-                              padding: const EdgeInsets.symmetric(
-                                  vertical: 12), 
+                              padding: const EdgeInsets.symmetric(vertical: 12),
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(20),
                               ),
@@ -581,7 +569,6 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
-
   Widget _buildTextField({
     required TextEditingController controller,
     required Widget iconWidget,
@@ -592,7 +579,6 @@ class _LoginScreenState extends State<LoginScreen> {
     String? Function(String?)? validator,
   }) {
     return TextFormField(
-
       controller: controller,
       obscureText: obscureText,
       style: GoogleFonts.kanit(
@@ -606,8 +592,7 @@ class _LoginScreenState extends State<LoginScreen> {
           padding: const EdgeInsets.all(12.0),
           child: iconWidget,
         ),
-        suffixIcon:
-            suffixIcon,
+        suffixIcon: suffixIcon,
         hintText: hintText,
         hintStyle: GoogleFonts.kanit(
           color: Colors.white70,
@@ -619,8 +604,7 @@ class _LoginScreenState extends State<LoginScreen> {
           borderRadius: BorderRadius.circular(12),
           borderSide: BorderSide.none,
         ),
-        errorStyle: GoogleFonts.kanit(
-            color: Colors.white),
+        errorStyle: GoogleFonts.kanit(color: Colors.white),
       ),
     );
   }

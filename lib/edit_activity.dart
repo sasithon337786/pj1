@@ -105,20 +105,33 @@ class _EditActivityState extends State<EditActivity> {
     final newName = activityNameController.text;
 
     try {
+      // โชว์ loading dialog
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (BuildContext context) {
+          return const Center(
+            child: CircularProgressIndicator(
+              valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+              backgroundColor: Colors.black54,
+            ),
+          );
+        },
+      );
+
       String imageUrl = widget.iconPath;
 
-      // อัปโหลดรูปใหม่ถ้ามี
       if (selectedImage != null) {
         final uploadedUrl = await _uploadActivityImage(uid, selectedImage!);
         if (uploadedUrl != null) {
           imageUrl = uploadedUrl;
         } else {
+          Navigator.pop(context);
           print('❌ อัปโหลดรูปภาพไม่สำเร็จ');
           return;
         }
       }
 
-      // 🔍 ตรวจสอบ role
       String role = 'member';
       final roleResponse = await http.get(
         Uri.parse('${ApiEndpoints.baseUrl}/api/auth/getRole?uid=$uid'),
@@ -130,9 +143,9 @@ class _EditActivityState extends State<EditActivity> {
         role = roleData['role'];
       }
 
-      // 🔁 เลือก URL ตาม role
       final Uri url = role == 'admin'
-          ? Uri.parse('${ApiEndpoints.baseUrl}/api/adminAct/updateDefaultActivity')
+          ? Uri.parse(
+              '${ApiEndpoints.baseUrl}/api/adminAct/updateDefaultActivity')
           : Uri.parse('${ApiEndpoints.baseUrl}/api/activity/updateAct');
 
       final response = await http.put(
@@ -146,6 +159,9 @@ class _EditActivityState extends State<EditActivity> {
         }),
       );
 
+      // ปิด loading dialog
+      Navigator.pop(context);
+
       if (response.statusCode == 200) {
         print('✅ อัปเดตกิจกรรมสำเร็จ');
         if (mounted) Navigator.pop(context, true);
@@ -153,6 +169,7 @@ class _EditActivityState extends State<EditActivity> {
         print('❌ อัปเดตไม่สำเร็จ: ${response.statusCode}');
       }
     } catch (e) {
+      Navigator.pop(context); // ปิด dialog ถ้าเจอ error
       print('❌ เกิดข้อผิดพลาดระหว่างอัปเดต: $e');
     }
   }
