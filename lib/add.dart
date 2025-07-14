@@ -62,7 +62,6 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
   TextEditingController categoryController = TextEditingController();
   StreamSubscription<User?>? _authStateChangesSubscription;
   String? userRole;
- 
 
   void _onItemTapped(int index) {
     setState(() {
@@ -328,19 +327,20 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
   }
 
   @override
-void initState() {
-  super.initState();
-  _authStateChangesSubscription = FirebaseAuth.instance.authStateChanges().listen((user) {
-    if (user != null) {
-      loadUserCategories();
-      _getUserRole(user.uid).then((role) {
-        setState(() {
-          userRole = role;
+  void initState() {
+    super.initState();
+    _authStateChangesSubscription =
+        FirebaseAuth.instance.authStateChanges().listen((user) {
+      if (user != null) {
+        loadUserCategories();
+        _getUserRole(user.uid).then((role) {
+          setState(() {
+            userRole = role;
+          });
         });
-      });
-    }
-  });
-}
+      }
+    });
+  }
 
   @override
   void dispose() {
@@ -618,7 +618,8 @@ class CategoryIcon extends StatelessWidget {
     return Column(
       children: [
         CircleAvatar(
-          backgroundColor: isSelected ? Colors.white : const Color(0xFFE6D2C0),
+          backgroundColor:
+              isSelected ? const Color(0xFF564843) : const Color(0xFFE6D2C0),
           radius: 24,
           child: ClipOval(child: imageWidget),
         ),
@@ -748,11 +749,27 @@ class TaskCard extends StatelessWidget {
                             '${ApiEndpoints.baseUrl}/api/activity/deleteAct';
                       }
 
+                      showDialog(
+                        context: context,
+                        barrierDismissible: false,
+                        builder: (BuildContext context) {
+                          return const Center(
+                            child: CircularProgressIndicator(
+                              valueColor:
+                                  AlwaysStoppedAnimation<Color>(Colors.white),
+                              backgroundColor: Colors.black54,
+                            ),
+                          );
+                        },
+                      );
+
                       final response = await http.post(
                         Uri.parse(deleteUrl),
                         headers: {'Content-Type': 'application/json'},
                         body: jsonEncode({'uid': uid, 'act_id': act_id}),
                       );
+
+                      Navigator.pop(context);
 
                       if (response.statusCode == 200) {
                         ScaffoldMessenger.of(context).showSnackBar(
@@ -767,6 +784,7 @@ class TaskCard extends StatelessWidget {
                         );
                       }
                     } catch (e) {
+                      Navigator.pop(context);
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(content: Text('เกิดข้อผิดพลาด: $e')),
                       );
