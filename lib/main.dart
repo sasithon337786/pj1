@@ -17,12 +17,10 @@ void main() async {
 
   if (user != null) {
     final idToken = await user.getIdToken(true);
-    print('ID Token: $idToken');
-    print('UID: ${user.uid}');
+    // print('ID Token: $idToken');
+    // print('UID: ${user.uid}');
   }
 
-  // final uid = FirebaseAuth.instance.currentUser?.uid;
-  // print('UID: $uid');
   runApp(const MyApp());
 }
 
