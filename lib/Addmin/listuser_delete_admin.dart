@@ -60,7 +60,7 @@ class _ListuserDeleteAdminState extends State<ListuserDeleteAdmin> {
   void _navigateToManageAppData() {
     Navigator.push(
       context,
-      MaterialPageRoute(builder: (context) => const MainHomeAdminScreen()),
+      MaterialPageRoute(builder: (context) => const MainHomeScreen()),
     );
   }
 
