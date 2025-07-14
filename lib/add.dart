@@ -4,6 +4,10 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:http/http.dart' as http;
+import 'package:pj1/Addmin/listuser_delete_admin.dart';
+import 'package:pj1/Addmin/listuser_petition.dart';
+import 'package:pj1/Addmin/listuser_suspended.dart';
+import 'package:pj1/Addmin/main_Addmin.dart';
 import 'package:pj1/account.dart';
 import 'package:pj1/chooseactivity.dart';
 import 'package:pj1/constant/api_endpoint.dart';
@@ -57,37 +61,69 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
   int _selectedIndex = 0;
   TextEditingController categoryController = TextEditingController();
   StreamSubscription<User?>? _authStateChangesSubscription;
+  String? userRole;
+ 
 
   void _onItemTapped(int index) {
     setState(() {
       _selectedIndex = index;
     });
 
-    switch (index) {
-      case 0:
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (context) => const HomePage()),
-        );
-        break;
-      case 1:
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (context) => const Targetpage()),
-        );
-        break;
-      case 2:
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (context) => const Graphpage()),
-        );
-        break;
-      case 3:
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (context) => const AccountPage()),
-        );
-        break;
+    if (userRole == 'admin') {
+      switch (index) {
+        case 0:
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (context) => const MainAdmin()),
+          );
+          break;
+        case 1:
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (context) => const ListuserSuspended()),
+          );
+          break;
+        case 2:
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+                builder: (context) => const ListuserDeleteAdmin()),
+          );
+          break;
+        case 3:
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (context) => const ListuserPetition()),
+          );
+          break;
+      }
+    } else {
+      switch (index) {
+        case 0:
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (context) => const HomePage()),
+          );
+          break;
+        case 1:
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (context) => const Targetpage()),
+          );
+          break;
+        case 2:
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (context) => const Graphpage()),
+          );
+          break;
+        case 3:
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (context) => const AccountPage()),
+          );
+          break;
+      }
     }
   }
 
@@ -123,11 +159,13 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
 
       if (role == 'admin') {
         response = await http.get(
-          Uri.parse('${ApiEndpoints.baseUrl}/api/adminCate/getDefaultCategories'),
+          Uri.parse(
+              '${ApiEndpoints.baseUrl}/api/adminCate/getDefaultCategories'),
         );
       } else {
         response = await http.get(
-          Uri.parse('${ApiEndpoints.baseUrl}/api/category/getCategory?uid=$uid'),
+          Uri.parse(
+              '${ApiEndpoints.baseUrl}/api/category/getCategory?uid=$uid'),
         );
       }
 
@@ -223,14 +261,17 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
 
       if (response.statusCode == 200) {
         final List<dynamic> data = jsonDecode(response.body);
-        return data.map((item) => Task(
-          label: item['act_name'] ?? '',
-          iconPath: item['act_pic'] ?? '',
-          isNetworkImage: true,
-          act_id: int.tryParse(item['act_id'].toString()),
-        )).toList();
+        return data
+            .map((item) => Task(
+                  label: item['act_name'] ?? '',
+                  iconPath: item['act_pic'] ?? '',
+                  isNetworkImage: true,
+                  act_id: int.tryParse(item['act_id'].toString()),
+                ))
+            .toList();
       } else {
-        throw Exception('Failed to load activity with status: ${response.statusCode}');
+        throw Exception(
+            'Failed to load activity with status: ${response.statusCode}');
       }
     } catch (e) {
       throw Exception('Error loading tasks: $e');
@@ -238,13 +279,15 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
   }
 
   // ฟังก์ชันสำหรับลบกิจกรรม
-  Future<void> deleteActivity(String uid, int actId, BuildContext context) async {
+  Future<void> deleteActivity(
+      String uid, int actId, BuildContext context) async {
     try {
       final role = await _getUserRole(uid);
       String deleteUrl;
 
       if (role == 'admin') {
-        deleteUrl = '${ApiEndpoints.baseUrl}/api/adminAct/deleteDefaultActivity';
+        deleteUrl =
+            '${ApiEndpoints.baseUrl}/api/adminAct/deleteDefaultActivity';
       } else {
         deleteUrl = '${ApiEndpoints.baseUrl}/api/activity/deleteAct';
       }
@@ -285,15 +328,19 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
   }
 
   @override
-  void initState() {
-    super.initState();
-    _authStateChangesSubscription = FirebaseAuth.instance.authStateChanges().listen((user) {
-      if (user != null) {
-        loadUserCategories();
-      }
-    });
-    loadUserCategories();
-  }
+void initState() {
+  super.initState();
+  _authStateChangesSubscription = FirebaseAuth.instance.authStateChanges().listen((user) {
+    if (user != null) {
+      loadUserCategories();
+      _getUserRole(user.uid).then((role) {
+        setState(() {
+          userRole = role;
+        });
+      });
+    }
+  });
+}
 
   @override
   void dispose() {
@@ -330,7 +377,8 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(12),
                               ),
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 12, vertical: 6),
                             ),
                             onPressed: () async {
                               await showDialog(
@@ -361,7 +409,8 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
                           scrollDirection: Axis.horizontal,
                           child: Row(
                             children: categories.map((category) {
-                              bool isSelected = category.label == selectedCategoryLabel;
+                              bool isSelected =
+                                  category.label == selectedCategoryLabel;
                               return Padding(
                                 padding: const EdgeInsets.only(right: 16),
                                 child: GestureDetector(
@@ -415,7 +464,8 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(20),
                             ),
-                            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 24, vertical: 12),
                           ),
                           onPressed: () {
                             _navigateToCreateActivityScreen();
@@ -479,24 +529,51 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
         type: BottomNavigationBarType.fixed,
         currentIndex: _selectedIndex,
         onTap: _onItemTapped,
-        items: [
-          BottomNavigationBarItem(
-            icon: Image.asset('assets/icons/add.png', width: 24, height: 24),
-            label: 'Add',
-          ),
-          BottomNavigationBarItem(
-            icon: Image.asset('assets/icons/wishlist-heart.png', width: 24, height: 24),
-            label: 'Target',
-          ),
-          BottomNavigationBarItem(
-            icon: Image.asset('assets/icons/stats.png', width: 24, height: 24),
-            label: 'Graph',
-          ),
-          BottomNavigationBarItem(
-            icon: Image.asset('assets/icons/accout.png', width: 24, height: 24),
-            label: 'Account',
-          ),
-        ],
+        items: userRole == 'admin'
+            ? [
+                BottomNavigationBarItem(
+                  icon: Image.asset('assets/icons/accout.png',
+                      width: 24, height: 24),
+                  label: 'User',
+                ),
+                BottomNavigationBarItem(
+                  icon: Image.asset('assets/icons/deactivate.png',
+                      width: 30, height: 30),
+                  label: 'บัญชีที่ระงับ',
+                ),
+                BottomNavigationBarItem(
+                  icon: Image.asset('assets/icons/social-media-management.png',
+                      width: 24, height: 24),
+                  label: 'Manage',
+                ),
+                BottomNavigationBarItem(
+                  icon: Image.asset('assets/icons/wishlist-heart.png',
+                      width: 24, height: 24),
+                  label: 'คำร้อง',
+                ),
+              ]
+            : [
+                BottomNavigationBarItem(
+                  icon: Image.asset('assets/icons/add.png',
+                      width: 24, height: 24),
+                  label: 'Add',
+                ),
+                BottomNavigationBarItem(
+                  icon: Image.asset('assets/icons/wishlist-heart.png',
+                      width: 24, height: 24),
+                  label: 'Target',
+                ),
+                BottomNavigationBarItem(
+                  icon: Image.asset('assets/icons/stats.png',
+                      width: 24, height: 24),
+                  label: 'Graph',
+                ),
+                BottomNavigationBarItem(
+                  icon: Image.asset('assets/icons/accout.png',
+                      width: 24, height: 24),
+                  label: 'Account',
+                ),
+              ],
       ),
     );
   }
@@ -664,9 +741,11 @@ class TaskCard extends StatelessWidget {
                       String deleteUrl;
 
                       if (role == 'admin') {
-                        deleteUrl = '${ApiEndpoints.baseUrl}/api/adminAct/deleteDefaultActivity';
+                        deleteUrl =
+                            '${ApiEndpoints.baseUrl}/api/adminAct/deleteDefaultActivity';
                       } else {
-                        deleteUrl = '${ApiEndpoints.baseUrl}/api/activity/deleteAct';
+                        deleteUrl =
+                            '${ApiEndpoints.baseUrl}/api/activity/deleteAct';
                       }
 
                       final response = await http.post(
