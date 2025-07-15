@@ -17,7 +17,7 @@ class _DrinkWaterGoalPageState extends State<ChooseactivityPage> {
   TextEditingController goalController = TextEditingController();
   TextEditingController messageController = TextEditingController();
 
-  bool isWeekSelected = true; 
+  bool isWeekSelected = true;
   int _selectedIndex = 0;
   String selectedUnit = 'Type';
   void _onItemTapped(int index) {
@@ -68,55 +68,133 @@ class _DrinkWaterGoalPageState extends State<ChooseactivityPage> {
     showDialog(
       context: context,
       builder: (BuildContext context) {
+        TextEditingController newUnitController = TextEditingController();
+
         return AlertDialog(
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(20),
           ),
           backgroundColor: Color(0xFFE6D2CD),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                'เลือกประเภทหน่วย',
-                style: GoogleFonts.kanit(
-                  fontSize: 20,
-                  color: Color(0xFF5A4330),
-                ),
-              ),
-              SizedBox(height: 16),
-              Wrap(
-                spacing: 10,
-                runSpacing: 10,
-                alignment: WrapAlignment.center,
-                children: ['ml', 'm', 'km', 'hr', 'min', 'cal'].map((unit) {
-                  return GestureDetector(
-                    onTap: () {
-                      setState(() {
-                        selectedUnit = unit;
-                      });
-                      Navigator.pop(context);
+          content: StatefulBuilder(
+            builder: (context, setState) {
+              return Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    'เลือกประเภทหน่วย',
+                    style: GoogleFonts.kanit(
+                      fontSize: 20,
+                      color: Color(0xFF5A4330),
+                    ),
+                  ),
+                  SizedBox(height: 16),
+                  Wrap(
+                    spacing: 10,
+                    runSpacing: 10,
+                    alignment: WrapAlignment.center,
+                    children: ['ml', 'm', 'km', 'hr', 'min', 'cal'].map((unit) {
+                      return GestureDetector(
+                        onTap: () {
+                          setState(() {
+                            selectedUnit = unit;
+                          });
+                          Navigator.pop(context);
+                        },
+                        child: Container(
+                          padding: EdgeInsets.symmetric(
+                              horizontal: 20, vertical: 10),
+                          decoration: BoxDecoration(
+                            color: selectedUnit == unit
+                                ? Color(0xFF564843)
+                                : Color(0xFFC98993),
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: Text(
+                            unit,
+                            style: GoogleFonts.kanit(
+                              color: Colors.white,
+                              fontSize: 16,
+                            ),
+                          ),
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                  SizedBox(height: 20),
+                  ElevatedButton(
+                    onPressed: () {
+                      // เปิด Dialog สำหรับเพิ่มหน่วยใหม่
+                      showDialog(
+                        context: context,
+                        builder: (BuildContext context) {
+                          return AlertDialog(
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            backgroundColor: Color(0xFFE6D2CD),
+                            title: Text(
+                              'เพิ่มหน่วยใหม่',
+                              style: GoogleFonts.kanit(
+                                fontSize: 20,
+                                color: Color(0xFF5A4330),
+                              ),
+                            ),
+                            content: TextField(
+                              controller: newUnitController,
+                              style: GoogleFonts.kanit(color: Colors.black),
+                              decoration: InputDecoration(
+                                hintText: 'เช่น แก้ว, ถ้วย, เซต',
+                                hintStyle:
+                                    GoogleFonts.kanit(color: Colors.grey),
+                              ),
+                            ),
+                            actions: [
+                              TextButton(
+                                onPressed: () {
+                                  Navigator.pop(context);
+                                },
+                                child: Text(
+                                  'ยกเลิก',
+                                  style: GoogleFonts.kanit(color: Colors.red),
+                                ),
+                              ),
+                              TextButton(
+                                onPressed: () {
+                                  if (newUnitController.text.isNotEmpty) {
+                                    setState(() {
+                                      selectedUnit = newUnitController.text;
+                                    });
+                                    Navigator.pop(
+                                        context); // ปิด Dialog เพิ่มหน่วย
+                                    Navigator.pop(
+                                        context); // ปิด Dialog เลือกหน่วย
+                                  }
+                                },
+                                child: Text(
+                                  'เพิ่ม',
+                                  style: GoogleFonts.kanit(
+                                      color: Color(0xFF5A4330)),
+                                ),
+                              ),
+                            ],
+                          );
+                        },
+                      );
                     },
-                    child: Container(
-                      padding:
-                          EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-                      decoration: BoxDecoration(
-                        color: selectedUnit == unit
-                            ? Color(0xFF564843)
-                            : Color(0xFFC98993),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Color(0xFF564843),
+                      shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(20),
                       ),
-                      child: Text(
-                        unit,
-                        style: GoogleFonts.kanit(
-                          color: Colors.white,
-                          fontSize: 16,
-                        ),
-                      ),
                     ),
-                  );
-                }).toList(),
-              ),
-            ],
+                    child: Text(
+                      'เพิ่มหน่วยเอง',
+                      style: GoogleFonts.kanit(color: Colors.white),
+                    ),
+                  ),
+                ],
+              );
+            },
           ),
         );
       },
@@ -230,8 +308,7 @@ class _DrinkWaterGoalPageState extends State<ChooseactivityPage> {
                       SizedBox(width: 8),
                       SizedBox(width: 8),
                       GestureDetector(
-                        onTap:
-                            _showUnitPicker, 
+                        onTap: _showUnitPicker,
                         child: Container(
                           padding:
                               EdgeInsets.symmetric(horizontal: 12, vertical: 6),
