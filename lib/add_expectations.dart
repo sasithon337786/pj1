@@ -1,3 +1,4 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:pj1/account.dart';
@@ -7,9 +8,14 @@ import 'package:pj1/target.dart';
 import 'package:pj1/user_expectations.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import 'package:pj1/constant/api_endpoint.dart';
 
 class ExpectationScreen extends StatefulWidget {
-  const ExpectationScreen({super.key});
+  final int actId;
+  const ExpectationScreen({
+    super.key,
+    required this.actId,
+  });
 
   @override
   State<ExpectationScreen> createState() => _ExpectationScreenState();
@@ -62,7 +68,7 @@ class _ExpectationScreenState extends State<ExpectationScreen> {
   Future<void> _submitExpectation() async {
     final String expectationValue = expectationController.text;
     final String percentageValue = percentageController.text;
-
+    final uid = FirebaseAuth.instance.currentUser!.uid;
     if (expectationValue.isEmpty || percentageValue.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('กรุณากรอกข้อมูลให้ครบถ้วน')),
@@ -72,13 +78,13 @@ class _ExpectationScreenState extends State<ExpectationScreen> {
 
     try {
       final url = Uri.parse(
-          'http://<your-server-ip>:3000/expectation/create'); // 🔁 เปลี่ยน IP ตามเครื่อง backend
+          '${ApiEndpoints.baseUrl}/api/expuser/createexp'); // 🔁 เปลี่ยน IP ตามเครื่อง backend
       final response = await http.post(
         url,
         headers: {"Content-Type": "application/json"},
         body: jsonEncode({
-          "act_id": 1, // 🟡 แก้ให้ตรงกับกิจกรรมของจริง
-          "uid": 1, // 🟡 แก้ให้ตรงกับผู้ใช้ที่ล็อกอิน
+          "act_id":  widget.actId, // 🟡 แก้ให้ตรงกับกิจกรรมของจริง
+          "uid": uid, // 🟡 แก้ให้ตรงกับผู้ใช้ที่ล็อกอิน
           "user_exp": expectationValue,
           "percentage_exp": double.parse(percentageValue),
         }),
