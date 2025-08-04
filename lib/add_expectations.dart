@@ -5,6 +5,8 @@ import 'package:pj1/grap.dart';
 import 'package:pj1/mains.dart';
 import 'package:pj1/target.dart';
 import 'package:pj1/user_expectations.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 
 class ExpectationScreen extends StatefulWidget {
   const ExpectationScreen({super.key});
@@ -54,6 +56,52 @@ class _ExpectationScreenState extends State<ExpectationScreen> {
           MaterialPageRoute(builder: (context) => const AccountPage()),
         );
         break;
+    }
+  }
+
+  Future<void> _submitExpectation() async {
+    final String expectationValue = expectationController.text;
+    final String percentageValue = percentageController.text;
+
+    if (expectationValue.isEmpty || percentageValue.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('กรุณากรอกข้อมูลให้ครบถ้วน')),
+      );
+      return;
+    }
+
+    try {
+      final url = Uri.parse(
+          'http://<your-server-ip>:3000/expectation/create'); // 🔁 เปลี่ยน IP ตามเครื่อง backend
+      final response = await http.post(
+        url,
+        headers: {"Content-Type": "application/json"},
+        body: jsonEncode({
+          "act_id": 1, // 🟡 แก้ให้ตรงกับกิจกรรมของจริง
+          "uid": 1, // 🟡 แก้ให้ตรงกับผู้ใช้ที่ล็อกอิน
+          "user_exp": expectationValue,
+          "percentage_exp": double.parse(percentageValue),
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('บันทึกความคาดหวังเรียบร้อย')),
+        );
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => ExpectationResultScreen()),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('เกิดข้อผิดพลาด: ${response.body}')),
+        );
+      }
+    } catch (error) {
+      print('Error: $error');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('เชื่อมต่อไม่ได้')),
+      );
     }
   }
 
@@ -208,21 +256,7 @@ class _ExpectationScreenState extends State<ExpectationScreen> {
                         child: SizedBox(
                           width: 120,
                           child: ElevatedButton(
-                            onPressed: () {
-                              String expectationValue =
-                                  expectationController.text;
-                              String percentageValue =
-                                  percentageController.text;
-                              print('Expectations: $expectationValue');
-                              print('Percentage: $percentageValue');
-
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                    builder: (context) =>
-                                        ExpectationResultScreen()),
-                              );
-                            },
+                            onPressed: _submitExpectation,
                             style: ElevatedButton.styleFrom(
                               backgroundColor: const Color(0xFF564843),
                               shape: RoundedRectangleBorder(
