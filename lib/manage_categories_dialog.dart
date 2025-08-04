@@ -22,6 +22,7 @@ class _ManageCategoriesDialogState extends State<ManageCategoriesDialog> {
   List<Category> userCategories = [];
   bool isLoading = true;
   String? errorMessage;
+  String? userRole;
 
   @override
   void initState() {
@@ -29,7 +30,7 @@ class _ManageCategoriesDialogState extends State<ManageCategoriesDialog> {
     _loadUserCategoriesForManagement();
   }
 
-    Future<String?> _getUserRole(String uid) async {
+  Future<String?> _getUserRole(String uid) async {
     // Example: Make an API call to get the user's role
     // Replace with your actual API call
     try {
@@ -77,9 +78,14 @@ class _ManageCategoriesDialogState extends State<ManageCategoriesDialog> {
       return;
     }
 
+    setState(() {
+      userRole = role; // 🔥 บรรทัดนี้คือจุดที่เพิ่ม
+    });
+
     // 🌐 เลือก API ตาม role
     final Uri url = role == 'admin'
-        ? Uri.parse('${ApiEndpoints.baseUrl}/api/adminCate/getDefaultCategories')
+        ? Uri.parse(
+            '${ApiEndpoints.baseUrl}/api/adminCate/getDefaultCategories')
         : Uri.parse(
             '${ApiEndpoints.baseUrl}/api/category/getCategory?uid=$uid');
 
@@ -316,37 +322,38 @@ class _ManageCategoriesDialogState extends State<ManageCategoriesDialog> {
                       ),
                     ),
       actions: [
-        Align(
-          alignment: Alignment.center,
-          child: Padding(
-            padding: const EdgeInsets.only(left: 8.0),
-            child: ElevatedButton.icon(
-              onPressed: () async {
-                final result = await showDialog(
-                  context: context,
-                  builder: (context) => const AddCategoryDialog(),
-                );
-                if (result == true) {
-                  _loadUserCategoriesForManagement();
-                  widget.onCategoriesUpdated.call();
-                }
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF564843),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+        if (userRole == 'admin') // ✅ แสดงเฉพาะ admin
+          Align(
+            alignment: Alignment.center,
+            child: Padding(
+              padding: const EdgeInsets.only(left: 8.0),
+              child: ElevatedButton.icon(
+                onPressed: () async {
+                  final result = await showDialog(
+                    context: context,
+                    builder: (context) => const AddCategoryDialog(),
+                  );
+                  if (result == true) {
+                    _loadUserCategoriesForManagement();
+                    widget.onCategoriesUpdated.call();
+                  }
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF564843),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                 ),
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              ),
-              icon: const Icon(Icons.add, color: Colors.white, size: 20),
-              label: Text(
-                'เพิ่มหมวดหมู่',
-                style: GoogleFonts.kanit(color: Colors.white, fontSize: 16),
+                icon: const Icon(Icons.add, color: Colors.white, size: 20),
+                label: Text(
+                  'เพิ่มหมวดหมู่',
+                  style: GoogleFonts.kanit(color: Colors.white, fontSize: 16),
+                ),
               ),
             ),
           ),
-        ),
         const Spacer(),
         TextButton(
           onPressed: () {
