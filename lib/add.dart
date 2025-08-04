@@ -819,7 +819,12 @@ class TaskCard extends StatelessWidget {
           Navigator.push(
             context,
             MaterialPageRoute(
-              builder: (context) => ChooseactivityPage(),
+              builder: (context) => ChooseactivityPage(
+                actId: act_id,
+                activityName: label,
+                activityIconPath: iconPath, // *** ส่ง iconPath ไปด้วย ***
+                isNetworkImage: isNetworkImage,
+              ),
             ),
           );
         },

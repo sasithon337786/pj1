@@ -1,25 +1,67 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:pj1/account.dart';
+import 'package:pj1/constant/api_endpoint.dart';
 import 'package:pj1/doing_activity.dart';
 import 'package:pj1/grap.dart';
 import 'package:pj1/mains.dart';
 import 'package:pj1/target.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
+import 'package:firebase_auth/firebase_auth.dart';
+
+// *** เพิ่มการ import ไฟล์ ApiEndpoints ที่นี่ ***
+import 'package:pj1/constant/api_endpoint.dart'; // ตรวจสอบพาธให้ถูกต้องตามที่คุณจัดเก็บไฟล์
 
 class ChooseactivityPage extends StatefulWidget {
+  final int? actId;
+  final String? activityName;
+  final String? activityIconPath;
+  final bool isNetworkImage;
+
+  const ChooseactivityPage({
+    super.key,
+    this.actId,
+    this.activityName,
+    this.activityIconPath,
+    this.isNetworkImage = false,
+  });
+
   @override
-  State<ChooseactivityPage> createState() => _DrinkWaterGoalPageState();
+  State<ChooseactivityPage> createState() => _ChooseactivityPageState();
 }
 
-class _DrinkWaterGoalPageState extends State<ChooseactivityPage> {
-  TimeOfDay selectedTime = TimeOfDay(hour: 10, minute: 30);
+class _ChooseactivityPageState extends State<ChooseactivityPage> {
+  // *** แก้ไขตรงนี้: ทำให้ selectedTimes เป็น List เปล่าในตอนแรก ***
+  List<TimeOfDay> selectedTimes = [];
 
   TextEditingController goalController = TextEditingController();
   TextEditingController messageController = TextEditingController();
 
-  bool isWeekSelected = true;
+  bool isWeekSelected = true; // false = Day, true = Week
   int _selectedIndex = 0;
   String selectedUnit = 'Type';
+
+  String? currentUserId;
+
+  @override
+  void initState() {
+    super.initState();
+    _getCurrentUserId();
+  }
+
+  void _getCurrentUserId() {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      setState(() {
+        currentUserId = user.uid;
+      });
+      print('Current User UID: $currentUserId');
+    } else {
+      print('No user is currently logged in.');
+    }
+  }
+
   void _onItemTapped(int index) {
     setState(() {
       _selectedIndex = index;
@@ -53,15 +95,28 @@ class _DrinkWaterGoalPageState extends State<ChooseactivityPage> {
     }
   }
 
-  Future<void> _selectTime() async {
+  Future<void> _addTimeReminder() async {
     final TimeOfDay? picked = await showTimePicker(
       context: context,
-      initialTime: selectedTime,
+      initialTime: TimeOfDay.now(),
     );
-    if (picked != null && picked != selectedTime)
+    if (picked != null) {
       setState(() {
-        selectedTime = picked;
+        // ตรวจสอบว่าเวลานี้ถูกเลือกไปแล้วหรือไม่ เพื่อป้องกันการเพิ่มซ้ำ
+        if (!selectedTimes.contains(picked)) {
+          selectedTimes.add(picked);
+          selectedTimes.sort((a, b) =>
+              (a.hour * 60 + a.minute).compareTo(b.hour * 60 + b.minute));
+        }
       });
+    }
+  }
+
+  // เพิ่มฟังก์ชันสำหรับลบเวลาที่เลือกออก (Optional แต่มีประโยชน์)
+  void _removeTimeReminder(TimeOfDay timeToRemove) {
+    setState(() {
+      selectedTimes.remove(timeToRemove);
+    });
   }
 
   void _showUnitPicker() {
@@ -74,7 +129,7 @@ class _DrinkWaterGoalPageState extends State<ChooseactivityPage> {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(20),
           ),
-          backgroundColor: Color(0xFFE6D2CD),
+          backgroundColor: const Color(0xFFE6D2CD),
           content: StatefulBuilder(
             builder: (context, setState) {
               return Column(
@@ -84,15 +139,24 @@ class _DrinkWaterGoalPageState extends State<ChooseactivityPage> {
                     'เลือกประเภทหน่วย',
                     style: GoogleFonts.kanit(
                       fontSize: 20,
-                      color: Color(0xFF5A4330),
+                      color: const Color(0xFF5A4330),
                     ),
                   ),
-                  SizedBox(height: 16),
+                  const SizedBox(height: 16),
                   Wrap(
                     spacing: 10,
                     runSpacing: 10,
                     alignment: WrapAlignment.center,
-                    children: ['ml', 'm', 'km', 'hr', 'min', 'cal'].map((unit) {
+                    children: [
+                      'ml',
+                      'm',
+                      'km',
+                      'hr',
+                      'min',
+                      'cal',
+                      'ครั้ง',
+                      'เซต'
+                    ].map((unit) {
                       return GestureDetector(
                         onTap: () {
                           setState(() {
@@ -101,12 +165,12 @@ class _DrinkWaterGoalPageState extends State<ChooseactivityPage> {
                           Navigator.pop(context);
                         },
                         child: Container(
-                          padding: EdgeInsets.symmetric(
+                          padding: const EdgeInsets.symmetric(
                               horizontal: 20, vertical: 10),
                           decoration: BoxDecoration(
                             color: selectedUnit == unit
-                                ? Color(0xFF564843)
-                                : Color(0xFFC98993),
+                                ? const Color(0xFF564843)
+                                : const Color(0xFFC98993),
                             borderRadius: BorderRadius.circular(20),
                           ),
                           child: Text(
@@ -120,10 +184,9 @@ class _DrinkWaterGoalPageState extends State<ChooseactivityPage> {
                       );
                     }).toList(),
                   ),
-                  SizedBox(height: 20),
+                  const SizedBox(height: 20),
                   ElevatedButton(
                     onPressed: () {
-                      // เปิด Dialog สำหรับเพิ่มหน่วยใหม่
                       showDialog(
                         context: context,
                         builder: (BuildContext context) {
@@ -131,12 +194,12 @@ class _DrinkWaterGoalPageState extends State<ChooseactivityPage> {
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(20),
                             ),
-                            backgroundColor: Color(0xFFE6D2CD),
+                            backgroundColor: const Color(0xFFE6D2CD),
                             title: Text(
                               'เพิ่มหน่วยใหม่',
                               style: GoogleFonts.kanit(
                                 fontSize: 20,
-                                color: Color(0xFF5A4330),
+                                color: const Color(0xFF5A4330),
                               ),
                             ),
                             content: TextField(
@@ -173,7 +236,7 @@ class _DrinkWaterGoalPageState extends State<ChooseactivityPage> {
                                 child: Text(
                                   'เพิ่ม',
                                   style: GoogleFonts.kanit(
-                                      color: Color(0xFF5A4330)),
+                                      color: const Color(0xFF5A4330)),
                                 ),
                               ),
                             ],
@@ -182,7 +245,7 @@ class _DrinkWaterGoalPageState extends State<ChooseactivityPage> {
                       );
                     },
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: Color(0xFF564843),
+                      backgroundColor: const Color(0xFF564843),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(20),
                       ),
@@ -201,300 +264,453 @@ class _DrinkWaterGoalPageState extends State<ChooseactivityPage> {
     );
   }
 
+  Future<void> _saveActivityDetail() async {
+    if (currentUserId == null) {
+      _showAlertDialog('Error', 'กรุณาเข้าสู่ระบบก่อนบันทึกข้อมูล');
+      return;
+    }
+
+    if (widget.actId == null) {
+      _showAlertDialog('Error', 'ไม่พบ ID กิจกรรม กรุณาลองใหม่');
+      return;
+    }
+
+    // ตรวจสอบข้อมูลที่จำเป็น
+    if (goalController.text.isEmpty ||
+        selectedUnit == 'Type' ||
+        messageController.text.isEmpty ||
+        selectedTimes.isEmpty) {
+      // ตรวจสอบว่ามีเวลาเตือนอย่างน้อยหนึ่งค่า
+      _showAlertDialog('ข้อมูลไม่ครบถ้วน',
+          'กรุณากรอกข้อมูลให้ครบทุกช่อง และเพิ่มเวลาเตือนอย่างน้อย 1 เวลา');
+      return;
+    }
+
+    // แปลง selectedTimes เป็น List<String> ในรูปแบบ "HH:mm"
+    List<String> timeRemindStrings = selectedTimes.map((time) {
+      return '${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}';
+    }).toList();
+
+    // กำหนดค่า 'round' เป็น 'Daily' หรือ 'Weekly' ตาม isWeekSelected
+    String roundValueForDB = isWeekSelected ? 'Week' : 'Day';
+
+    final String apiUrl =
+        '${ApiEndpoints.baseUrl}/api/activityDetail/addActivityDetail';
+
+    try {
+      final response = await http.post(
+        Uri.parse(apiUrl),
+        headers: <String, String>{
+          'Content-Type': 'application/json; charset=UTF-8',
+        },
+        body: jsonEncode(<String, dynamic>{
+          'uid': currentUserId,
+          'act_id': widget.actId,
+          'goal': int.tryParse(goalController.text) ?? 0,
+          'unit': selectedUnit,
+          'round':
+              roundValueForDB, // ส่งค่า 'Daily' หรือ 'Weekly' ไปที่ field 'round'
+          'message': messageController.text,
+          'time_remind': timeRemindStrings,
+          'period':
+              roundValueForDB, // ถ้า backend ต้องการ field 'period' ด้วยก็ส่งค่าเดียวกันไป
+        }),
+      );
+
+      if (response.statusCode == 201) {
+        _showAlertDialog('สำเร็จ', 'บันทึกข้อมูลกิจกรรมเรียบร้อยแล้ว!');
+        // นำทางไปยัง DoingActivity (หรือหน้าอื่นตามต้องการ)
+        Navigator.pushReplacement(
+            context, MaterialPageRoute(builder: (context) => DoingActivity()));
+      } else {
+        final responseData = jsonDecode(response.body);
+        _showAlertDialog('เกิดข้อผิดพลาด',
+            'ไม่สามารถบันทึกข้อมูลได้: ${responseData['message'] ?? response.statusCode}');
+        print(
+            'Failed to save activity detail: ${response.statusCode}, ${response.body}');
+      }
+    } catch (e) {
+      _showAlertDialog('เกิดข้อผิดพลาดในการเชื่อมต่อ',
+          'ไม่สามารถเชื่อมต่อกับเซิร์ฟเวอร์ได้: $e');
+      print('Error sending activity detail: $e');
+    }
+  }
+
+  void _showAlertDialog(String title, String message) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Text(title, style: GoogleFonts.kanit()),
+          content: Text(message, style: GoogleFonts.kanit()),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+              child: Text('OK', style: GoogleFonts.kanit()),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFC98993),
-      body: SingleChildScrollView(
-        child: Column(
-          children: [
-            Stack(
-              children: [
-                Column(
-                  children: [
-                    Container(
-                      color: const Color(0xFF564843),
-                      height: MediaQuery.of(context).padding.top + 80,
-                      width: double.infinity,
-                    ),
-                    SizedBox(height: 60),
-                  ],
-                ),
-                Positioned(
-                  top: MediaQuery.of(context).padding.top + 30,
-                  left: MediaQuery.of(context).size.width / 2 - 50,
-                  child: ClipOval(
-                    child: Image.asset(
-                      'assets/images/logo.png',
-                      width: 100,
-                      height: 100,
-                      fit: BoxFit.cover,
+      body: Stack(
+        children: [
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            child: Container(
+              color: const Color(0xFF564843),
+              height: MediaQuery.of(context).padding.top + 80,
+              width: double.infinity,
+            ),
+          ),
+          Positioned(
+            top: MediaQuery.of(context).padding.top + 30,
+            left: MediaQuery.of(context).size.width / 2 - 50,
+            child: ClipOval(
+              child: Image.asset(
+                'assets/images/logo.png',
+                width: 100,
+                height: 100,
+                fit: BoxFit.cover,
+              ),
+            ),
+          ),
+          Positioned(
+            top: MediaQuery.of(context).padding.top + 16,
+            left: 16,
+            child: GestureDetector(
+              onTap: () {
+                Navigator.pop(context);
+              },
+              child: Row(
+                children: [
+                  const Icon(Icons.arrow_back, color: Colors.white),
+                  const SizedBox(width: 6),
+                  Text(
+                    'ย้อนกลับ',
+                    style: GoogleFonts.kanit(
+                      color: Colors.white,
+                      fontSize: 16,
                     ),
                   ),
-                ),
-                Positioned(
-                  top: MediaQuery.of(context).padding.top + 16,
-                  left: 16,
-                  child: GestureDetector(
-                    onTap: () {
-                      Navigator.pop(context);
-                    },
-                    child: Row(
+                ],
+              ),
+            ),
+          ),
+          Positioned.fill(
+            top: MediaQuery.of(context).padding.top + 80,
+            child: SingleChildScrollView(
+              child: Column(
+                children: [
+                  const SizedBox(height: 60),
+                  Container(
+                    margin: const EdgeInsets.all(16),
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFE6D2CD),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Icon(
-                          Icons.arrow_back,
-                          color: Colors.white,
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.start,
+                          children: [
+                            if (widget.activityIconPath != null &&
+                                widget.activityIconPath!.isNotEmpty)
+                              widget.isNetworkImage
+                                  ? Image.network(
+                                      widget.activityIconPath!,
+                                      width: 40,
+                                      height: 40,
+                                      fit: BoxFit.contain,
+                                      errorBuilder:
+                                          (context, error, stackTrace) {
+                                        return const Icon(
+                                          Icons.broken_image,
+                                          size: 40,
+                                          color: Colors.grey,
+                                        );
+                                      },
+                                    )
+                                  : Image.asset(
+                                      widget.activityIconPath!,
+                                      width: 40,
+                                      height: 40,
+                                      fit: BoxFit.contain,
+                                      errorBuilder:
+                                          (context, error, stackTrace) {
+                                        return const Icon(
+                                          Icons.image_not_supported,
+                                          size: 40,
+                                          color: Colors.grey,
+                                        );
+                                      },
+                                    ),
+                            if (widget.activityIconPath != null &&
+                                widget.activityIconPath!.isNotEmpty)
+                              const SizedBox(width: 10),
+                            Text(
+                              widget.activityName ?? 'ไม่พบชื่อกิจกรรม',
+                              style: GoogleFonts.kanit(
+                                fontSize: 22,
+                                color: const Color(0xFF564843),
+                              ),
+                            ),
+                          ],
                         ),
-                        const SizedBox(width: 6),
+                        const SizedBox(height: 20),
                         Text(
-                          'ย้อนกลับ',
+                          'Goal & Goal Period',
                           style: GoogleFonts.kanit(
-                            color: Colors.white,
+                              fontSize: 16, color: Colors.white),
+                        ),
+                        const SizedBox(height: 8),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Container(
+                                padding:
+                                    const EdgeInsets.symmetric(horizontal: 12),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFF564843),
+                                  borderRadius: BorderRadius.circular(20),
+                                ),
+                                child: TextField(
+                                  controller: goalController,
+                                  keyboardType: TextInputType.number,
+                                  style: GoogleFonts.kanit(color: Colors.white),
+                                  decoration: InputDecoration(
+                                    border: InputBorder.none,
+                                    hintText: 'Goal (เช่น 10)',
+                                    hintStyle: GoogleFonts.kanit(
+                                        color: Colors.white54),
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            GestureDetector(
+                              onTap: _showUnitPicker,
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 12, vertical: 6),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFEFEAE3),
+                                  borderRadius: BorderRadius.circular(20),
+                                ),
+                                child: Text(
+                                  selectedUnit,
+                                  style: GoogleFonts.kanit(
+                                    fontSize: 16,
+                                    color: const Color(0xFFC98993),
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            // ส่วนที่เลือก Day/Week
+                            Row(
+                              children: [
+                                GestureDetector(
+                                  onTap: () {
+                                    setState(() {
+                                      isWeekSelected = false; // เลือก Day
+                                    });
+                                  },
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 12, vertical: 6),
+                                    decoration: BoxDecoration(
+                                      color: isWeekSelected
+                                          ? const Color(0xFFF5E6E6)
+                                          : const Color(0xFFC98993),
+                                      borderRadius: BorderRadius.circular(20),
+                                    ),
+                                    child: Text(
+                                      'Day',
+                                      style: GoogleFonts.kanit(
+                                        color: isWeekSelected
+                                            ? const Color(0xFF5A4330)
+                                            : Colors.white,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 4),
+                                GestureDetector(
+                                  onTap: () {
+                                    setState(() {
+                                      isWeekSelected = true; // เลือก Week
+                                    });
+                                  },
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 12, vertical: 6),
+                                    decoration: BoxDecoration(
+                                      color: isWeekSelected
+                                          ? const Color(0xFFC98993)
+                                          : const Color(0xFFF5E6E6),
+                                      borderRadius: BorderRadius.circular(20),
+                                    ),
+                                    child: Text(
+                                      'Week',
+                                      style: GoogleFonts.kanit(
+                                        color: isWeekSelected
+                                            ? Colors.white
+                                            : const Color(0xFF5A4330),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 20),
+                        Text(
+                          'Reminders',
+                          style: GoogleFonts.kanit(
                             fontSize: 16,
+                            color: Colors.white,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFC98993),
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: Text(
+                            isWeekSelected ? 'Week' : 'Day', // แสดงผลการเลือก
+                            style: GoogleFonts.kanit(color: Colors.white),
+                          ),
+                        ),
+                        const SizedBox(height: 20),
+                        Text(
+                          'Time reminders',
+                          style: GoogleFonts.kanit(
+                            fontSize: 16,
+                            color: Colors.white,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        // *** ปรับปรุง Logic การแสดงผลตรงนี้ ***
+                        Wrap(
+                          spacing: 10,
+                          runSpacing: 10,
+                          children: [
+                            // แสดงเวลาที่เลือกเท่านั้น ถ้ามี
+                            ...selectedTimes.map((time) => Container(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 20, vertical: 10),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFF564843),
+                                    borderRadius: BorderRadius.circular(20),
+                                  ),
+                                  child: Row(
+                                    // ใช้ Row เพื่อรวมเวลาและปุ่มลบ
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Text(
+                                        time.format(context),
+                                        style: GoogleFonts.kanit(
+                                            color: Colors.white),
+                                      ),
+                                      // ปุ่มสำหรับลบเวลา (Optional)
+                                      GestureDetector(
+                                        onTap: () => _removeTimeReminder(time),
+                                        child: const Padding(
+                                          padding: EdgeInsets.only(left: 8.0),
+                                          child: Icon(
+                                            Icons.close,
+                                            color: Colors.white,
+                                            size: 16,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                )),
+                            // ปุ่มเพิ่มเวลา จะแสดงเสมอ
+                            GestureDetector(
+                              onTap: _addTimeReminder,
+                              child: Container(
+                                padding: const EdgeInsets.all(8),
+                                decoration: const BoxDecoration(
+                                  color: Color(0xFFF5E6E6),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: const Icon(Icons.add,
+                                    color: Color(0xFF5A4330)),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 20),
+                        Text(
+                          'Reminders message',
+                          style: GoogleFonts.kanit(
+                            fontSize: 16,
+                            color: Colors.white,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFC98993),
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: TextField(
+                            controller: messageController,
+                            style: GoogleFonts.kanit(color: Colors.white),
+                            decoration: InputDecoration(
+                              border: InputBorder.none,
+                              hintText: 'Input Reminders message....',
+                              hintStyle:
+                                  GoogleFonts.kanit(color: Colors.white70),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 30),
+                        Center(
+                          child: ElevatedButton(
+                            onPressed: _saveActivityDetail,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFF564843),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 50, vertical: 14),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                            ),
+                            child: Text(
+                              'Complete',
+                              style: GoogleFonts.kanit(
+                                  fontSize: 18, color: Colors.white),
+                            ),
                           ),
                         ),
                       ],
                     ),
                   ),
-                ),
-              ],
-            ),
-            SizedBox(height: 20),
-            Container(
-              margin: EdgeInsets.all(16),
-              padding: EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: Color(0xFFFE6D2CD),
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Drink Water',
-                    style: GoogleFonts.kanit(
-                      fontSize: 22,
-                      color: Color(0xFF564843),
-                    ),
-                  ),
-                  SizedBox(height: 20),
-                  Text(
-                    'Goal & Goal Period',
-                    style: GoogleFonts.kanit(fontSize: 16, color: Colors.white),
-                  ),
-                  SizedBox(height: 8),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Container(
-                          padding: EdgeInsets.symmetric(horizontal: 12),
-                          decoration: BoxDecoration(
-                            color: Color(0xFF564843),
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                          child: TextField(
-                            controller: goalController,
-                            keyboardType: TextInputType.number,
-                            style: GoogleFonts.kanit(color: Colors.white),
-                            decoration: InputDecoration(
-                              border: InputBorder.none,
-                              hintText: 'add...',
-                              hintStyle:
-                                  GoogleFonts.kanit(color: Colors.white54),
-                            ),
-                          ),
-                        ),
-                      ),
-                      SizedBox(width: 8),
-                      SizedBox(width: 8),
-                      GestureDetector(
-                        onTap: _showUnitPicker,
-                        child: Container(
-                          padding:
-                              EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                          decoration: BoxDecoration(
-                            color: Color(0xFFEFEAE3),
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                          child: Text(
-                            '$selectedUnit ',
-                            style: GoogleFonts.kanit(
-                              fontSize: 16,
-                              color: Color(0xFFC98993),
-                            ),
-                          ),
-                        ),
-                      ),
-                      SizedBox(width: 8),
-                      Row(
-                        children: [
-                          GestureDetector(
-                            onTap: () {
-                              setState(() {
-                                isWeekSelected = false; // เลือก Day
-                              });
-                            },
-                            child: Container(
-                              padding: EdgeInsets.symmetric(
-                                  horizontal: 12, vertical: 6),
-                              decoration: BoxDecoration(
-                                color: isWeekSelected
-                                    ? Color(0xFFF5E6E6)
-                                    : Color(0xFFC98993),
-                                borderRadius: BorderRadius.circular(20),
-                              ),
-                              child: Text(
-                                'Day',
-                                style: GoogleFonts.kanit(
-                                  color: isWeekSelected
-                                      ? Color(0xFF5A4330)
-                                      : Colors.white,
-                                ),
-                              ),
-                            ),
-                          ),
-                          SizedBox(width: 4),
-                          GestureDetector(
-                            onTap: () {
-                              setState(() {
-                                isWeekSelected = true; // เลือก Week
-                              });
-                            },
-                            child: Container(
-                              padding: EdgeInsets.symmetric(
-                                  horizontal: 12, vertical: 6),
-                              decoration: BoxDecoration(
-                                color: isWeekSelected
-                                    ? Color(0xFFC98993)
-                                    : Color(0xFFF5E6E6),
-                                borderRadius: BorderRadius.circular(20),
-                              ),
-                              child: Text(
-                                'Week',
-                                style: GoogleFonts.kanit(
-                                  color: isWeekSelected
-                                      ? Colors.white
-                                      : Color(0xFF5A4330),
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                  SizedBox(height: 20),
-                  Text(
-                    'Reminders',
-                    style: GoogleFonts.kanit(
-                      fontSize: 16,
-                      color: Colors.white,
-                    ),
-                  ),
-                  SizedBox(height: 8),
-                  Container(
-                    padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: Color(0xFFC98993),
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Text(
-                      'Day',
-                      style: GoogleFonts.kanit(color: Colors.white),
-                    ),
-                  ),
-                  SizedBox(height: 20),
-                  Text(
-                    'Time reminders',
-                    style: GoogleFonts.kanit(
-                      fontSize: 16,
-                      color: Colors.white,
-                    ),
-                  ),
-                  SizedBox(height: 8),
-                  Row(
-                    children: [
-                      Container(
-                        padding:
-                            EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-                        decoration: BoxDecoration(
-                          color: Color(0xFF564843),
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: Text(
-                          '${selectedTime.format(context)}',
-                          style: GoogleFonts.kanit(color: Colors.white),
-                        ),
-                      ),
-                      SizedBox(width: 10),
-                      GestureDetector(
-                        onTap: _selectTime,
-                        child: Container(
-                          padding: EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: Color(0xFFF5E6E6),
-                            shape: BoxShape.circle,
-                          ),
-                          child: Icon(Icons.add, color: Color(0xFF5A4330)),
-                        ),
-                      ),
-                    ],
-                  ),
-                  SizedBox(height: 20),
-                  Text(
-                    'Reminders message',
-                    style: GoogleFonts.kanit(
-                      fontSize: 16,
-                      color: Colors.white,
-                    ),
-                  ),
-                  SizedBox(height: 8),
-                  Container(
-                    padding: EdgeInsets.symmetric(horizontal: 12),
-                    decoration: BoxDecoration(
-                      color: Color(0xFFC98993),
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: TextField(
-                      controller: messageController,
-                      style: GoogleFonts.kanit(color: Colors.white),
-                      decoration: InputDecoration(
-                        border: InputBorder.none,
-                        hintText: 'Input Reminders message....',
-                        hintStyle: GoogleFonts.kanit(color: Colors.white70),
-                      ),
-                    ),
-                  ),
-                  SizedBox(height: 30),
-                  Center(
-                    child: ElevatedButton(
-                      onPressed: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                              builder: (context) => DoingActivity()),
-                        );
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Color(0xFF564843),
-                        padding:
-                            EdgeInsets.symmetric(horizontal: 50, vertical: 14),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                      ),
-                      child: Text(
-                        'Complete',
-                        style: GoogleFonts.kanit(
-                            fontSize: 18, color: Colors.white),
-                      ),
-                    ),
-                  )
                 ],
               ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
       bottomNavigationBar: BottomNavigationBar(
         backgroundColor: const Color(0xFFE6D2CD),
