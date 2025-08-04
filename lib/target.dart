@@ -13,7 +13,7 @@ class Targetpage extends StatefulWidget {
 }
 
 class _TargetpageScreenState extends State<Targetpage> {
-  int _selectedIndex = 0; 
+  int _selectedIndex = 0;
 
   void _onItemTapped(int index) {
     setState(() {
@@ -80,7 +80,7 @@ class _TargetpageScreenState extends State<Targetpage> {
                               Row(
                                 children: [
                                   Image.asset(
-                                    'assets/images/expectional.png', 
+                                    'assets/images/expectional.png',
                                     width: 24,
                                     height: 24,
                                   ),
@@ -95,12 +95,11 @@ class _TargetpageScreenState extends State<Targetpage> {
                                   ),
                                 ],
                               ),
-
                               const SizedBox(height: 16),
-                              TaskCard(label: 'Dring Water'),
-                              TaskCard(label: 'Eat'),
-                              TaskCard(label: 'Maditation'),
-                              TaskCard(label: 'Walk'),
+                              TaskCard(label: 'Dring Water', actId: 1),
+                              TaskCard(label: 'Eat', actId: 2),
+                              TaskCard(label: 'Maditation', actId: 3),
+                              TaskCard(label: 'Walk', actId: 4),
                             ],
                           ),
                         ),
@@ -186,8 +185,8 @@ class _TargetpageScreenState extends State<Targetpage> {
 
 class TaskCard extends StatelessWidget {
   final String label;
-
-  const TaskCard({super.key, required this.label});
+final int actId;
+  const TaskCard({super.key, required this.label, required this.actId});
 
   @override
   Widget build(BuildContext context) {
@@ -219,7 +218,7 @@ class TaskCard extends StatelessWidget {
         onTap: () {
           Navigator.push(
             context,
-            MaterialPageRoute(builder: (context) => const ExpectationScreen()),
+            MaterialPageRoute(builder: (context) => ExpectationScreen(actId: actId)),
           );
         },
       ),
