@@ -9,7 +9,7 @@ import 'package:pj1/grap.dart';
 import 'package:pj1/mains.dart';
 import 'package:pj1/set_time.dart';
 import 'package:pj1/target.dart';
-
+import 'package:pj1/constant/api_endpoint.dart';
 class DoingActivity extends StatefulWidget {
   const DoingActivity({super.key});
 
@@ -45,7 +45,7 @@ class _DoingActivityState extends State<DoingActivity> {
     try {
       final detailResponse = await http.get(
         Uri.parse(
-            'https://95544ee3ed3a.ngrok-free.app/api/activityDetail/activity-detail?uid=$currentUserId'),
+            '${ApiEndpoints.baseUrl}/api/activityDetail/activity-detail?uid=$currentUserId'),
       );
 
       if (detailResponse.statusCode != 200) {
@@ -59,7 +59,7 @@ class _DoingActivityState extends State<DoingActivity> {
 
       final activityResponse = await http.get(
         Uri.parse(
-            'https://95544ee3ed3a.ngrok-free.app/api/activity/getAct?uid=$currentUserId'),
+            '${ApiEndpoints.baseUrl}/api/activity/getAct?uid=$currentUserId'),
       );
 
       if (activityResponse.statusCode != 200) {
@@ -106,7 +106,7 @@ class _DoingActivityState extends State<DoingActivity> {
   Future<void> _deleteActivity(String actDetailId) async {
     final response = await http.delete(
       Uri.parse(
-          'https://67a98d9641d0.ngrok-free.app/api/activityDetail/activity-detail/$actDetailId'),
+          '${ApiEndpoints.baseUrl}/api/activityDetail/activity-detail/$actDetailId'),
     );
 
     if (response.statusCode == 200) {
