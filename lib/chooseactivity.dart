@@ -319,9 +319,12 @@ class _ChooseactivityPageState extends State<ChooseactivityPage> {
 
       if (response.statusCode == 201) {
         _showAlertDialog('สำเร็จ', 'บันทึกข้อมูลกิจกรรมเรียบร้อยแล้ว!');
-        // นำทางไปยัง DoingActivity (หรือหน้าอื่นตามต้องการ)
         Navigator.pushReplacement(
-            context, MaterialPageRoute(builder: (context) => DoingActivity()));
+          context,
+          MaterialPageRoute(
+            builder: (context) => const HomePage(),
+          ),
+        );
       } else {
         final responseData = jsonDecode(response.body);
         _showAlertDialog('เกิดข้อผิดพลาด',
