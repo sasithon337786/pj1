@@ -501,7 +501,10 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
             left: 16,
             child: GestureDetector(
               onTap: () {
-                Navigator.pop(context);
+                Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(builder: (context) => const HomePage()),
+                );
               },
               child: Row(
                 children: [

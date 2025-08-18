@@ -4,10 +4,13 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:http/http.dart' as http;
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:pj1/Increase_activity.dart';
 
 import 'package:pj1/account.dart';
 import 'package:pj1/add.dart';
+import 'package:pj1/calendar_page.dart';
 import 'package:pj1/grap.dart';
+import 'package:pj1/set_time.dart';
 import 'package:pj1/target.dart';
 import 'package:pj1/constant/api_endpoint.dart'; // ใช้ baseUrl เดียวกันทุกที่
 
@@ -28,6 +31,34 @@ class _HomePageState extends State<HomePage> {
   void initState() {
     super.initState();
     _initAuthAndLoad();
+  }
+
+  // >>> NEW: ปุ่มไปปฏิทิน (ตอนนี้ให้เป็น SnackBar ถ้ายังไม่มีหน้า Calendar)
+  void _goToCalendar() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const CalendarPage()),
+    );
+  }
+
+  // <<< END NEW
+
+  // >>> ฟังก์ชันเช็คหน่วยเวลา (ตัด 'm' ออกเพื่อไม่ให้ชนกับ meter)
+  bool _isTimeUnit(String? unitRaw) {
+    if (unitRaw == null) return false;
+    final u = unitRaw.trim().toLowerCase();
+
+    // หน่วยเวลาที่รองรับ
+    const timeUnits = {
+      // ไทย
+      'วินาที', 'นาที', 'ชั่วโมง',
+      // อังกฤษ เอกพจน์/พหูพจน์/ตัวย่อ (ตามที่น้องระบุ)
+      'sec', 'second', 'secs', 'seconds',
+      'min', 'minute', 'mins', 'minutes',
+      'hr', 'hour', 'hrs', 'hours',
+    };
+
+    return timeUnits.contains(u);
   }
 
   void _initAuthAndLoad() {
@@ -81,11 +112,17 @@ class _HomePageState extends State<HomePage> {
         final actId = detail['act_id']?.toString() ?? '';
         final master = activityMap[actId];
 
+        // ดึงหน่วย เผื่อแบ็กเอนด์ใช้ชื่อฟิลด์ต่างกัน
+        final unit =
+            (detail['unit'] ?? detail['goal_unit'] ?? detail['act_unit'] ?? '')
+                ?.toString();
+
         combined.add({
           'act_detail_id': detail['act_detail_id']?.toString() ?? '',
           'act_name': master?['act_name'] ?? 'Unknown Activity',
           'icon_path': master?['icon_path'] ?? '',
           'goal': detail['goal']?.toString() ?? '-',
+          'unit': unit ?? '',
         });
       }
 
@@ -238,7 +275,7 @@ class _HomePageState extends State<HomePage> {
                             );
                           }
 
-                          // ล็อกอิน + มี activity → แสดงลิสต์ (DoingActivity เดิม)
+                          // ล็อกอิน + มี activity → แสดงลิสต์
                           return RefreshIndicator(
                             onRefresh: () async => _reload(),
                             child: ListView.builder(
@@ -247,21 +284,68 @@ class _HomePageState extends State<HomePage> {
                               itemCount: items.length + 1, // +1 สำหรับหัวข้อ
                               itemBuilder: (context, index) {
                                 if (index == 0) {
+                                  // >>> NEW: หัวข้อ Your Activity + ปุ่มปฏิทิน (ขวา)
                                   return Padding(
                                     padding: const EdgeInsets.only(
-                                        top: 50, bottom: 12),
+                                      top: 50,
+                                      bottom: 12,
+                                    ),
                                     child: Row(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.spaceBetween,
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.center,
                                       children: [
-                                        Image.asset('assets/icons/profile.png',
-                                            width: 24, height: 24),
-                                        const SizedBox(width: 8),
-                                        Text('Your Activity',
-                                            style: GoogleFonts.kanit(
+                                        Row(
+                                          children: [
+                                            Image.asset(
+                                              'assets/icons/accc.png',
+                                              width: 30,
+                                              height: 30,
+                                            ),
+                                            const SizedBox(width: 8),
+                                            Text(
+                                              'Your Activity',
+                                              style: GoogleFonts.kanit(
                                                 color: Colors.white,
-                                                fontSize: 24)),
+                                                fontSize: 24,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                        // ปุ่มดูปฏิทินของฉัน (ด้านขวา)
+                                        ElevatedButton.icon(
+                                          onPressed: _goToCalendar,
+                                          style: ElevatedButton.styleFrom(
+                                            backgroundColor:
+                                                const Color(0xFF564843),
+                                            shape: RoundedRectangleBorder(
+                                              borderRadius:
+                                                  BorderRadius.circular(12),
+                                            ),
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 10,
+                                              vertical: 6,
+                                            ),
+                                            elevation: 0,
+                                          ),
+                                          icon: const Icon(
+                                            Icons.calendar_today,
+                                            size: 16,
+                                            color: Colors.white,
+                                          ),
+                                          label: Text(
+                                            'ปฏิทินความสำเร็จ',
+                                            style: GoogleFonts.kanit(
+                                              color: Colors.white,
+                                              fontSize: 14,
+                                            ),
+                                          ),
+                                        ),
                                       ],
                                     ),
                                   );
+                                  // <<< END NEW
                                 }
 
                                 final activity = items[index - 1];
@@ -272,6 +356,8 @@ class _HomePageState extends State<HomePage> {
                                     (activity['act_name'] ?? '') as String;
                                 final goal =
                                     (activity['goal'] ?? '-') as String;
+                                final unit = (activity['unit'] ?? '')
+                                    .toString(); // << ดึง unit
                                 final actDetailId =
                                     (activity['act_detail_id'] ?? '') as String;
 
@@ -280,10 +366,43 @@ class _HomePageState extends State<HomePage> {
                                   isNetworkImage: isNetwork,
                                   label: label,
                                   goal: goal,
+                                  unit: unit, // << ส่ง unit ไปการ์ด
                                   onDelete: () => _showDeleteConfirmationDialog(
                                       actDetailId),
+
+                                  // >>> ตรงนี้คือ onTap ที่พาไปหน้าตามหน่วย
                                   onTap: () {
-                                    // ถ้าจะไปหน้าโหมดจับเวลา/บันทึก ทำที่นี่
+                                    if (_isTimeUnit(unit)) {
+                                      // ไปหน้า CountdownPage (โหมดจับเวลา)
+                                      Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (_) => CountdownPage(
+                                            actDetailId: actDetailId,
+                                            actName: label,
+                                            goal: goal,
+                                            unit: unit,
+                                            imageSrc:
+                                                iconPath, // << ส่ง path/URL รูปมากับพารามิเตอร์นี้
+                                          ),
+                                        ),
+                                      );
+                                    } else {
+                                      // ไปหน้า Increaseactivity (โหมดเพิ่มค่า)
+                                      Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (_) => Increaseactivity(
+                                            actDetailId: actDetailId,
+                                            actName: label,
+                                            goal: goal,
+                                            unit: unit,
+                                            imageSrc:
+                                                iconPath, // <<<< ส่ง path/URL รูปมากับพารามิเตอร์นี้
+                                          ),
+                                        ),
+                                      );
+                                    }
                                   },
                                 );
                               },
@@ -316,25 +435,6 @@ class _HomePageState extends State<HomePage> {
               ),
             ),
           ),
-
-          // ปุ่มย้อนกลับ (ถ้าหนูไม่อยากให้มีใน Home ก็ลบทิ้งได้)
-          // Positioned(
-          //   top: MediaQuery.of(context).padding.top + 16,
-          //   left: 16,
-          //   child: GestureDetector(
-          //     onTap: () => Navigator.maybePop(context),
-          //     child: Row(
-          //       children: [
-          //         const Icon(Icons.arrow_back, color: Colors.white),
-          //         const SizedBox(width: 6),
-          //         Text(
-          //           'ย้อนกลับ',
-          //           style: GoogleFonts.kanit(color: Colors.white, fontSize: 16),
-          //         ),
-          //       ],
-          //     ),
-          //   ),
-          // ),
         ],
       ),
 
@@ -377,6 +477,7 @@ class _TaskCard extends StatelessWidget {
   final String iconPath;
   final String label;
   final String goal;
+  final String unit; // ใช้แค่แสดงผล
   final bool isNetworkImage;
   final VoidCallback? onTap;
   final VoidCallback? onDelete;
@@ -385,6 +486,7 @@ class _TaskCard extends StatelessWidget {
     required this.iconPath,
     required this.label,
     required this.goal,
+    required this.unit,
     required this.isNetworkImage,
     this.onTap,
     this.onDelete,
@@ -392,47 +494,43 @@ class _TaskCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    Widget imageWidget;
-
-    if (isNetworkImage) {
-      imageWidget = iconPath.isEmpty
-          ? Image.asset('assets/images/no_image.png',
-              width: 48, height: 48, fit: BoxFit.contain)
-          : ClipRRect(
-              borderRadius: BorderRadius.circular(8),
-              child: Image.network(
-                iconPath,
-                width: 48,
-                height: 48,
-                fit: BoxFit.cover,
-                errorBuilder: (context, error, stackTrace) => Image.asset(
-                  'assets/images/no_image.png',
+    final Widget imageWidget = isNetworkImage
+        ? (iconPath.isEmpty
+            ? Image.asset('assets/images/no_image.png',
+                width: 48, height: 48, fit: BoxFit.contain)
+            : ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: Image.network(
+                  iconPath,
+                  width: 48,
+                  height: 48,
+                  fit: BoxFit.cover,
+                  errorBuilder: (context, error, stackTrace) => Image.asset(
+                    'assets/images/no_image.png',
+                    width: 48,
+                    height: 48,
+                    fit: BoxFit.contain,
+                  ),
+                ),
+              ))
+        : (iconPath.isEmpty
+            ? Image.asset('assets/images/no_image.png',
+                width: 48, height: 48, fit: BoxFit.contain)
+            : ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: Image.asset(
+                  iconPath,
                   width: 48,
                   height: 48,
                   fit: BoxFit.contain,
+                  errorBuilder: (context, error, stackTrace) => Image.asset(
+                    'assets/images/no_image.png',
+                    width: 48,
+                    height: 48,
+                    fit: BoxFit.contain,
+                  ),
                 ),
-              ),
-            );
-    } else {
-      imageWidget = iconPath.isEmpty
-          ? Image.asset('assets/images/no_image.png',
-              width: 48, height: 48, fit: BoxFit.contain)
-          : ClipRRect(
-              borderRadius: BorderRadius.circular(8),
-              child: Image.asset(
-                iconPath,
-                width: 48,
-                height: 48,
-                fit: BoxFit.contain,
-                errorBuilder: (context, error, stackTrace) => Image.asset(
-                  'assets/images/no_image.png',
-                  width: 48,
-                  height: 48,
-                  fit: BoxFit.contain,
-                ),
-              ),
-            );
-    }
+              ));
 
     return Card(
       color: const Color(0xFFF3E1E1),
@@ -460,7 +558,7 @@ class _TaskCard extends StatelessWidget {
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Text(
-                'Goal: $goal',
+                '$goal${unit.isNotEmpty ? ' $unit' : ''}',
                 style: GoogleFonts.kanit(
                   fontSize: 14,
                   color: const Color(0xFFFAFAFA),
@@ -473,7 +571,7 @@ class _TaskCard extends StatelessWidget {
             ),
           ],
         ),
-        onTap: onTap,
+        onTap: onTap, // <-- ให้ parent เป็นคนตัดสินใจว่าจะไปหน้าไหน
       ),
     );
   }

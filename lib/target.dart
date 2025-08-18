@@ -128,7 +128,10 @@ class _TargetpageScreenState extends State<Targetpage> {
             left: 16,
             child: GestureDetector(
               onTap: () {
-                Navigator.pop(context);
+                Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(builder: (context) => const HomePage()),
+                );
               },
               child: Row(
                 children: [
@@ -185,7 +188,7 @@ class _TargetpageScreenState extends State<Targetpage> {
 
 class TaskCard extends StatelessWidget {
   final String label;
-final int actId;
+  final int actId;
   const TaskCard({super.key, required this.label, required this.actId});
 
   @override
@@ -218,7 +221,8 @@ final int actId;
         onTap: () {
           Navigator.push(
             context,
-            MaterialPageRoute(builder: (context) => ExpectationScreen(actId: actId)),
+            MaterialPageRoute(
+                builder: (context) => ExpectationScreen(actId: actId)),
           );
         },
       ),
