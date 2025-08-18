@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:pj1/account.dart';
 import 'package:pj1/constant/api_endpoint.dart';
-import 'package:pj1/doing_activity.dart';
 import 'package:pj1/grap.dart';
 import 'package:pj1/mains.dart';
 import 'package:pj1/target.dart';
