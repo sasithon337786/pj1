@@ -249,11 +249,11 @@ class _AccountPageState extends State<AccountPage> {
                       style: GoogleFonts.kanit(color: Colors.black87),
                       items: const [
                         DropdownMenuItem(
-                            value: 'ลบบัญชี', child: Text('ลบบัญชี')),
+                            value: 'delete', child: Text('ลบบัญชี')),
                         DropdownMenuItem(
-                            value: 'ระงับบัญชี', child: Text('ระงับบัญชี')),
+                            value: 'suspend', child: Text('ระงับบัญชี')),
                         DropdownMenuItem(
-                            value: 'ยกเลิกระงับบัญชี',
+                            value: 'unsuspend',
                             child: Text('ยกเลิกระงับบัญชี')),
                       ],
                       onChanged: (v) => setDState(() => _type = v),
