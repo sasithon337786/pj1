@@ -231,17 +231,17 @@ class _AccountPageState extends State<AccountPage> {
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    TextFormField(
-                      controller: _textCtrl,
-                      maxLines: 3,
-                      decoration:
-                          _dialogFieldDecoration('Input your expectations....'),
-                      style: GoogleFonts.kanit(),
-                      validator: (v) => (v == null || v.trim().isEmpty)
-                          ? 'กรุณากรอกข้อความคำร้อง'
-                          : null,
-                    ),
-                    const SizedBox(height: 12),
+                    // TextFormField(
+                    //   controller: _textCtrl,
+                    //   maxLines: 3,
+                    //   decoration:
+                    //       _dialogFieldDecoration('Input your expectations....'),
+                    //   style: GoogleFonts.kanit(),
+                    //   validator: (v) => (v == null || v.trim().isEmpty)
+                    //       ? 'กรุณากรอกข้อความคำร้อง'
+                    //       : null,
+                    // ),
+                    // const SizedBox(height: 12),
                     DropdownButtonFormField<String>(
                       value: _type,
                       decoration: _dialogFieldDecoration('เลือกคำร้อง......'),
