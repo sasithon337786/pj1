@@ -367,40 +367,43 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
                   child: Column(
                     children: [
                       // ปุ่มจัดการหมวดหมู่
-                      Align(
-                        alignment: Alignment.topRight,
-                        child: Padding(
-                          padding: const EdgeInsets.all(16.0),
-                          child: ElevatedButton(
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFF564843),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 12, vertical: 6),
-                            ),
-                            onPressed: () async {
-                              await showDialog(
-                                context: context,
-                                builder: (context) => ManageCategoriesDialog(
-                                  onCategoriesUpdated: () {
-                                    loadUserCategories();
-                                  },
+                      const SizedBox(height: 40),
+                      if (userRole == 'admin')
+                      
+                        Align(
+                          alignment: Alignment.topRight,
+                          child: Padding(
+                            padding: const EdgeInsets.all(16.0),
+                            child: ElevatedButton(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFF564843),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
                                 ),
-                              );
-                              loadUserCategories();
-                            },
-                            child: Text(
-                              'จัดการหมวดหมู่',
-                              style: GoogleFonts.kanit(
-                                color: Colors.white,
-                                fontSize: 14,
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 12, vertical: 6),
+                              ),
+                              onPressed: () async {
+                                await showDialog(
+                                  context: context,
+                                  builder: (context) => ManageCategoriesDialog(
+                                    onCategoriesUpdated: () {
+                                      loadUserCategories();
+                                    },
+                                  ),
+                                );
+                                loadUserCategories();
+                              },
+                              child: Text(
+                                'จัดการหมวดหมู่',
+                                style: GoogleFonts.kanit(
+                                  color: Colors.white,
+                                  fontSize: 14,
+                                ),
                               ),
                             ),
                           ),
                         ),
-                      ),
                       const SizedBox(height: 16),
                       // แสดงหมวดหมู่
                       Padding(

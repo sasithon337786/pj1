@@ -289,33 +289,36 @@ class _ManageCategoriesDialogState extends State<ManageCategoriesDialog> {
                                     fontSize: 18,
                                     color: const Color(0xFF564843)),
                               ),
-                              trailing: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  IconButton(
-                                    icon: const Icon(Icons.edit,
-                                        color: Color(0xFF564843)),
-                                    onPressed: () async {
-                                      final bool? result = await showDialog(
-                                        context: context,
-                                        builder: (context) =>
-                                            EditCategoryDialog(
-                                                category: category),
-                                      );
-                                      if (result == true) {
-                                        _loadUserCategoriesForManagement();
-                                        widget.onCategoriesUpdated.call();
-                                      }
-                                    },
-                                  ),
-                                  IconButton(
-                                    icon: const Icon(Icons.delete,
-                                        color: Color(0xFFC98993)),
-                                    onPressed: () => _deleteCategory(
-                                        category.id, category.label),
-                                  ),
-                                ],
-                              ),
+                              trailing: userRole == 'admin'
+                                  ? Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        IconButton(
+                                          icon: const Icon(Icons.edit,
+                                              color: Color(0xFF564843)),
+                                          onPressed: () async {
+                                            final bool? result =
+                                                await showDialog(
+                                              context: context,
+                                              builder: (context) =>
+                                                  EditCategoryDialog(
+                                                      category: category),
+                                            );
+                                            if (result == true) {
+                                              _loadUserCategoriesForManagement();
+                                              widget.onCategoriesUpdated.call();
+                                            }
+                                          },
+                                        ),
+                                        IconButton(
+                                          icon: const Icon(Icons.delete,
+                                              color: Color(0xFFC98993)),
+                                          onPressed: () => _deleteCategory(
+                                              category.id, category.label),
+                                        ),
+                                      ],
+                                    )
+                                  : null, // 👈 ถ้าไม่ใช่ admin จะไม่มีปุ่มแก้ไข/ลบ
                             ),
                           );
                         },
