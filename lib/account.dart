@@ -258,7 +258,7 @@ class _AccountPageState extends State<AccountPage> {
                       ],
                       onChanged: (v) => setDState(() => _type = v),
                       validator: (v) =>
-                          v == null ? 'กรุณาเลือกประเภทคำร้อง' : null,
+                            v == null ? 'กรุณาเลือกประเภทคำร้อง' : null,
                     ),
                   ],
                 ),
@@ -644,6 +644,7 @@ class _AccountPageState extends State<AccountPage> {
         unselectedFontSize: 17,
         type: BottomNavigationBarType.fixed,
         currentIndex: _selectedIndex,
+        //if status = suspend => not show navigation bar
         onTap: _onItemTapped,
         items: [
           BottomNavigationBarItem(
