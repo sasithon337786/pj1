@@ -231,7 +231,6 @@ class _AccountPageState extends State<AccountPage> {
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-<<<<<<< HEAD
                     TextFormField(
                       controller: _textCtrl,
                       maxLines: 3,
@@ -243,19 +242,6 @@ class _AccountPageState extends State<AccountPage> {
                           : null,
                     ),
                     const SizedBox(height: 12),
-=======
-                    // TextFormField(
-                    //   controller: _textCtrl,
-                    //   maxLines: 3,
-                    //   decoration:
-                    //       _dialogFieldDecoration('Input your expectations....'),
-                    //   style: GoogleFonts.kanit(),
-                    //   validator: (v) => (v == null || v.trim().isEmpty)
-                    //       ? 'กรุณากรอกข้อความคำร้อง'
-                    //       : null,
-                    // ),
-                    // const SizedBox(height: 12),
->>>>>>> 112abfcaf875c0a5f41170babd93e72e081d03e0
                     DropdownButtonFormField<String>(
                       value: _type,
                       decoration: _dialogFieldDecoration('เลือกคำร้อง......'),
@@ -263,19 +249,11 @@ class _AccountPageState extends State<AccountPage> {
                       style: GoogleFonts.kanit(color: Colors.black87),
                       items: const [
                         DropdownMenuItem(
-<<<<<<< HEAD
                             value: 'ลบบัญชี', child: Text('ลบบัญชี')),
                         DropdownMenuItem(
                             value: 'ระงับบัญชี', child: Text('ระงับบัญชี')),
                         DropdownMenuItem(
                             value: 'ยกเลิกระงับบัญชี',
-=======
-                            value: 'delete', child: Text('ลบบัญชี')),
-                        DropdownMenuItem(
-                            value: 'suspend', child: Text('ระงับบัญชี')),
-                        DropdownMenuItem(
-                            value: 'unsuspend',
->>>>>>> 112abfcaf875c0a5f41170babd93e72e081d03e0
                             child: Text('ยกเลิกระงับบัญชี')),
                       ],
                       onChanged: (v) => setDState(() => _type = v),

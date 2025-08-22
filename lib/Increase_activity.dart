@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:pj1/account.dart';
@@ -6,12 +5,18 @@ import 'package:pj1/grap.dart';
 import 'package:pj1/mains.dart';
 import 'package:pj1/target.dart';
 
+// ====== REST ======
+import 'dart:convert';
+import 'package:http/http.dart' as http;
+import 'package:pj1/constant/api_endpoint.dart';
+// ===================
+
 class Increaseactivity extends StatefulWidget {
-  final String actName; // ชื่อกิจกรรมที่กดมา
-  final String unit; // หน่วยของกิจกรรม (เช่น แก้ว, ml, km)
-  final String actDetailId; // ไว้ใช้ส่งต่อ/บันทึกภายหลัง
-  final String? goal; // เป้าหมายรวม (เช่น 3000)
-  final String? imageSrc; // รูปกิจกรรม (asset หรือ URL)
+  final String actName; // ชื่อกิจกรรม
+  final String unit; // หน่วย (ml, km, hr, ครั้ง ฯลฯ)
+  final String actDetailId; // id ของ activity_detail
+  final String? goal; // เป้าหมายรวม (string)
+  final String? imageSrc; // asset หรือ URL
 
   const Increaseactivity({
     super.key,
@@ -29,16 +34,72 @@ class Increaseactivity extends StatefulWidget {
 class _IncreaseactivityPageState extends State<Increaseactivity> {
   int _selectedIndex = 0;
 
-  // ค่าปัจจุบันและเป้าหมาย
-  int _currentAmount = 0; // เริ่มต้นที่ 0 เสมอ -> แสดง 0/goal
-  late int _goalAmount; // ตั้งจาก widget.goal หรือดีฟอลต์ 3000
+  // ใช้ double เพื่อรองรับทศนิยม
+  double _currentAmount = 0.0;
+  late double _goalAmount;
 
   final TextEditingController _controller = TextEditingController();
+
+  bool _isSaving = false;
+  bool _isLoading = false;
+
+  // ✅ ธงบอกว่ามีการเปลี่ยนแปลง (เช่น เพิ่ม/แก้ไขค่ามาแล้ว)
+  bool _hasChanged = false;
+
+  // helper: format ตัวเลขสวย ๆ
+  String _fmt(num n) {
+    if (n % 1 == 0) return n.toInt().toString();
+    return n.toString();
+  }
+
+  bool get _isCompleted => _goalAmount > 0 && _currentAmount >= _goalAmount;
 
   @override
   void initState() {
     super.initState();
-    _goalAmount = int.tryParse(widget.goal ?? '') ?? 3000;
+    _goalAmount = double.tryParse(widget.goal ?? '') ?? 3000.0;
+    _fetchCurrentValue(); // โหลดค่าตั้งต้นจากหลังบ้าน
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  // ดึง current_value ล่าสุด
+  Future<void> _fetchCurrentValue() async {
+    setState(() => _isLoading = true);
+    try {
+      final url = Uri.parse(
+        '${ApiEndpoints.baseUrl}/api/activityDetail/activity-detail/${Uri.encodeComponent(widget.actDetailId)}',
+      );
+      final res = await http.get(url);
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body);
+
+        final cv = data['current_value'];
+        if (cv is num) {
+          _currentAmount = cv.toDouble();
+        } else if (cv is String) {
+          _currentAmount = double.tryParse(cv) ?? _currentAmount;
+        }
+
+        final g = data['goal'];
+        if (g != null) {
+          if (g is num) _goalAmount = g.toDouble();
+          if (g is String) _goalAmount = double.tryParse(g) ?? _goalAmount;
+        }
+
+        if (mounted) setState(() {});
+      } else {
+        debugPrint('fetch current_value failed: ${res.statusCode} ${res.body}');
+      }
+    } catch (e) {
+      debugPrint('fetch current_value error: $e');
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
   }
 
   void _showGoalReachedDialog() {
@@ -62,67 +123,279 @@ class _IncreaseactivityPageState extends State<Increaseactivity> {
     );
   }
 
-  // เพิ่มค่าจากที่ผู้ใช้กรอกเข้ามาแบบบวกเพิ่ม (increment)
-  void _addAmount() {
-    if (_controller.text.isEmpty) return;
+  // เพิ่มแบบทีละก้อน (positive only)
+  Future<void> _persistIncrease(double amountToAdd) async {
+    if (_isSaving) return;
+    setState(() => _isSaving = true);
+    try {
+      final url = Uri.parse(
+        '${ApiEndpoints.baseUrl}/api/activityDetail/activity-detail/${Uri.encodeComponent(widget.actDetailId)}/increase',
+      );
+      final res = await http.post(
+        url,
+        headers: {'Content-Type': 'application/json; charset=UTF-8'},
+        body: jsonEncode({'amount': amountToAdd}),
+      );
 
-    final value = int.tryParse(_controller.text);
-    if (value == null || value <= 0) return;
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body);
 
-    if (_currentAmount >= _goalAmount) {
-      _controller.clear();
-      _showGoalReachedDialog();
+        final cv = data['current_value'];
+        if (cv is num) {
+          _currentAmount = cv.toDouble();
+        } else if (cv is String) {
+          _currentAmount = double.tryParse(cv) ?? _currentAmount;
+        }
+
+        final g = data['goal'];
+        if (g != null) {
+          if (g is num) _goalAmount = g.toDouble();
+          if (g is String) _goalAmount = double.tryParse(g) ?? _goalAmount;
+        }
+
+        _hasChanged = true;
+        if (mounted) setState(() {});
+      } else if (res.statusCode == 404) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('รายการกิจกรรมไม่พบ')),
+          );
+        }
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('บันทึกไม่สำเร็จ (${res.statusCode})')),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('เชื่อมต่อเซิร์ฟเวอร์ไม่ได้')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isSaving = false);
+    }
+  }
+
+  // ✅ ตั้งค่า current_value เป็น "ค่าใหม่" โดยตรง (ใช้ PATCH /current)
+  Future<void> _persistUpdateAbsolute(double newValue) async {
+    if (_isSaving) return;
+    setState(() => _isSaving = true);
+    try {
+      final url = Uri.parse(
+        '${ApiEndpoints.baseUrl}/api/activityDetail/activity-detail/${Uri.encodeComponent(widget.actDetailId)}/current',
+      );
+      final res = await http.patch(
+        url,
+        headers: {'Content-Type': 'application/json; charset=UTF-8'},
+        body: jsonEncode({'current_value': newValue}),
+      );
+
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body);
+        final cv = data['current_value'];
+        if (cv is num) _currentAmount = cv.toDouble();
+        if (cv is String)
+          _currentAmount = double.tryParse(cv) ?? _currentAmount;
+
+        final g = data['goal'];
+        if (g != null) {
+          if (g is num) _goalAmount = g.toDouble();
+          if (g is String) _goalAmount = double.tryParse(g) ?? _goalAmount;
+        }
+
+        _hasChanged = true;
+        if (mounted) {
+          setState(() {});
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('อัปเดตค่าสำเร็จ')),
+          );
+        }
+      } else {
+        String? msg;
+        try {
+          msg = jsonDecode(res.body)['message']?.toString();
+        } catch (_) {}
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+                content: Text(msg ?? 'อัปเดตไม่สำเร็จ (${res.statusCode})')),
+          );
+        }
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('เชื่อมต่อเซิร์ฟเวอร์ไม่ได้')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isSaving = false);
+    }
+  }
+
+  Future<void> _addAmount() async {
+    if (_isSaving) return;
+
+    final raw = _controller.text.trim();
+    if (raw.isEmpty) return;
+
+    // รองรับทศนิยม
+    final value = double.tryParse(raw.replaceAll(',', ''));
+    if (value == null || value <= 0) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('กรุณากรอกจำนวนที่มากกว่า 0')),
+      );
       return;
     }
 
-    final newAmount = _currentAmount + value;
-
-    if (newAmount >= _goalAmount) {
-      setState(() {
-        _currentAmount = _goalAmount; // ล็อกไว้ที่เป้า
-        _controller.clear();
-      });
-      _showGoalReachedDialog();
-      return;
+    // ถ้ามีเป้าหมาย → กันไม่ให้เกิน goal
+    double toAdd = value;
+    if (_goalAmount > 0) {
+      final double remain = (_goalAmount - _currentAmount);
+      if (remain <= 0) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('ทำครบเป้าหมายแล้ว')),
+        );
+        return;
+      }
+      if (toAdd > remain) toAdd = remain;
+      if (toAdd < 0) toAdd = 0;
     }
 
-    setState(() {
-      _currentAmount = newAmount;
-      _controller.clear();
-    });
+    FocusScope.of(context).unfocus(); // ปิดคีย์บอร์ด
+
+    await _persistIncrease(toAdd); // ยิง delta และ sync ค่ากลับ
+    _controller.clear();
+
+    if (_currentAmount >= _goalAmount && _goalAmount > 0) {
+      _showGoalReachedDialog();
+    }
+  }
+
+  // ✅ ปุ่ม/หน้าต่าง "แก้ไขค่าล่าสุด" — ใช้ตั้งค่า absolute (แก้ได้ทั้งเพิ่ม/ลด)
+  Future<void> _openEditDialog() async {
+    final TextEditingController editCtl =
+        TextEditingController(text: _fmt(_currentAmount));
+
+    await showDialog(
+      context: context,
+      builder: (ctx) {
+        return AlertDialog(
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          backgroundColor: const Color(0xFFEFEAE3),
+          title: Text('แก้ไขค่าล่าสุด',
+              style: GoogleFonts.kanit(color: const Color(0xFF564843))),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (_goalAmount > 0)
+                Text(
+                  'เป้าหมาย: ${_fmt(_goalAmount)} ${widget.unit}',
+                  style: GoogleFonts.kanit(color: const Color(0xFF564843)),
+                ),
+              const SizedBox(height: 8),
+              TextField(
+                controller: editCtl,
+                keyboardType: const TextInputType.numberWithOptions(
+                  signed: false,
+                  decimal: true,
+                ),
+                style: GoogleFonts.kanit(),
+                decoration: InputDecoration(
+                  hintText: 'ค่าปัจจุบันใหม่ (${widget.unit})',
+                  hintStyle: GoogleFonts.kanit(color: Colors.black45),
+                  filled: true,
+                  fillColor: const Color(0xFFE6D2CD),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide.none,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                'ค่าปัจจุบัน: ${_fmt(_currentAmount)} ${widget.unit}',
+                style: GoogleFonts.kanit(color: const Color(0xFF564843)),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: Text('ยกเลิก',
+                  style: GoogleFonts.kanit(color: const Color(0xFFC98993))),
+            ),
+            TextButton(
+              onPressed: () async {
+                final raw = editCtl.text.trim();
+                final newVal = double.tryParse(raw.replaceAll(',', ''));
+                if (newVal == null || newVal < 0) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                        content: Text('กรุณากรอกตัวเลขที่ถูกต้อง (≥ 0)')),
+                  );
+                  return;
+                }
+                if (_goalAmount > 0 && newVal > _goalAmount) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(
+                        'ห้ามเกินเป้าหมาย ${_fmt(_goalAmount)} ${widget.unit}',
+                      ),
+                    ),
+                  );
+                  return;
+                }
+
+                Navigator.pop(ctx); // ปิด dialog ก่อน
+                await _persistUpdateAbsolute(newVal);
+
+                if (_goalAmount > 0 && _currentAmount >= _goalAmount) {
+                  _showGoalReachedDialog();
+                }
+              },
+              child: Text('บันทึก',
+                  style: GoogleFonts.kanit(color: const Color(0xFF564843))),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   void _onItemTapped(int index) {
-    setState(() {
-      _selectedIndex = index;
-    });
-
+    setState(() => _selectedIndex = index);
     switch (index) {
       case 0:
         Navigator.push(
-            context, MaterialPageRoute(builder: (context) => const HomePage()));
+            context, MaterialPageRoute(builder: (_) => const HomePage()));
         break;
       case 1:
-        Navigator.push(context,
-            MaterialPageRoute(builder: (context) => const Targetpage()));
+        Navigator.push(
+            context, MaterialPageRoute(builder: (_) => const Targetpage()));
         break;
       case 2:
-        Navigator.push(context,
-            MaterialPageRoute(builder: (context) => const Graphpage()));
+        Navigator.push(
+            context, MaterialPageRoute(builder: (_) => const Graphpage()));
         break;
       case 3:
-        Navigator.push(context,
-            MaterialPageRoute(builder: (context) => const AccountPage()));
+        Navigator.push(
+            context, MaterialPageRoute(builder: (_) => const AccountPage()));
         break;
     }
   }
 
-  // วิดเจ็ตแสดงรูปกิจกรรม (รองรับ asset/URL + fallback)
-  Widget _buildActivityImage({double size = 40, double radius = 2}) {
+  Widget _buildActivityImage({double size = 40, double radius = 12}) {
     final src = widget.imageSrc ?? '';
     final isNetwork = src.startsWith('http');
 
-    Widget placeholder = Container(
+    final placeholder = Container(
       width: size,
       height: size,
       decoration: BoxDecoration(
@@ -151,11 +424,7 @@ class _IncreaseactivityPageState extends State<Increaseactivity> {
 
     return ClipRRect(
       borderRadius: BorderRadius.circular(radius),
-      child: Container(
-        width: 45,
-        height: 45,
-        child: img,
-      ),
+      child: SizedBox(width: size, height: size, child: img),
     );
   }
 
@@ -163,589 +432,277 @@ class _IncreaseactivityPageState extends State<Increaseactivity> {
   Widget build(BuildContext context) {
     final unitLabel = widget.unit.isNotEmpty ? widget.unit : '';
 
-    return Scaffold(
-      backgroundColor: const Color(0xFFC98993),
-      body: SingleChildScrollView(
-        child: Column(
-          children: [
-            // ส่วนหัว Stack
-            Stack(
-              children: [
-                Column(
-                  children: [
-                    Container(
-                      color: const Color(0xFF564843),
-                      height: MediaQuery.of(context).padding.top + 80,
-                      width: double.infinity,
-                    ),
-                    const SizedBox(height: 60),
-                  ],
-                ),
-                Positioned(
-                  top: MediaQuery.of(context).padding.top + 30,
-                  left: MediaQuery.of(context).size.width / 2 - 50,
-                  child: ClipOval(
-                    child: Image.asset(
-                      'assets/images/logo.png',
-                      width: 100,
-                      height: 100,
-                      fit: BoxFit.cover,
-                    ),
-                  ),
-                ),
-                Positioned(
-                  top: MediaQuery.of(context).padding.top + 16,
-                  left: 16,
-                  child: GestureDetector(
-                    onTap: () => Navigator.pop(context),
-                    child: Row(
-                      children: [
-                        const Icon(Icons.arrow_back, color: Colors.white),
-                        const SizedBox(width: 6),
-                        Text('ย้อนกลับ',
-                            style: GoogleFonts.kanit(
-                                color: Colors.white, fontSize: 16)),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
-            ),
-
-            const SizedBox(height: 20),
-
-            // กล่องหลัก
-            Container(
-              padding: const EdgeInsets.all(24),
-              margin: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
-              decoration: BoxDecoration(
-                color: const Color(0xFFEFEAE3),
-                borderRadius: BorderRadius.circular(24),
-                boxShadow: const [
-                  BoxShadow(
-                      color: Colors.black12,
-                      blurRadius: 10,
-                      offset: Offset(0, 4))
-                ],
-              ),
-              child: Column(
+    // ✅ ครอบด้วย WillPopScope เพื่อ intercept ปุ่ม back ของระบบ
+    return WillPopScope(
+      onWillPop: () async {
+        Navigator.pop(context, _hasChanged); // ส่งผลลัพธ์กลับหน้าเดิม
+        return false; // กันไม่ให้ระบบ pop ซ้ำ
+      },
+      child: Scaffold(
+        backgroundColor: const Color(0xFFC98993),
+        body: SingleChildScrollView(
+          child: Column(
+            children: [
+              // Header
+              Stack(
                 children: [
-                  // รูป + ชื่อกิจกรรม (วางข้างกัน)
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.center,
+                  Column(
                     children: [
-                      Hero(
-                        tag: 'act-${widget.actDetailId}',
-                        child: _buildActivityImage(size: 60, radius: 12),
+                      Container(
+                        color: const Color(0xFF564843),
+                        height: MediaQuery.of(context).padding.top + 80,
+                        width: double.infinity,
                       ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          widget.actName,
-                          textAlign: TextAlign.start,
-                          style: GoogleFonts.kanit(
-                            fontSize: 22,
-                            color: const Color(0xFFC98993),
-                            // fontWeight: FontWeight.w600,
-                          ),
-                          overflow: TextOverflow.ellipsis,
-                          maxLines: 2,
-                        ),
-                      ),
+                      const SizedBox(height: 60),
                     ],
                   ),
-
-                  const SizedBox(height: 24),
-
-                  // วงกลมแสดง "ปัจจุบัน/เป้าหมาย + หน่วย"
-                  CircleAvatar(
-                    radius: 75,
-                    backgroundColor: const Color(0xFF564843),
-                    child: RichText(
-                      textAlign: TextAlign.center,
-                      text: TextSpan(
+                  Positioned(
+                    top: MediaQuery.of(context).padding.top + 30,
+                    left: MediaQuery.of(context).size.width / 2 - 50,
+                    child: ClipOval(
+                      child: Image.asset(
+                        'assets/images/logo.png',
+                        width: 100,
+                        height: 100,
+                        fit: BoxFit.cover,
+                      ),
+                    ),
+                  ),
+                  // 🔁 ปุ่มย้อนกลับ: ส่งผลลัพธ์กลับด้วย
+                  Positioned(
+                    top: MediaQuery.of(context).padding.top + 16,
+                    left: 16,
+                    child: GestureDetector(
+                      onTap: () => Navigator.pop(context, _hasChanged),
+                      child: Row(
                         children: [
-                          TextSpan(
-                            text: '$_currentAmount',
+                          const Icon(Icons.arrow_back, color: Colors.white),
+                          const SizedBox(width: 6),
+                          Text('ย้อนกลับ',
+                              style: GoogleFonts.kanit(
+                                  color: Colors.white, fontSize: 16)),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+
+              const SizedBox(height: 20),
+
+              // Card
+              Container(
+                padding: const EdgeInsets.all(24),
+                margin:
+                    const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFEFEAE3),
+                  borderRadius: BorderRadius.circular(24),
+                  boxShadow: const [
+                    BoxShadow(
+                        color: Colors.black12,
+                        blurRadius: 10,
+                        offset: Offset(0, 4)),
+                  ],
+                ),
+                child: Column(
+                  children: [
+                    // รูป + ชื่อกิจกรรม
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        Hero(
+                          tag: 'act-${widget.actDetailId}',
+                          child: _buildActivityImage(size: 50, radius: 12),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            widget.actName,
+                            textAlign: TextAlign.start,
                             style: GoogleFonts.kanit(
-                              color: Colors.white,
-                              fontSize: 28,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                          TextSpan(
-                            text: '/',
-                            style: GoogleFonts.kanit(
-                              color: Colors.white,
                               fontSize: 22,
+                              color: const Color(0xFFC98993),
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                            maxLines: 2,
+                          ),
+                        ),
+                      ],
+                    ),
+
+                    const SizedBox(height: 24),
+
+                    // วงกลม progress
+                    CircleAvatar(
+                      radius: 75,
+                      backgroundColor: const Color(0xFF564843),
+                      child: _isLoading
+                          ? const CircularProgressIndicator(color: Colors.white)
+                          : RichText(
+                              textAlign: TextAlign.center,
+                              text: TextSpan(
+                                children: [
+                                  TextSpan(
+                                    text: _fmt(_currentAmount),
+                                    style: GoogleFonts.kanit(
+                                      color: Colors.white,
+                                      fontSize: 28,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                  TextSpan(
+                                    text: '/',
+                                    style: GoogleFonts.kanit(
+                                      color: Colors.white,
+                                      fontSize: 22,
+                                    ),
+                                  ),
+                                  TextSpan(
+                                    text:
+                                        '${_fmt(_goalAmount)}${unitLabel.isNotEmpty ? ' $unitLabel' : ''}',
+                                    style: GoogleFonts.kanit(
+                                      color: Colors.white70,
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                  if (_isCompleted)
+                                    TextSpan(
+                                      text: '\nเสร็จแล้ว 🎉',
+                                      style: GoogleFonts.kanit(
+                                        color: Colors.white,
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                ],
+                              ),
+                            ),
+                    ),
+
+                    const SizedBox(height: 28),
+
+                    // input + ปุ่มเพิ่ม
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFE6D2CD),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: TextField(
+                              controller: _controller,
+                              keyboardType:
+                                  const TextInputType.numberWithOptions(
+                                signed: false,
+                                decimal: true,
+                              ),
+                              style: GoogleFonts.kanit(fontSize: 16),
+                              decoration: InputDecoration(
+                                hintText: _isCompleted
+                                    ? 'ทำครบเป้าหมายแล้ว'
+                                    : 'Add amount (${unitLabel.isNotEmpty ? unitLabel : 'value'})...',
+                                hintStyle:
+                                    GoogleFonts.kanit(color: Colors.white70),
+                                border: InputBorder.none,
+                              ),
+                              enabled: !_isSaving && !_isCompleted,
                             ),
                           ),
-                          TextSpan(
-                            text: '$_goalAmount$unitLabel',
-                            style: GoogleFonts.kanit(
-                              color: Colors.white70,
-                              fontSize: 18,
-                              fontWeight: FontWeight.w500,
+                          GestureDetector(
+                            onTap:
+                                (_isSaving || _isCompleted) ? null : _addAmount,
+                            child: Container(
+                              padding: const EdgeInsets.all(6),
+                              decoration: BoxDecoration(
+                                color: (_isSaving || _isCompleted)
+                                    ? const Color(0xFFC98993).withOpacity(0.6)
+                                    : const Color(0xFFC98993),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: _isSaving
+                                  ? const SizedBox(
+                                      height: 20,
+                                      width: 20,
+                                      child: CircularProgressIndicator(
+                                          strokeWidth: 2, color: Colors.white),
+                                    )
+                                  : const Icon(Icons.check,
+                                      color: Colors.white),
                             ),
                           ),
                         ],
                       ),
                     ),
-                  ),
 
-                  const SizedBox(height: 28),
+                    const SizedBox(height: 12),
 
-                  // กล่องกรอกข้อมูล + ปุ่มเพิ่ม (เช็ค)
-                  Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFE6D2CD),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: TextField(
-                            controller: _controller,
-                            keyboardType: TextInputType.number,
-                            style: GoogleFonts.kanit(fontSize: 16),
-                            decoration: InputDecoration(
-                              hintText:
-                                  'Add amount (${unitLabel.isNotEmpty ? unitLabel : 'value'})...',
-                              hintStyle:
-                                  GoogleFonts.kanit(color: Colors.white70),
-                              border: InputBorder.none,
-                            ),
-                          ),
-                        ),
-                        GestureDetector(
-                          onTap: _addAmount,
-                          child: Container(
-                            padding: const EdgeInsets.all(6),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFC98993),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: const Icon(Icons.check, color: Colors.white),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-
-      // Bottom Navigation
-      bottomNavigationBar: BottomNavigationBar(
-        backgroundColor: const Color(0xFFE6D2CD),
-        selectedItemColor: Colors.white,
-        unselectedItemColor: Colors.white60,
-        selectedFontSize: 17,
-        unselectedFontSize: 17,
-        type: BottomNavigationBarType.fixed,
-        currentIndex: _selectedIndex,
-        onTap: _onItemTapped,
-        items: [
-          BottomNavigationBarItem(
-            icon: Image.asset('assets/icons/add.png', width: 24, height: 24),
-            label: 'Add',
-          ),
-          BottomNavigationBarItem(
-            icon: Image.asset('assets/icons/wishlist-heart.png',
-                width: 24, height: 24),
-            label: 'Target',
-          ),
-          BottomNavigationBarItem(
-            icon: Image.asset('assets/icons/stats.png', width: 24, height: 24),
-            label: 'Graph',
-          ),
-          BottomNavigationBarItem(
-            icon: Image.asset('assets/icons/accout.png', width: 24, height: 24),
-            label: 'Account',
-          ),
-        ],
-      ),
-    );
-  }
-}
-=======
-import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
-import 'package:pj1/account.dart';
-import 'package:pj1/grap.dart';
-import 'package:pj1/mains.dart';
-import 'package:pj1/target.dart';
-
-class Increaseactivity extends StatefulWidget {
-  final String actName; // ชื่อกิจกรรมที่กดมา
-  final String unit; // หน่วยของกิจกรรม (เช่น แก้ว, ml, km)
-  final String actDetailId; // ไว้ใช้ส่งต่อ/บันทึกภายหลัง
-  final String? goal; // เป้าหมายรวม (เช่น 3000)
-  final String? imageSrc; // รูปกิจกรรม (asset หรือ URL)
-
-  const Increaseactivity({
-    super.key,
-    required this.actName,
-    required this.unit,
-    required this.actDetailId,
-    this.goal,
-    this.imageSrc,
-  });
-
-  @override
-  _IncreaseactivityPageState createState() => _IncreaseactivityPageState();
-}
-
-class _IncreaseactivityPageState extends State<Increaseactivity> {
-  int _selectedIndex = 0;
-
-  // ค่าปัจจุบันและเป้าหมาย
-  int _currentAmount = 0; // เริ่มต้นที่ 0 เสมอ -> แสดง 0/goal
-  late int _goalAmount; // ตั้งจาก widget.goal หรือดีฟอลต์ 3000
-
-  final TextEditingController _controller = TextEditingController();
-
-  @override
-  void initState() {
-    super.initState();
-    _goalAmount = int.tryParse(widget.goal ?? '') ?? 3000;
-  }
-
-  void _showGoalReachedDialog() {
-    showDialog(
-      context: context,
-      builder: (_) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        backgroundColor: const Color(0xFFEFEAE3),
-        title: Text('ถึงเป้าหมายแล้ว',
-            style: GoogleFonts.kanit(color: const Color(0xFF564843))),
-        content: Text('คุณใส่ข้อมูลครบตามที่ตั้งเป้าไว้แล้ว',
-            style: GoogleFonts.kanit(color: const Color(0xFF564843))),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text('ตกลง',
-                style: GoogleFonts.kanit(color: const Color(0xFFC98993))),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // เพิ่มค่าจากที่ผู้ใช้กรอกเข้ามาแบบบวกเพิ่ม (increment)
-  void _addAmount() {
-    if (_controller.text.isEmpty) return;
-
-    final value = int.tryParse(_controller.text);
-    if (value == null || value <= 0) return;
-
-    if (_currentAmount >= _goalAmount) {
-      _controller.clear();
-      _showGoalReachedDialog();
-      return;
-    }
-
-    final newAmount = _currentAmount + value;
-
-    if (newAmount >= _goalAmount) {
-      setState(() {
-        _currentAmount = _goalAmount; // ล็อกไว้ที่เป้า
-        _controller.clear();
-      });
-      _showGoalReachedDialog();
-      return;
-    }
-
-    setState(() {
-      _currentAmount = newAmount;
-      _controller.clear();
-    });
-  }
-
-  void _onItemTapped(int index) {
-    setState(() {
-      _selectedIndex = index;
-    });
-
-    switch (index) {
-      case 0:
-        Navigator.push(
-            context, MaterialPageRoute(builder: (context) => const HomePage()));
-        break;
-      case 1:
-        Navigator.push(context,
-            MaterialPageRoute(builder: (context) => const Targetpage()));
-        break;
-      case 2:
-        Navigator.push(context,
-            MaterialPageRoute(builder: (context) => const Graphpage()));
-        break;
-      case 3:
-        Navigator.push(context,
-            MaterialPageRoute(builder: (context) => const AccountPage()));
-        break;
-    }
-  }
-
-  // วิดเจ็ตแสดงรูปกิจกรรม (รองรับ asset/URL + fallback)
-  Widget _buildActivityImage({double size = 40, double radius = 2}) {
-    final src = widget.imageSrc ?? '';
-    final isNetwork = src.startsWith('http');
-
-    Widget placeholder = Container(
-      width: size,
-      height: size,
-      decoration: BoxDecoration(
-        color: const Color(0xFFDAB7B1),
-        borderRadius: BorderRadius.circular(radius),
-      ),
-      child: const Icon(Icons.image_not_supported, color: Colors.white70),
-    );
-
-    if (src.isEmpty) return placeholder;
-
-    final img = isNetwork
-        ? Image.network(
-            src,
-            fit: BoxFit.cover,
-            errorBuilder: (_, __, ___) => placeholder,
-            loadingBuilder: (context, child, progress) => progress == null
-                ? child
-                : const Center(child: CircularProgressIndicator()),
-          )
-        : Image.asset(
-            src,
-            fit: BoxFit.cover,
-            errorBuilder: (_, __, ___) => placeholder,
-          );
-
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(radius),
-      child: Container(
-        width: 45,
-        height: 45,
-        child: img,
-      ),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final unitLabel = widget.unit.isNotEmpty ? widget.unit : '';
-
-    return Scaffold(
-      backgroundColor: const Color(0xFFC98993),
-      body: SingleChildScrollView(
-        child: Column(
-          children: [
-            // ส่วนหัว Stack
-            Stack(
-              children: [
-                Column(
-                  children: [
-                    Container(
-                      color: const Color(0xFF564843),
-                      height: MediaQuery.of(context).padding.top + 80,
+                    // ✅ ปุ่มแก้ไขค่าล่าสุด (ตั้งค่า absolute)
+                    SizedBox(
                       width: double.infinity,
+                      height: 44,
+                      child: OutlinedButton.icon(
+                        style: OutlinedButton.styleFrom(
+                          side: const BorderSide(color: Color(0xFFE6D2C0)),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        icon: const Icon(Icons.edit, color: Color(0xFFC98993)),
+                        label: Text(
+                          'แก้ไขค่าล่าสุด',
+                          style: GoogleFonts.kanit(
+                            color: const Color(0xFFC98993),
+                            fontSize: 16,
+                          ),
+                        ),
+                        onPressed: _isLoading ? null : _openEditDialog,
+                      ),
                     ),
-                    const SizedBox(height: 60),
                   ],
                 ),
-                Positioned(
-                  top: MediaQuery.of(context).padding.top + 30,
-                  left: MediaQuery.of(context).size.width / 2 - 50,
-                  child: ClipOval(
-                    child: Image.asset(
-                      'assets/images/logo.png',
-                      width: 100,
-                      height: 100,
-                      fit: BoxFit.cover,
-                    ),
-                  ),
-                ),
-                Positioned(
-                  top: MediaQuery.of(context).padding.top + 16,
-                  left: 16,
-                  child: GestureDetector(
-                    onTap: () => Navigator.pop(context),
-                    child: Row(
-                      children: [
-                        const Icon(Icons.arrow_back, color: Colors.white),
-                        const SizedBox(width: 6),
-                        Text('ย้อนกลับ',
-                            style: GoogleFonts.kanit(
-                                color: Colors.white, fontSize: 16)),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
+              ),
+            ],
+          ),
+        ),
+
+        // Bottom Navigation
+        bottomNavigationBar: BottomNavigationBar(
+          backgroundColor: const Color(0xFFE6D2CD),
+          selectedItemColor: Colors.white,
+          unselectedItemColor: Colors.white60,
+          selectedFontSize: 17,
+          unselectedFontSize: 17,
+          type: BottomNavigationBarType.fixed,
+          currentIndex: _selectedIndex,
+          onTap: _onItemTapped,
+          items: [
+            BottomNavigationBarItem(
+              icon: Image.asset('assets/icons/add.png', width: 24, height: 24),
+              label: 'Add',
             ),
-
-            const SizedBox(height: 20),
-
-            // กล่องหลัก
-            Container(
-              padding: const EdgeInsets.all(24),
-              margin: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
-              decoration: BoxDecoration(
-                color: const Color(0xFFEFEAE3),
-                borderRadius: BorderRadius.circular(24),
-                boxShadow: const [
-                  BoxShadow(
-                      color: Colors.black12,
-                      blurRadius: 10,
-                      offset: Offset(0, 4))
-                ],
-              ),
-              child: Column(
-                children: [
-                  // รูป + ชื่อกิจกรรม (วางข้างกัน)
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
-                      Hero(
-                        tag: 'act-${widget.actDetailId}',
-                        child: _buildActivityImage(size: 60, radius: 12),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          widget.actName,
-                          textAlign: TextAlign.start,
-                          style: GoogleFonts.kanit(
-                            fontSize: 22,
-                            color: const Color(0xFFC98993),
-                            // fontWeight: FontWeight.w600,
-                          ),
-                          overflow: TextOverflow.ellipsis,
-                          maxLines: 2,
-                        ),
-                      ),
-                    ],
-                  ),
-
-                  const SizedBox(height: 24),
-
-                  // วงกลมแสดง "ปัจจุบัน/เป้าหมาย + หน่วย"
-                  CircleAvatar(
-                    radius: 75,
-                    backgroundColor: const Color(0xFF564843),
-                    child: RichText(
-                      textAlign: TextAlign.center,
-                      text: TextSpan(
-                        children: [
-                          TextSpan(
-                            text: '$_currentAmount',
-                            style: GoogleFonts.kanit(
-                              color: Colors.white,
-                              fontSize: 28,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                          TextSpan(
-                            text: '/',
-                            style: GoogleFonts.kanit(
-                              color: Colors.white,
-                              fontSize: 22,
-                            ),
-                          ),
-                          TextSpan(
-                            text: '$_goalAmount$unitLabel',
-                            style: GoogleFonts.kanit(
-                              color: Colors.white70,
-                              fontSize: 18,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-
-                  const SizedBox(height: 28),
-
-                  // กล่องกรอกข้อมูล + ปุ่มเพิ่ม (เช็ค)
-                  Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFE6D2CD),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: TextField(
-                            controller: _controller,
-                            keyboardType: TextInputType.number,
-                            style: GoogleFonts.kanit(fontSize: 16),
-                            decoration: InputDecoration(
-                              hintText:
-                                  'Add amount (${unitLabel.isNotEmpty ? unitLabel : 'value'})...',
-                              hintStyle:
-                                  GoogleFonts.kanit(color: Colors.white70),
-                              border: InputBorder.none,
-                            ),
-                          ),
-                        ),
-                        GestureDetector(
-                          onTap: _addAmount,
-                          child: Container(
-                            padding: const EdgeInsets.all(6),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFC98993),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: const Icon(Icons.check, color: Colors.white),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
+            BottomNavigationBarItem(
+              icon: Image.asset('assets/icons/wishlist-heart.png',
+                  width: 24, height: 24),
+              label: 'Target',
+            ),
+            BottomNavigationBarItem(
+              icon:
+                  Image.asset('assets/icons/stats.png', width: 24, height: 24),
+              label: 'Graph',
+            ),
+            BottomNavigationBarItem(
+              icon:
+                  Image.asset('assets/icons/accout.png', width: 24, height: 24),
+              label: 'Account',
             ),
           ],
         ),
       ),
-
-      // Bottom Navigation
-      bottomNavigationBar: BottomNavigationBar(
-        backgroundColor: const Color(0xFFE6D2CD),
-        selectedItemColor: Colors.white,
-        unselectedItemColor: Colors.white60,
-        selectedFontSize: 17,
-        unselectedFontSize: 17,
-        type: BottomNavigationBarType.fixed,
-        currentIndex: _selectedIndex,
-        onTap: _onItemTapped,
-        items: [
-          BottomNavigationBarItem(
-            icon: Image.asset('assets/icons/add.png', width: 24, height: 24),
-            label: 'Add',
-          ),
-          BottomNavigationBarItem(
-            icon: Image.asset('assets/icons/wishlist-heart.png',
-                width: 24, height: 24),
-            label: 'Target',
-          ),
-          BottomNavigationBarItem(
-            icon: Image.asset('assets/icons/stats.png', width: 24, height: 24),
-            label: 'Graph',
-          ),
-          BottomNavigationBarItem(
-            icon: Image.asset('assets/icons/accout.png', width: 24, height: 24),
-            label: 'Account',
-          ),
-        ],
-      ),
     );
   }
 }
->>>>>>> 112abfcaf875c0a5f41170babd93e72e081d03e0
