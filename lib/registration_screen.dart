@@ -92,21 +92,6 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
     );
   }
 
-  Future<String?> _uploadProfileImage(String userId) async {
-    if (_image == null) return null;
-
-    try {
-      final ref = _storage.ref().child('profile_images').child('$userId.jpg');
-      final uploadTask = ref.putFile(_image!);
-      final snapshot = await uploadTask;
-      final downloadUrl = await snapshot.ref.getDownloadURL();
-      return downloadUrl;
-    } catch (e) {
-      print('Error uploading image: $e');
-      return null;
-    }
-  }
-
   Future<void> _registerUser() async {
     if (!_formKey.currentState!.validate()) return;
 
@@ -121,7 +106,8 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
     setState(() => _isLoading = true);
 
     try {
-      var uri = Uri.parse(ApiEndpoints.baseUrl + '/api/auth/registerwithemailpassword');
+      var uri = Uri.parse(
+          ApiEndpoints.baseUrl + '/api/auth/registerwithemailpassword');
 
       var request = http.MultipartRequest('POST', uri);
 
@@ -130,24 +116,26 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
       request.fields['username'] = nameController.text.trim();
       request.fields['birthday'] = birthdayController.text.trim();
 
+      // เพิ่มรูปถ้ามี
       if (_image != null) {
         request.files.add(
           await http.MultipartFile.fromPath(
-            'profileImage', 
+            'profileImage',
             _image!.path,
-            contentType:
-                MediaType('image', 'jpeg'), 
+            contentType: MediaType('image', 'jpeg'),
           ),
         );
       }
 
+      // ส่ง request
       var streamedResponse = await request.send();
       var response = await http.Response.fromStream(streamedResponse);
 
       if (response.statusCode == 201) {
+        final resBody = jsonDecode(response.body);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-              content: Text('สมัครสมาชิกสำเร็จ!'),
+              content: Text(resBody['message'] ?? 'สมัครสมาชิกสำเร็จ!'),
               backgroundColor: Colors.green),
         );
 
@@ -220,7 +208,6 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                 ),
               ),
               const SizedBox(height: 10),
-
               Container(
                 padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
@@ -238,7 +225,6 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                       ),
                     ),
                     const SizedBox(height: 20),
-
                     _buildTextField(
                       controller: nameController,
                       iconWidget: Image.asset(
@@ -254,9 +240,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                         return null;
                       },
                     ),
-
                     const SizedBox(height: 15),
-
                     _buildTextField(
                       controller: emailController,
                       iconWidget: Image.asset(
@@ -277,9 +261,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                         return null;
                       },
                     ),
-
                     const SizedBox(height: 15),
-
                     _buildTextField(
                       controller: passwordController,
                       iconWidget: Image.asset(
@@ -299,9 +281,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                         return null;
                       },
                     ),
-
                     const SizedBox(height: 15),
-
                     _buildTextField(
                       controller: confirmPasswordController,
                       iconWidget: Image.asset(
@@ -321,9 +301,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                         return null;
                       },
                     ),
-
                     const SizedBox(height: 15),
-
                     _buildTextField(
                       controller: birthdayController,
                       iconWidget: Image.asset(
@@ -346,9 +324,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                         }
                       },
                     ),
-
                     const SizedBox(height: 25),
-
                     SizedBox(
                       width: double.infinity,
                       child: ElevatedButton(
@@ -378,9 +354,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                               ),
                       ),
                     ),
-
                     const SizedBox(height: 15),
-
                     TextButton(
                       onPressed: () {
                         Navigator.pop(context);
