@@ -79,7 +79,9 @@ class _HomePageState extends State<HomePage> {
   }
 
   Future<List<Map<String, dynamic>>> _fetchUserActivities() async {
+    currentUserId = FirebaseAuth.instance.currentUser?.uid;
     if (currentUserId == null) return [];
+    
 
     String _fmt(num n) => (n % 1 == 0) ? n.toInt().toString() : n.toString();
 
@@ -112,7 +114,6 @@ class _HomePageState extends State<HomePage> {
           'icon_path': activity['act_pic'],
         };
       }
-
       // รวมข้อมูล detail + master และเตรียม "ข้อความแสดงผล"
       final List<Map<String, dynamic>> combined = [];
       for (var detail in detailList) {
