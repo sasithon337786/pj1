@@ -12,9 +12,13 @@ import 'package:pj1/constant/api_endpoint.dart';
 
 class ExpectationScreen extends StatefulWidget {
   final int actId;
+  final String label;
+  final String actPic;
   const ExpectationScreen({
     super.key,
     required this.actId,
+    required this.label,
+    required this.actPic,
   });
 
   @override
@@ -83,10 +87,9 @@ class _ExpectationScreenState extends State<ExpectationScreen> {
         url,
         headers: {"Content-Type": "application/json"},
         body: jsonEncode({
-          "act_id":  widget.actId, // 🟡 แก้ให้ตรงกับกิจกรรมของจริง
+          "act_id": widget.actId, // 🟡 แก้ให้ตรงกับกิจกรรมของจริง
           "uid": uid, // 🟡 แก้ให้ตรงกับผู้ใช้ที่ล็อกอิน
-          "user_exp": expectationValue,
-          "percentage_exp": double.parse(percentageValue),
+          "user_exp": expectationValue
         }),
       );
 
@@ -201,6 +204,35 @@ class _ExpectationScreenState extends State<ExpectationScreen> {
                         ],
                       ),
                       const SizedBox(height: 10),
+                      Row(
+                        children: [
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(8),
+                            child: Image.network(
+                              widget.actPic, // ใช้ widget.actPic
+                              width: 50,
+                              height: 50,
+                              fit: BoxFit.cover,
+                              errorBuilder: (context, error, stackTrace) =>
+                                  const Icon(Icons.image_not_supported,
+                                      size: 50),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              widget.label, // ใช้ widget.label
+                              style: GoogleFonts.kanit(
+                                fontSize: 16,
+                                color: const Color(0xFF5B4436),
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+
+                      //add name pic
                       TextField(
                         controller: expectationController,
                         style: GoogleFonts.kanit(color: Colors.black),
@@ -219,44 +251,7 @@ class _ExpectationScreenState extends State<ExpectationScreen> {
                           ),
                         ),
                       ),
-                      const SizedBox(height: 30),
-                      Row(
-                        children: [
-                          Image.asset(
-                            'assets/icons/persent.png',
-                            width: 24,
-                            height: 24,
-                          ),
-                          const SizedBox(width: 8),
-                          Text(
-                            'เปอร์เซ็นต์ความคาดหวังของคุณ',
-                            style: GoogleFonts.kanit(
-                              fontSize: 15,
-                              color: const Color(0xFF5B4436),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 10),
-                      TextField(
-                        controller: percentageController,
-                        keyboardType: TextInputType.number,
-                        style: GoogleFonts.kanit(color: Colors.black),
-                        decoration: InputDecoration(
-                          hintText: 'ใส่เปอร์เซ็นต์ความคาดหวังของคุณ....',
-                          hintStyle: GoogleFonts.kanit(
-                            color: const Color(0xFFDEB3B3),
-                          ),
-                          filled: true,
-                          fillColor: const Color(0xFFE8C9C9),
-                          contentPadding: const EdgeInsets.symmetric(
-                              vertical: 15, horizontal: 20),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            borderSide: BorderSide.none,
-                          ),
-                        ),
-                      ),
+
                       const SizedBox(height: 20),
                       Center(
                         child: SizedBox(

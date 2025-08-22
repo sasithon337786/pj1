@@ -1,7 +1,11 @@
+import 'dart:convert';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:http/http.dart' as http;
 import 'package:pj1/account.dart';
 import 'package:pj1/add_expectations.dart';
+import 'package:pj1/constant/api_endpoint.dart';
 import 'package:pj1/grap.dart';
 import 'package:pj1/mains.dart';
 
@@ -12,8 +16,25 @@ class Targetpage extends StatefulWidget {
   State<Targetpage> createState() => _TargetpageScreenState();
 }
 
+Future<List<Map<String, dynamic>>> fetchActivities(String uid) async {
+  try {
+    final url =
+        Uri.parse('${ApiEndpoints.baseUrl}/api/activityDetail/getActDetail/$uid');
+    final response = await http.get(url);
+
+    if (response.statusCode == 200) {
+      return List<Map<String, dynamic>>.from(json.decode(response.body));
+    } else {
+      return [];
+    }
+  } catch (e) {
+    print('fetchActivities error: $e');
+    return [];
+  }
+}
+
 class _TargetpageScreenState extends State<Targetpage> {
-  int _selectedIndex = 0;
+  int _selectedIndex = 1; // ตั้งค่าเริ่มต้นที่ Target page
 
   void _onItemTapped(int index) {
     setState(() {
@@ -22,25 +43,22 @@ class _TargetpageScreenState extends State<Targetpage> {
 
     switch (index) {
       case 0:
-        Navigator.push(
+        Navigator.pushReplacement(
           context,
           MaterialPageRoute(builder: (context) => const HomePage()),
         );
         break;
       case 1:
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (context) => const Targetpage()),
-        );
+        // อยู่หน้าเดียวกัน ไม่ต้องทำอะไร
         break;
       case 2:
-        Navigator.push(
+        Navigator.pushReplacement(
           context,
           MaterialPageRoute(builder: (context) => const Graphpage()),
         );
         break;
       case 3:
-        Navigator.push(
+        Navigator.pushReplacement(
           context,
           MaterialPageRoute(builder: (context) => const AccountPage()),
         );
@@ -50,6 +68,8 @@ class _TargetpageScreenState extends State<Targetpage> {
 
   @override
   Widget build(BuildContext context) {
+    final uid = FirebaseAuth.instance.currentUser!.uid;
+
     return Scaffold(
       backgroundColor: const Color(0xFFC98993),
       body: Stack(
@@ -62,51 +82,64 @@ class _TargetpageScreenState extends State<Targetpage> {
                 width: double.infinity,
               ),
               Expanded(
-                child: SingleChildScrollView(
-                  child: Padding(
-                    padding: const EdgeInsets.only(top: 70.0),
-                    child: Column(
-                      children: [
-                        Container(
-                          margin: const EdgeInsets.symmetric(horizontal: 24),
-                          padding: const EdgeInsets.all(16),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFEFEAE3),
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                children: [
-                                  Image.asset(
-                                    'assets/images/expectional.png',
-                                    width: 24,
-                                    height: 24,
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Text(
-                                    'EXPECTATIONS',
-                                    style: GoogleFonts.kanit(
-                                      color: const Color(0xFFC98993),
-                                      fontSize: 18,
-                                      fontWeight: FontWeight.w600,
+                child: FutureBuilder<List<Map<String, dynamic>>>(
+                  future: fetchActivities(uid),
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState == ConnectionState.waiting) {
+                      return const Center(child: CircularProgressIndicator());
+                    } else if (snapshot.hasError) {
+                      return Center(child: Text('Error: ${snapshot.error}'));
+                    } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                      return const Center(child: Text('ยังไม่มีกิจกรรม'));
+                    }
+
+                    final activities = snapshot.data!;
+                    return SingleChildScrollView(
+                      padding: const EdgeInsets.only(top: 70, bottom: 16),
+                      child: Column(
+                        children: [
+                          Container(
+                            margin: const EdgeInsets.symmetric(horizontal: 24),
+                            padding: const EdgeInsets.all(16),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFEFEAE3),
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    Image.asset(
+                                      'assets/images/expectional.png',
+                                      width: 24,
+                                      height: 24,
                                     ),
+                                    const SizedBox(width: 8),
+                                    Text(
+                                      'EXPECTATIONS',
+                                      style: GoogleFonts.kanit(
+                                        color: const Color(0xFFC98993),
+                                        fontSize: 18,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 16),
+                                for (var act in activities)
+                                  TaskCard(
+                                    label: act['act_name'],
+                                    actId: act['act_id'],
+                                    actPic: act['act_pic'],
                                   ),
-                                ],
-                              ),
-                              const SizedBox(height: 16),
-                              TaskCard(label: 'Dring Water', actId: 1),
-                              TaskCard(label: 'Eat', actId: 2),
-                              TaskCard(label: 'Maditation', actId: 3),
-                              TaskCard(label: 'Walk', actId: 4),
-                            ],
+                              ],
+                            ),
                           ),
-                        ),
-                        const SizedBox(height: 16),
-                      ],
-                    ),
-                  ),
+                        ],
+                      ),
+                    );
+                  },
                 ),
               ),
             ],
@@ -189,7 +222,14 @@ class _TargetpageScreenState extends State<Targetpage> {
 class TaskCard extends StatelessWidget {
   final String label;
   final int actId;
-  const TaskCard({super.key, required this.label, required this.actId});
+  final String actPic;
+
+  const TaskCard({
+    super.key,
+    required this.label,
+    required this.actId,
+    required this.actPic,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -200,6 +240,17 @@ class TaskCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(16),
       ),
       child: ListTile(
+        leading: ClipRRect(
+          borderRadius: BorderRadius.circular(8),
+          child: Image.network(
+            actPic,
+            width: 40,
+            height: 40,
+            fit: BoxFit.cover,
+            errorBuilder: (context, error, stackTrace) =>
+                const Icon(Icons.image_not_supported, color: Colors.white),
+          ),
+        ),
         title: Text(
           label,
           style: GoogleFonts.kanit(color: Colors.white, fontSize: 18),
@@ -222,7 +273,8 @@ class TaskCard extends StatelessWidget {
           Navigator.push(
             context,
             MaterialPageRoute(
-                builder: (context) => ExpectationScreen(actId: actId)),
+              builder: (context) => ExpectationScreen(actId: actId,label: label, actPic: actPic),
+            ),
           );
         },
       ),
