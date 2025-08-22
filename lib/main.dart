@@ -24,11 +24,12 @@ void main() async {
 
 class RoleBasedRedirector extends StatelessWidget {
   const RoleBasedRedirector({super.key});
+
   Future<String?> getUserRole() async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return null;
 
-    // ขอ idToken แบบรีเฟรชใหม่เสมอ (forceRefresh = true)
+    // ขอ idToken ใหม่เสมอ
     final idToken = await user.getIdToken(true);
 
     final response = await http.get(
@@ -41,11 +42,17 @@ class RoleBasedRedirector extends StatelessWidget {
 
     if (response.statusCode == 200) {
       final data = json.decode(response.body);
-      return data['role']; // ได้ role จาก backend
-    } else {
-      print('Error: ${response.body}');
+      return data['role'] as String?;
+    }
+
+    // ถ้า token ใช้ไม่ได้แล้ว ให้เซ็นเอาท์แล้วให้กลับไปล็อกอินใหม่
+    if (response.statusCode == 401 || response.statusCode == 403) {
+      await FirebaseAuth.instance.signOut();
       return null;
     }
+
+    debugPrint('getProfile error: ${response.statusCode} ${response.body}');
+    return null;
   }
 
   @override
@@ -60,9 +67,8 @@ class RoleBasedRedirector extends StatelessWidget {
         }
 
         if (snapshot.hasError || snapshot.data == null) {
-          return const Scaffold(
-            body: Center(child: Text('เกิดข้อผิดพลาดในการโหลดข้อมูลผู้ใช้')),
-          );
+          // ถ้า null (เช่น signOut ไปแล้วเพราะ token หมดอายุ) → กลับหน้า Login
+          return const LoginScreen();
         }
 
         final role = snapshot.data;
@@ -87,9 +93,23 @@ class MyApp extends StatelessWidget {
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
         useMaterial3: true,
       ),
-      home: FirebaseAuth.instance.currentUser == null
-          ? const LoginScreen()
-          : const MainHomeScreen(), // <-- เช็คสถานะผู้ใช้ตรงนี้
+      // ✅ ใช้สตรีมเช็คสถานะล็อกอินแบบเรียลไทม์
+      home: StreamBuilder<User?>(
+        stream: FirebaseAuth.instance.authStateChanges(),
+        builder: (context, snap) {
+          if (snap.connectionState == ConnectionState.waiting) {
+            return const Scaffold(
+              body: Center(child: CircularProgressIndicator()),
+            );
+          }
+          // ยังไม่ล็อกอิน → ไปหน้า Login
+          if (!snap.hasData) {
+            return const LoginScreen();
+          }
+          // ล็อกอินแล้ว → เช็ค role เพื่อเด้งไป admin หรือ user
+          return const RoleBasedRedirector();
+        },
+      ),
     );
   }
 }
