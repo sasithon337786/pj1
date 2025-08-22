@@ -369,7 +369,6 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
                       // ปุ่มจัดการหมวดหมู่
                       const SizedBox(height: 40),
                       if (userRole == 'admin')
-                      
                         Align(
                           alignment: Alignment.topRight,
                           child: Padding(
@@ -404,7 +403,7 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
                             ),
                           ),
                         ),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 35),
                       // แสดงหมวดหมู่
                       Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -436,7 +435,7 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
                           ),
                         ),
                       ),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 20),
                       // แสดงกิจกรรม
                       ListView(
                         shrinkWrap: true,

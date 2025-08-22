@@ -33,7 +33,6 @@ class _HomePageState extends State<HomePage> {
     _initAuthAndLoad();
   }
 
-  // >>> NEW: ปุ่มไปปฏิทิน (ตอนนี้ให้เป็น SnackBar ถ้ายังไม่มีหน้า Calendar)
   void _goToCalendar() {
     Navigator.push(
       context,
@@ -41,21 +40,27 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  // <<< END NEW
-
-  // >>> ฟังก์ชันเช็คหน่วยเวลา (ตัด 'm' ออกเพื่อไม่ให้ชนกับ meter)
+  // ฟังก์ชันเช็คหน่วยเวลา
   bool _isTimeUnit(String? unitRaw) {
     if (unitRaw == null) return false;
     final u = unitRaw.trim().toLowerCase();
 
-    // หน่วยเวลาที่รองรับ
     const timeUnits = {
-      // ไทย
-      'วินาที', 'นาที', 'ชั่วโมง',
-      // อังกฤษ เอกพจน์/พหูพจน์/ตัวย่อ (ตามที่น้องระบุ)
-      'sec', 'second', 'secs', 'seconds',
-      'min', 'minute', 'mins', 'minutes',
-      'hr', 'hour', 'hrs', 'hours',
+      'วินาที',
+      'นาที',
+      'ชั่วโมง',
+      'sec',
+      'second',
+      'secs',
+      'seconds',
+      'min',
+      'minute',
+      'mins',
+      'minutes',
+      'hr',
+      'hour',
+      'hrs',
+      'hours',
     };
 
     return timeUnits.contains(u);
@@ -68,13 +73,15 @@ class _HomePageState extends State<HomePage> {
       _activitiesFuture = _fetchUserActivities();
     } else {
       currentUserId = null;
-      _activitiesFuture = Future.value([]); // ยังไม่ล็อกอิน ให้เป็นลิสต์ว่าง
+      _activitiesFuture = Future.value([]);
     }
     setState(() {});
   }
 
   Future<List<Map<String, dynamic>>> _fetchUserActivities() async {
     if (currentUserId == null) return [];
+
+    String _fmt(num n) => (n % 1 == 0) ? n.toInt().toString() : n.toString();
 
     try {
       final detailUrl =
@@ -106,36 +113,58 @@ class _HomePageState extends State<HomePage> {
         };
       }
 
-      // รวมข้อมูล detail + master
+      // รวมข้อมูล detail + master และเตรียม "ข้อความแสดงผล"
       final List<Map<String, dynamic>> combined = [];
       for (var detail in detailList) {
         final actId = detail['act_id']?.toString() ?? '';
         final master = activityMap[actId];
 
-        // ดึงหน่วย เผื่อแบ็กเอนด์ใช้ชื่อฟิลด์ต่างกัน
         final unit =
             (detail['unit'] ?? detail['goal_unit'] ?? detail['act_unit'] ?? '')
-                ?.toString();
+                .toString();
+
+        // goal/current เป็นตัวเลข (รองรับทั้ง number/string/null)
+        double goalNum = 0;
+        final rawGoal = detail['goal'];
+        if (rawGoal is num) goalNum = rawGoal.toDouble();
+        if (rawGoal is String) goalNum = double.tryParse(rawGoal) ?? 0;
+
+        double currentNum = 0;
+        final rawCurrent = detail['current_value'];
+        if (rawCurrent is num) currentNum = rawCurrent.toDouble();
+        if (rawCurrent is String) currentNum = double.tryParse(rawCurrent) ?? 0;
+
+        final bool isCompleted = goalNum > 0 && currentNum >= goalNum;
+        final String displayText = isCompleted
+            ? 'ทำเสร็จแล้ว'
+            : '${_fmt(currentNum)}/${_fmt(goalNum)}${unit.isNotEmpty ? ' $unit' : ''}';
 
         combined.add({
           'act_detail_id': detail['act_detail_id']?.toString() ?? '',
           'act_name': master?['act_name'] ?? 'Unknown Activity',
           'icon_path': master?['icon_path'] ?? '',
-          'goal': detail['goal']?.toString() ?? '-',
-          'unit': unit ?? '',
+          'goal': goalNum,
+          'unit': unit,
+          'current_value': currentNum,
+          'display_text': displayText,
+          'is_completed': isCompleted,
         });
       }
 
       return combined;
     } on TimeoutException {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('เชื่อมต่อนานเกินไป ลองใหม่อีกครั้ง')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('เชื่อมต่อนานเกินไป ลองใหม่อีกครั้ง')),
+        );
+      }
       return [];
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('เกิดข้อผิดพลาด: $e')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('เกิดข้อผิดพลาด: $e')),
+        );
+      }
       return [];
     }
   }
@@ -151,15 +180,18 @@ class _HomePageState extends State<HomePage> {
       if (response.statusCode == 200) {
         _reload();
       } else {
+        if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('ลบกิจกรรมไม่สำเร็จ')),
         );
       }
     } on TimeoutException {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('เชื่อมต่อนานเกินไป ลองใหม่อีกครั้ง')),
       );
     } catch (e) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('เกิดข้อผิดพลาด: $e')),
       );
@@ -205,7 +237,6 @@ class _HomePageState extends State<HomePage> {
     setState(() => _selectedIndex = index);
     switch (index) {
       case 0:
-        // หน้านี้คือ Home อยู่แล้ว ถ้าอยากให้ไปหน้า Add ให้เปลี่ยนเป็น AddPage
         Navigator.push(
           context,
           MaterialPageRoute(builder: (context) => const MainHomeScreen()),
@@ -284,7 +315,7 @@ class _HomePageState extends State<HomePage> {
                               itemCount: items.length + 1, // +1 สำหรับหัวข้อ
                               itemBuilder: (context, index) {
                                 if (index == 0) {
-                                  // >>> NEW: หัวข้อ Your Activity + ปุ่มปฏิทิน (ขวา)
+                                  // หัวข้อ Your Activity + ปุ่มปฏิทิน
                                   return Padding(
                                     padding: const EdgeInsets.only(
                                       top: 50,
@@ -313,7 +344,6 @@ class _HomePageState extends State<HomePage> {
                                             ),
                                           ],
                                         ),
-                                        // ปุ่มดูปฏิทินของฉัน (ด้านขวา)
                                         ElevatedButton.icon(
                                           onPressed: _goToCalendar,
                                           style: ElevatedButton.styleFrom(
@@ -345,63 +375,67 @@ class _HomePageState extends State<HomePage> {
                                       ],
                                     ),
                                   );
-                                  // <<< END NEW
                                 }
 
+                                // ---- รายการจริง ----
                                 final activity = items[index - 1];
                                 final iconPath =
                                     (activity['icon_path'] ?? '') as String;
                                 final isNetwork = iconPath.startsWith('http');
                                 final label =
                                     (activity['act_name'] ?? '') as String;
-                                final goal =
-                                    (activity['goal'] ?? '-') as String;
-                                final unit = (activity['unit'] ?? '')
-                                    .toString(); // << ดึง unit
+
+                                final unit =
+                                    (activity['unit'] ?? '').toString();
                                 final actDetailId =
                                     (activity['act_detail_id'] ?? '') as String;
+                                final displayText =
+                                    (activity['display_text'] ?? '') as String;
+                                final isCompleted =
+                                    (activity['is_completed'] ?? false) as bool;
 
                                 return _TaskCard(
                                   iconPath: iconPath,
                                   isNetworkImage: isNetwork,
                                   label: label,
-                                  goal: goal,
-                                  unit: unit, // << ส่ง unit ไปการ์ด
+                                  displayText: displayText,
+                                  isCompleted: isCompleted,
                                   onDelete: () => _showDeleteConfirmationDialog(
                                       actDetailId),
 
-                                  // >>> ตรงนี้คือ onTap ที่พาไปหน้าตามหน่วย
-                                  onTap: () {
+                                  // ✅ กดเข้าไปหน้า Increaseactivity/Countdown แล้ว "รอผลลัพธ์"
+                                  //    ถ้ากลับมาพร้อม result == true ให้รีโหลดอัตโนมัติ
+                                  onTap: () async {
                                     if (_isTimeUnit(unit)) {
-                                      // ไปหน้า CountdownPage (โหมดจับเวลา)
-                                      Navigator.push(
+                                      final result = await Navigator.push(
                                         context,
                                         MaterialPageRoute(
                                           builder: (_) => CountdownPage(
                                             actDetailId: actDetailId,
                                             actName: label,
-                                            goal: goal,
+                                            goal: (activity['goal'] ?? '')
+                                                .toString(),
                                             unit: unit,
-                                            imageSrc:
-                                                iconPath, // << ส่ง path/URL รูปมากับพารามิเตอร์นี้
+                                            imageSrc: iconPath,
                                           ),
                                         ),
                                       );
+                                      if (result == true && mounted) _reload();
                                     } else {
-                                      // ไปหน้า Increaseactivity (โหมดเพิ่มค่า)
-                                      Navigator.push(
+                                      final result = await Navigator.push(
                                         context,
                                         MaterialPageRoute(
                                           builder: (_) => Increaseactivity(
                                             actDetailId: actDetailId,
                                             actName: label,
-                                            goal: goal,
+                                            goal: (activity['goal'] ?? '')
+                                                .toString(),
                                             unit: unit,
-                                            imageSrc:
-                                                iconPath, // <<<< ส่ง path/URL รูปมากับพารามิเตอร์นี้
+                                            imageSrc: iconPath,
                                           ),
                                         ),
                                       );
+                                      if (result == true && mounted) _reload();
                                     }
                                   },
                                 );
@@ -411,7 +445,6 @@ class _HomePageState extends State<HomePage> {
                         },
                       )
                     : Center(
-                        // ยังไม่ล็อกอิน → ข้อความตามที่หนูต้องการ
                         child: Text(
                           'กดไอคอน Add เพิ่ม Activity ของคุณกัน',
                           style: GoogleFonts.kanit(
@@ -472,12 +505,11 @@ class _HomePageState extends State<HomePage> {
   }
 }
 
-/// การ์ดกิจกรรม (ย้ายมาจาก DoingActivity)
 class _TaskCard extends StatelessWidget {
   final String iconPath;
   final String label;
-  final String goal;
-  final String unit; // ใช้แค่แสดงผล
+  final String displayText; // แสดง “เสร็จแล้ว” หรือ “current/goal unit”
+  final bool isCompleted; // ธงเสร็จแล้ว
   final bool isNetworkImage;
   final VoidCallback? onTap;
   final VoidCallback? onDelete;
@@ -485,8 +517,8 @@ class _TaskCard extends StatelessWidget {
   const _TaskCard({
     required this.iconPath,
     required this.label,
-    required this.goal,
-    required this.unit,
+    required this.displayText,
+    required this.isCompleted,
     required this.isNetworkImage,
     this.onTap,
     this.onDelete,
@@ -532,6 +564,10 @@ class _TaskCard extends StatelessWidget {
                 ),
               ));
 
+    // สีป้าย: เสร็จแล้ว = เขียวหม่น, ไม่เสร็จ = น้ำตาลเข้มเดิม
+    final Color chipColor =
+        isCompleted ? const Color(0xFFC98993) : const Color(0xFF564843);
+
     return Card(
       color: const Color(0xFFF3E1E1),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -554,11 +590,11 @@ class _TaskCard extends StatelessWidget {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
               decoration: BoxDecoration(
-                color: const Color(0xFF564843),
+                color: chipColor,
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Text(
-                '$goal${unit.isNotEmpty ? ' $unit' : ''}',
+                displayText,
                 style: GoogleFonts.kanit(
                   fontSize: 14,
                   color: const Color(0xFFFAFAFA),
@@ -568,10 +604,11 @@ class _TaskCard extends StatelessWidget {
             IconButton(
               icon: const Icon(Icons.delete, color: Color(0xFFCE2828)),
               onPressed: onDelete,
+              tooltip: 'ลบกิจกรรม',
             ),
           ],
         ),
-        onTap: onTap, // <-- ให้ parent เป็นคนตัดสินใจว่าจะไปหน้าไหน
+        onTap: onTap,
       ),
     );
   }
