@@ -9,13 +9,14 @@ import 'package:pj1/grap.dart';
 import 'package:pj1/mains.dart';
 import 'package:pj1/target.dart';
 import 'package:pj1/constant/api_endpoint.dart';
+import 'package:firebase_auth/firebase_auth.dart'; // ✅ ใช้ดึง idToken
 
 class CountdownPage extends StatefulWidget {
   final String actName; // ชื่อกิจกรรมจริง
-  final String unit; // หน่วยที่เลือก (วินาที/นาที/ชั่วโมง หรือ sec/min/hr)
-  final String actDetailId; // ใช้บันทึก/ส่งต่อภายหลัง
-  final String? goal; // ค่าที่ตั้งไว้ (ถ้ามี)
-  final String? imageSrc; // รูปกิจกรรม (asset หรือ URL)
+  final String unit; // หน่วย (วินาที/นาที/ชั่วโมง หรือ sec/min/hr)
+  final String actDetailId; // ไอดี activity_detail
+  final String? goal; // เป้าหมายตั้งต้น (optional)
+  final String? imageSrc; // รูปกิจกรรม
 
   const CountdownPage({
     super.key,
@@ -31,27 +32,35 @@ class CountdownPage extends StatefulWidget {
 }
 
 class _CountdownPageState extends State<CountdownPage> {
-  // นับแบบเดินหน้า
-  Duration _elapsed = Duration.zero; // เวลาที่วิ่งใน "รอบนี้"
-  late Duration _target; // ระยะเวลาเป้าหมาย
+  // เวลารอบนี้ (เดินหน้า)
+  Duration _elapsed = Duration.zero;
+  late Duration _target;
   Timer? _timer;
   bool isRunning = false;
   int _selectedIndex = 0;
 
   // ค่าในฐานข้อมูล
-  double _serverCurrent = 0.0; // current_value (ตามหน่วยที่ผู้ใช้ตั้ง)
-  double _goalAmount = 0.0; // goal (ตามหน่วยเดียวกัน)
+  double _serverCurrent = 0.0;
+  double _goalAmount = 0.0;
   bool _loading = true;
   bool _saving = false;
+
+  // ✅ แนบ Firebase ID token ทุกครั้ง
+  Future<Map<String, String>> _authHeaders() async {
+    final idToken = await FirebaseAuth.instance.currentUser?.getIdToken(true);
+    return {
+      'Content-Type': 'application/json; charset=UTF-8',
+      if (idToken != null) 'Authorization': 'Bearer $idToken',
+    };
+  }
 
   @override
   void initState() {
     super.initState();
-    // ตั้ง target เริ่มต้นจากพารามิเตอร์ (ถ้าฐานข้อมูลมีค่าจริง จะ override ใน _fetchDetail)
     _goalAmount =
         double.tryParse(widget.goal ?? '') ?? 20.0; // ดีฟอลต์ 20 "นาที"
     _target = _durationFromUnit(widget.unit, _goalAmount);
-    _fetchDetail(); // ดึงค่า goal/current ล่าสุดจากหลังบ้าน
+    _fetchDetail(); // ดึง goal/current ล่าสุดจากหลังบ้าน
   }
 
   @override
@@ -67,47 +76,46 @@ class _CountdownPageState extends State<CountdownPage> {
       final url = Uri.parse(
         '${ApiEndpoints.baseUrl}/api/activityDetail/activity-detail/${Uri.encodeComponent(widget.actDetailId)}',
       );
-      final res = await http.get(url);
+      final res = await http.get(url, headers: await _authHeaders());
+
       if (res.statusCode == 200) {
         final data = jsonDecode(res.body);
 
-        // goal
         final g = data['goal'];
         if (g is num) _goalAmount = g.toDouble();
         if (g is String) _goalAmount = double.tryParse(g) ?? _goalAmount;
 
-        // current_value
         final cv = data['current_value'];
         if (cv is num) _serverCurrent = cv.toDouble();
         if (cv is String)
           _serverCurrent = double.tryParse(cv) ?? _serverCurrent;
 
-        // อัปเดต target duration จาก goal (ตามหน่วย)
         _target = _durationFromUnit(widget.unit, _goalAmount);
+      } else if (res.statusCode == 401 || res.statusCode == 403) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+                content: Text('สิทธิ์ไม่ถูกต้อง กรุณาเข้าสู่ระบบใหม่')),
+          );
+        }
       } else {
         debugPrint('fetch detail failed: ${res.statusCode} ${res.body}');
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('โหลดข้อมูลไม่สำเร็จ (${res.statusCode})')),
+          );
+        }
       }
     } catch (e) {
       debugPrint('fetch detail error: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('เชื่อมต่อเซิร์ฟเวอร์ไม่ได้')),
+        );
+      }
     } finally {
       if (mounted) setState(() => _loading = false);
     }
-  }
-
-  void _resetSession() {
-    // รีเซ็ตเวลาที่จับใน "รอบนี้" เฉพาะในแอป ไม่แตะค่าที่บันทึกในฐานข้อมูล
-    setState(() {
-      _elapsed = Duration.zero;
-    });
-
-    // ถ้ากดตอนกำลังวิ่งอยู่ Timer จะเดินต่อจาก 00:00 ทันที
-    // ถ้าอยากให้รีเซ็ตแล้ว "หยุด" ด้วย ให้ยกเลิกคอมเมนต์ 2 บรรทัดล่างนี้
-    // _timer?.cancel();
-    // isRunning = false;
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('รีเซ็ตเวลารอบนี้แล้ว')),
-    );
   }
 
   Future<void> _persistIncrease(double amountToAdd) async {
@@ -119,12 +127,13 @@ class _CountdownPageState extends State<CountdownPage> {
       );
       final res = await http.post(
         url,
-        headers: {'Content-Type': 'application/json; charset=UTF-8'},
+        headers: await _authHeaders(),
         body: jsonEncode({'amount': amountToAdd}),
       );
 
       if (res.statusCode == 200) {
         final data = jsonDecode(res.body);
+
         final cv = data['current_value'];
         if (cv is num) _serverCurrent = cv.toDouble();
         if (cv is String)
@@ -148,6 +157,13 @@ class _CountdownPageState extends State<CountdownPage> {
             const SnackBar(content: Text('ไม่พบรายการกิจกรรม')),
           );
         }
+      } else if (res.statusCode == 401 || res.statusCode == 403) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+                content: Text('สิทธิ์ไม่ถูกต้อง กรุณาเข้าสู่ระบบใหม่')),
+          );
+        }
       } else {
         debugPrint('increase failed: ${res.statusCode} ${res.body}');
         if (mounted) {
@@ -169,7 +185,6 @@ class _CountdownPageState extends State<CountdownPage> {
   }
   // ---------------------------
 
-  // แปลง goal (ตามหน่วย) → Duration เป้าหมาย
   Duration _durationFromUnit(String unitRaw, double goalVal) {
     final u = unitRaw.trim().toLowerCase();
     if (u == 'วินาที' ||
@@ -193,11 +208,9 @@ class _CountdownPageState extends State<CountdownPage> {
         u == 'hours') {
       return Duration(seconds: (goalVal * 3600).round());
     }
-    // ถ้าไม่แมตช์ ให้ตีเป็น "นาที"
     return Duration(seconds: (goalVal * 60).round());
   }
 
-  // แปลง "วินาที" → จำนวนตามหน่วยของกิจกรรม (sec/min/hr)
   double _secondsToUnit(int seconds) {
     final u = widget.unit.trim().toLowerCase();
     if (u == 'วินาที' ||
@@ -221,7 +234,6 @@ class _CountdownPageState extends State<CountdownPage> {
         u == 'hours') {
       return seconds / 3600.0;
     }
-    // ดีฟอลต์เป็นนาที
     return seconds / 60.0;
   }
 
@@ -233,7 +245,6 @@ class _CountdownPageState extends State<CountdownPage> {
     _timer = Timer.periodic(const Duration(seconds: 1), (_) {
       if (!mounted) return;
 
-      // ถ้าใน DB ครบเป้าแล้ว ไม่ต้องวิ่งต่อ
       if (_goalAmount > 0 && _serverCurrent >= _goalAmount) {
         _timer?.cancel();
         isRunning = false;
@@ -243,16 +254,13 @@ class _CountdownPageState extends State<CountdownPage> {
       }
 
       setState(() {
-        // เดินหน้า +1 วินาที
         _elapsed += const Duration(seconds: 1);
       });
 
-      // คำนวณส่วนที่วิ่งในรอบนี้เป็นหน่วยจริง
       final sessionAmount = _secondsToUnit(_elapsed.inSeconds);
       final remaining =
           (_goalAmount > 0) ? (_goalAmount - _serverCurrent) : double.infinity;
 
-      // ถ้าถึงเป้าหมาย (session เกินส่วนที่เหลือ) → หยุด + บันทึกที่เหลือให้ครบเป้า
       if (sessionAmount >= remaining && remaining.isFinite) {
         _timer?.cancel();
         isRunning = false;
@@ -262,7 +270,6 @@ class _CountdownPageState extends State<CountdownPage> {
     });
   }
 
-  // หยุด และบันทึกเวลาที่วิ่งในรอบนี้ (แต่อย่าเกินส่วนที่เหลือ)
   void stopTimer() {
     _timer?.cancel();
     isRunning = false;
@@ -274,12 +281,10 @@ class _CountdownPageState extends State<CountdownPage> {
         ? (sessionAmount.clamp(0.0, remaining)).toDouble()
         : sessionAmount;
 
-    // reset elapsed ก่อน (กันกดรัว/กดซ้ำ)
     setState(() {});
     _saveSessionAndReset(toAdd);
   }
 
-  // บันทึกเมื่อตอนครบเป้า
   void _handleSaveAndGoal(double remaining) async {
     await _persistIncrease(remaining);
     _elapsed = Duration.zero;
@@ -288,7 +293,6 @@ class _CountdownPageState extends State<CountdownPage> {
     _showGoalReachedDialog();
   }
 
-  // บันทึกเวลาที่วิ่งในรอบนี้ และ reset elapsed
   void _saveSessionAndReset(double toAdd) async {
     if (toAdd > 0) {
       await _persistIncrease(toAdd);
@@ -298,7 +302,6 @@ class _CountdownPageState extends State<CountdownPage> {
   }
 
   void selectNewTime() async {
-    // ให้ผู้ใช้ปรับ target (ชั่วโมง/นาที) ใหม่ได้ — ไม่ยุ่ง DB
     final TimeOfDay? picked = await showTimePicker(
       context: context,
       initialTime: TimeOfDay(
@@ -311,11 +314,26 @@ class _CountdownPageState extends State<CountdownPage> {
       final asSeconds = picked.hour * 3600 + picked.minute * 60;
       setState(() {
         _target = Duration(seconds: asSeconds);
-        _elapsed = Duration.zero; // รีเซ็ตรอบนี้
+        _elapsed = Duration.zero;
         isRunning = false;
       });
       _timer?.cancel();
     }
+  }
+
+  void _resetSession() {
+    // รีเซ็ตเวลาที่นับใน "รอบนี้" เท่านั้น ไม่ยุ่งค่าที่บันทึกใน DB
+    setState(() {
+      _elapsed = Duration.zero;
+    });
+
+    // ถ้าอยากให้รีเซ็ตแล้วหยุดจับเวลาด้วย ให้ยกเลิกคอมเมนต์ 2 บรรทัดล่างนี้
+    // _timer?.cancel();
+    // isRunning = false;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('รีเซ็ตเวลารอบนี้แล้ว')),
+    );
   }
 
   String formatDuration(Duration duration) {
@@ -348,7 +366,6 @@ class _CountdownPageState extends State<CountdownPage> {
     }
   }
 
-  // วิดเจ็ตแสดงรูปกิจกรรม (รองรับ asset/URL + fallback)
   Widget _buildActivityImage({double size = 40, double radius = 2}) {
     final src = widget.imageSrc ?? '';
     final isNetwork = src.startsWith('http');
@@ -399,9 +416,8 @@ class _CountdownPageState extends State<CountdownPage> {
         actions: [
           TextButton(
             onPressed: () {
-              Navigator.pop(context); // ปิด dialog
-              Navigator.pop(
-                  context, true); // ย้อนกลับไปหน้า Home พร้อมสัญญาณให้ refresh
+              Navigator.pop(context);
+              Navigator.pop(context, true); // ส่งสัญญาณให้หน้า Home refresh
             },
             child: Text('ตกลง',
                 style: GoogleFonts.kanit(color: const Color(0xFFC98993))),
@@ -415,15 +431,14 @@ class _CountdownPageState extends State<CountdownPage> {
   Widget build(BuildContext context) {
     final remaining =
         (_goalAmount > 0) ? (_goalAmount - _serverCurrent) : double.infinity;
-    final sessionAmount =
-        _secondsToUnit(_elapsed.inSeconds); // ที่วิ่งในรอบนี้ (หน่วยจริง)
+    final sessionAmount = _secondsToUnit(_elapsed.inSeconds);
 
     return Scaffold(
       backgroundColor: const Color(0xFFC98993),
       body: SingleChildScrollView(
         child: Column(
           children: [
-            // ส่วนหัว Stack
+            // Header
             Stack(
               children: [
                 Column(
@@ -448,8 +463,7 @@ class _CountdownPageState extends State<CountdownPage> {
                   top: MediaQuery.of(context).padding.top + 16,
                   left: 16,
                   child: GestureDetector(
-                    onTap: () => Navigator.pop(
-                        context, true), // <- บอกหน้า Home ให้รีเฟรช
+                    onTap: () => Navigator.pop(context, true),
                     child: Row(
                       children: [
                         const Icon(Icons.arrow_back, color: Colors.white),
@@ -465,7 +479,7 @@ class _CountdownPageState extends State<CountdownPage> {
             ),
             const SizedBox(height: 20),
 
-            // การ์ดหลัก
+            // Card
             Container(
               padding: const EdgeInsets.all(24),
               margin: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
@@ -506,7 +520,7 @@ class _CountdownPageState extends State<CountdownPage> {
                   ),
                   const SizedBox(height: 24),
 
-                  // วงกลมแสดงเวลา: แสดง "elapsed / target" (นับเดินหน้า)
+                  // วงกลมแสดงเวลา
                   CircleAvatar(
                     radius: 75,
                     backgroundColor: const Color(0xFF564843),
@@ -537,16 +551,17 @@ class _CountdownPageState extends State<CountdownPage> {
                   ),
                   const SizedBox(height: 12),
 
-                  // แถบข้อความคืบหน้า (อิงค่าที่บันทึกใน DB + รอบนี้)
+                  // ข้อความคืบหน้า
                   if (!_loading)
                     Text(
                       _goalAmount > 0
                           ? 'เวลาที่ทำได้ล่าสุด: ${_formatNum(_serverCurrent)} / ${_formatNum(_goalAmount)} ${widget.unit}'
                           : 'บันทึกแล้ว: ${_formatNum(_serverCurrent)} ${widget.unit}',
                       style: GoogleFonts.kanit(
-                          color: const Color(0xFF564843),
-                          fontSize: 16,
-                          fontWeight: FontWeight.w300),
+                        color: const Color(0xFF564843),
+                        fontSize: 16,
+                        fontWeight: FontWeight.w300,
+                      ),
                     ),
 
                   const SizedBox(height: 28),
@@ -587,7 +602,7 @@ class _CountdownPageState extends State<CountdownPage> {
                   ),
                   const SizedBox(height: 10),
 
-                  // ปุ่มรีเซ็ต "รอบนี้" (ไม่แตะค่าที่บันทึกใน DB)
+                  // ปุ่มรีเซ็ต "รอบนี้"
                   SizedBox(
                     width: double.infinity,
                     height: 44,
@@ -609,11 +624,9 @@ class _CountdownPageState extends State<CountdownPage> {
                       onPressed: _loading ? null : _resetSession,
                     ),
                   ),
-                  const SizedBox(height: 10),
-                  const SizedBox(height: 10),
                 ],
               ),
-            )
+            ),
           ],
         ),
       ),
@@ -649,7 +662,6 @@ class _CountdownPageState extends State<CountdownPage> {
     );
   }
 
-  String _formatNum(num n) {
-    return (n % 1 == 0) ? n.toInt().toString() : n.toStringAsFixed(2);
-  }
+  String _formatNum(num n) =>
+      (n % 1 == 0) ? n.toInt().toString() : n.toStringAsFixed(2);
 }
