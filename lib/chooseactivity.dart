@@ -264,34 +264,51 @@ class _ChooseactivityPageState extends State<ChooseactivityPage> {
   }
 
   Future<void> _saveActivityDetail() async {
-    if (currentUserId == null) {
+    // ต้องล็อกอินก่อน
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
       _showAlertDialog('Error', 'กรุณาเข้าสู่ระบบก่อนบันทึกข้อมูล');
       return;
     }
+    final idToken = await user.getIdToken(true);
+    final uid = user.uid;
 
+    // ต้องมี actId
     if (widget.actId == null) {
       _showAlertDialog('Error', 'ไม่พบ ID กิจกรรม กรุณาลองใหม่');
       return;
     }
 
-    // ตรวจสอบข้อมูลที่จำเป็น
-    if (goalController.text.isEmpty ||
-        selectedUnit == 'Type' ||
-        messageController.text.isEmpty ||
-        selectedTimes.isEmpty) {
-      // ตรวจสอบว่ามีเวลาเตือนอย่างน้อยหนึ่งค่า
-      _showAlertDialog('ข้อมูลไม่ครบถ้วน',
-          'กรุณากรอกข้อมูลให้ครบทุกช่อง และเพิ่มเวลาเตือนอย่างน้อย 1 เวลา');
+    // ตรวจฟิลด์ที่จำเป็น
+    final parsedGoal = double.tryParse(goalController.text.trim());
+    if (parsedGoal == null || parsedGoal <= 0) {
+      _showAlertDialog('ข้อมูลไม่ครบถ้วน', 'กรุณากรอก Goal ให้ถูกต้อง (> 0)');
+      return;
+    }
+    if (selectedUnit == 'Type') {
+      _showAlertDialog('ข้อมูลไม่ครบถ้วน', 'กรุณาเลือกหน่วย (Unit)');
+      return;
+    }
+    if (messageController.text.trim().isEmpty) {
+      _showAlertDialog(
+          'ข้อมูลไม่ครบถ้วน', 'กรุณากรอกข้อความเตือน (Reminder message)');
+      return;
+    }
+    if (selectedTimes.isEmpty) {
+      _showAlertDialog(
+          'ข้อมูลไม่ครบถ้วน', 'กรุณาเพิ่มเวลาเตือนอย่างน้อย 1 เวลา');
       return;
     }
 
-    // แปลง selectedTimes เป็น List<String> ในรูปแบบ "HH:mm"
-    List<String> timeRemindStrings = selectedTimes.map((time) {
-      return '${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}';
+    // แปลงเวลาเป็น ["HH:mm", ...]
+    final List<String> timeRemindStrings = selectedTimes.map((t) {
+      final hh = t.hour.toString().padLeft(2, '0');
+      final mm = t.minute.toString().padLeft(2, '0');
+      return '$hh:$mm';
     }).toList();
 
-    // กำหนดค่า 'round' เป็น 'Daily' หรือ 'Weekly' ตาม isWeekSelected
-    String roundValueForDB = isWeekSelected ? 'Week' : 'Day';
+    // Day / Week
+    final String roundValueForDB = isWeekSelected ? 'Week' : 'Day';
 
     final String apiUrl =
         '${ApiEndpoints.baseUrl}/api/activityDetail/addActivityDetail';
@@ -301,40 +318,50 @@ class _ChooseactivityPageState extends State<ChooseactivityPage> {
         Uri.parse(apiUrl),
         headers: <String, String>{
           'Content-Type': 'application/json; charset=UTF-8',
+          // ✅ ใส่ Firebase ID Token เพื่อผ่าน middleware บน backend
+          'Authorization': 'Bearer $idToken',
         },
         body: jsonEncode(<String, dynamic>{
-          'uid': currentUserId,
+          // ถ้า backend ปรับไปอ่าน uid จาก token แล้ว จะไม่ต้องส่งฟิลด์ uid ก็ได้
+          'uid': uid,
           'act_id': widget.actId,
-          'goal': int.tryParse(goalController.text) ?? 0,
+          'goal': parsedGoal, // ส่งเป็นตัวเลขจริง ๆ
           'unit': selectedUnit,
-          'round':
-              roundValueForDB, // ส่งค่า 'Daily' หรือ 'Weekly' ไปที่ field 'round'
-          'message': messageController.text,
+          'round': roundValueForDB, // 'Day' หรือ 'Week'
+          'message': messageController.text.trim(),
           'time_remind': timeRemindStrings,
-          'period':
-              roundValueForDB, // ถ้า backend ต้องการ field 'period' ด้วยก็ส่งค่าเดียวกันไป
+          // 'period': roundValueForDB, // ถ้า backend ไม่ได้ใช้ฟิลด์นี้ ตัดออกได้
         }),
       );
 
       if (response.statusCode == 201) {
+        if (!mounted) return;
         _showAlertDialog('สำเร็จ', 'บันทึกข้อมูลกิจกรรมเรียบร้อยแล้ว!');
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(
-            builder: (context) => const HomePage(),
-          ),
+          MaterialPageRoute(builder: (context) => const HomePage()),
         );
+      } else if (response.statusCode == 401 || response.statusCode == 403) {
+        // token หมดอายุ/ไม่ถูกต้อง
+        _showAlertDialog(
+            'เข้าสู่ระบบใหม่', 'เซสชันหมดอายุ กรุณาเข้าสู่ระบบอีกครั้ง');
       } else {
-        final responseData = jsonDecode(response.body);
+        final msg = () {
+          try {
+            return jsonDecode(response.body)['message']?.toString();
+          } catch (_) {
+            return null;
+          }
+        }();
         _showAlertDialog('เกิดข้อผิดพลาด',
-            'ไม่สามารถบันทึกข้อมูลได้: ${responseData['message'] ?? response.statusCode}');
-        print(
-            'Failed to save activity detail: ${response.statusCode}, ${response.body}');
+            'ไม่สามารถบันทึกข้อมูลได้: ${msg ?? response.statusCode}');
+        debugPrint(
+            'save detail failed: ${response.statusCode} ${response.body}');
       }
     } catch (e) {
       _showAlertDialog('เกิดข้อผิดพลาดในการเชื่อมต่อ',
           'ไม่สามารถเชื่อมต่อกับเซิร์ฟเวอร์ได้: $e');
-      print('Error sending activity detail: $e');
+      debugPrint('save detail error: $e');
     }
   }
 

@@ -12,7 +12,7 @@ import 'package:pj1/calendar_page.dart';
 import 'package:pj1/grap.dart';
 import 'package:pj1/set_time.dart';
 import 'package:pj1/target.dart';
-import 'package:pj1/constant/api_endpoint.dart'; // ใช้ baseUrl เดียวกันทุกที่
+import 'package:pj1/constant/api_endpoint.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -33,6 +33,16 @@ class _HomePageState extends State<HomePage> {
     _initAuthAndLoad();
   }
 
+  // ✅ helper: สร้าง headers พร้อม Bearer token
+  Future<Map<String, String>> _authHeaders() async {
+    final user = FirebaseAuth.instance.currentUser;
+    final idToken = await user?.getIdToken(true); // refresh เสมอ
+    return {
+      'Content-Type': 'application/json; charset=UTF-8',
+      if (idToken != null) 'Authorization': 'Bearer $idToken',
+    };
+  }
+
   void _goToCalendar() {
     Navigator.push(
       context,
@@ -40,11 +50,9 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  // ฟังก์ชันเช็คหน่วยเวลา
   bool _isTimeUnit(String? unitRaw) {
     if (unitRaw == null) return false;
     final u = unitRaw.trim().toLowerCase();
-
     const timeUnits = {
       'วินาที',
       'นาที',
@@ -62,7 +70,6 @@ class _HomePageState extends State<HomePage> {
       'hrs',
       'hours',
     };
-
     return timeUnits.contains(u);
   }
 
@@ -86,26 +93,27 @@ class _HomePageState extends State<HomePage> {
     String _fmt(num n) => (n % 1 == 0) ? n.toInt().toString() : n.toString();
 
     try {
-      final detailUrl =
-          '${ApiEndpoints.baseUrl}/api/activityDetail/activity-detail?uid=$currentUserId';
-      final actUrl =
-          '${ApiEndpoints.baseUrl}/api/activity/getAct?uid=$currentUserId';
-
+      // ✅ ดึงเฉพาะของ “ฉัน” ด้วย token (ไม่มี query uid แล้ว)
+      final detailUri = Uri.parse(
+        '${ApiEndpoints.baseUrl}/api/activityDetail/activity-detail',
+      );
       final detailResponse = await http
-          .get(Uri.parse(detailUrl))
+          .get(detailUri, headers: await _authHeaders())
           .timeout(const Duration(seconds: 12));
       if (detailResponse.statusCode != 200) return [];
 
       final List<dynamic> detailList = jsonDecode(detailResponse.body);
 
-      final activityResponse = await http
-          .get(Uri.parse(actUrl))
-          .timeout(const Duration(seconds: 12));
+      // getAct ยังใช้ uid ตามหลังบ้านเดิม (หรือถ้าหลังบ้านแก้ภายหลังค่อยปรับ)
+      final actUri = Uri.parse(
+        '${ApiEndpoints.baseUrl}/api/activity/getAct?uid=$currentUserId',
+      );
+      final activityResponse =
+          await http.get(actUri).timeout(const Duration(seconds: 12));
       if (activityResponse.statusCode != 200) return [];
 
       final List<dynamic> activityList = jsonDecode(activityResponse.body);
 
-      // map act_id -> {name, icon}
       final Map<String, Map<String, dynamic>> activityMap = {};
       for (var activity in activityList) {
         final actId = activity['act_id']?.toString() ?? '';
@@ -124,7 +132,6 @@ class _HomePageState extends State<HomePage> {
             (detail['unit'] ?? detail['goal_unit'] ?? detail['act_unit'] ?? '')
                 .toString();
 
-        // goal/current เป็นตัวเลข (รองรับทั้ง number/string/null)
         double goalNum = 0;
         final rawGoal = detail['goal'];
         if (rawGoal is num) goalNum = rawGoal.toDouble();
@@ -175,7 +182,8 @@ class _HomePageState extends State<HomePage> {
       final delUrl =
           '${ApiEndpoints.baseUrl}/api/activityDetail/activity-detail/$actDetailId';
       final response = await http
-          .delete(Uri.parse(delUrl))
+          .delete(Uri.parse(delUrl),
+              headers: await _authHeaders()) // ✅ แนบ token
           .timeout(const Duration(seconds: 12));
 
       if (response.statusCode == 200) {
@@ -183,7 +191,8 @@ class _HomePageState extends State<HomePage> {
       } else {
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('ลบกิจกรรมไม่สำเร็จ')),
+          SnackBar(
+              content: Text('ลบกิจกรรมไม่สำเร็จ (${response.statusCode})')),
         );
       }
     } on TimeoutException {
@@ -274,14 +283,11 @@ class _HomePageState extends State<HomePage> {
         children: [
           Column(
             children: [
-              // แถบหัว
               Container(
                 color: const Color(0xFF564843),
                 height: MediaQuery.of(context).padding.top + 80,
                 width: double.infinity,
               ),
-
-              // เนื้อหา
               Expanded(
                 child: isLoggedIn
                     ? FutureBuilder<List<Map<String, dynamic>>>(
@@ -297,7 +303,6 @@ class _HomePageState extends State<HomePage> {
                           final hasActivities = items.isNotEmpty;
 
                           if (!hasActivities) {
-                            // ล็อกอินแล้ว แต่ยังไม่มี activity
                             return Center(
                               child: Text(
                                 'กดไอคอน Add เพิ่ม Activity ของคุณกัน',
@@ -307,21 +312,17 @@ class _HomePageState extends State<HomePage> {
                             );
                           }
 
-                          // ล็อกอิน + มี activity → แสดงลิสต์
                           return RefreshIndicator(
                             onRefresh: () async => _reload(),
                             child: ListView.builder(
                               padding:
                                   const EdgeInsets.symmetric(horizontal: 16),
-                              itemCount: items.length + 1, // +1 สำหรับหัวข้อ
+                              itemCount: items.length + 1,
                               itemBuilder: (context, index) {
                                 if (index == 0) {
-                                  // หัวข้อ Your Activity + ปุ่มปฏิทิน
                                   return Padding(
                                     padding: const EdgeInsets.only(
-                                      top: 50,
-                                      bottom: 12,
-                                    ),
+                                        top: 50, bottom: 12),
                                     child: Row(
                                       mainAxisAlignment:
                                           MainAxisAlignment.spaceBetween,
@@ -330,18 +331,14 @@ class _HomePageState extends State<HomePage> {
                                       children: [
                                         Row(
                                           children: [
-                                            Image.asset(
-                                              'assets/icons/accc.png',
-                                              width: 30,
-                                              height: 30,
-                                            ),
+                                            Image.asset('assets/icons/accc.png',
+                                                width: 30, height: 30),
                                             const SizedBox(width: 8),
                                             Text(
                                               'Your Activity',
                                               style: GoogleFonts.kanit(
-                                                color: Colors.white,
-                                                fontSize: 24,
-                                              ),
+                                                  color: Colors.white,
+                                                  fontSize: 24),
                                             ),
                                           ],
                                         ),
@@ -355,22 +352,16 @@ class _HomePageState extends State<HomePage> {
                                                   BorderRadius.circular(12),
                                             ),
                                             padding: const EdgeInsets.symmetric(
-                                              horizontal: 10,
-                                              vertical: 6,
-                                            ),
+                                                horizontal: 10, vertical: 6),
                                             elevation: 0,
                                           ),
-                                          icon: const Icon(
-                                            Icons.calendar_today,
-                                            size: 16,
-                                            color: Colors.white,
-                                          ),
+                                          icon: const Icon(Icons.calendar_today,
+                                              size: 16, color: Colors.white),
                                           label: Text(
                                             'ปฏิทินความสำเร็จ',
                                             style: GoogleFonts.kanit(
-                                              color: Colors.white,
-                                              fontSize: 14,
-                                            ),
+                                                color: Colors.white,
+                                                fontSize: 14),
                                           ),
                                         ),
                                       ],
@@ -378,7 +369,6 @@ class _HomePageState extends State<HomePage> {
                                   );
                                 }
 
-                                // ---- รายการจริง ----
                                 final activity = items[index - 1];
                                 final iconPath =
                                     (activity['icon_path'] ?? '') as String;
@@ -403,9 +393,6 @@ class _HomePageState extends State<HomePage> {
                                   isCompleted: isCompleted,
                                   onDelete: () => _showDeleteConfirmationDialog(
                                       actDetailId),
-
-                                  // ✅ กดเข้าไปหน้า Increaseactivity/Countdown แล้ว "รอผลลัพธ์"
-                                  //    ถ้ากลับมาพร้อม result == true ให้รีโหลดอัตโนมัติ
                                   onTap: () async {
                                     if (_isTimeUnit(unit)) {
                                       final result = await Navigator.push(
@@ -455,8 +442,6 @@ class _HomePageState extends State<HomePage> {
               ),
             ],
           ),
-
-          // โลโก้
           Positioned(
             top: MediaQuery.of(context).padding.top + 30,
             left: MediaQuery.of(context).size.width / 2 - 50,
@@ -471,8 +456,6 @@ class _HomePageState extends State<HomePage> {
           ),
         ],
       ),
-
-      // แถบล่าง
       bottomNavigationBar: BottomNavigationBar(
         backgroundColor: const Color(0xFFE6D2CD),
         selectedItemColor: Colors.white,
@@ -509,8 +492,8 @@ class _HomePageState extends State<HomePage> {
 class _TaskCard extends StatelessWidget {
   final String iconPath;
   final String label;
-  final String displayText; // แสดง “เสร็จแล้ว” หรือ “current/goal unit”
-  final bool isCompleted; // ธงเสร็จแล้ว
+  final String displayText;
+  final bool isCompleted;
   final bool isNetworkImage;
   final VoidCallback? onTap;
   final VoidCallback? onDelete;
@@ -539,11 +522,10 @@ class _TaskCard extends StatelessWidget {
                   height: 48,
                   fit: BoxFit.cover,
                   errorBuilder: (context, error, stackTrace) => Image.asset(
-                    'assets/images/no_image.png',
-                    width: 48,
-                    height: 48,
-                    fit: BoxFit.contain,
-                  ),
+                      'assets/images/no_image.png',
+                      width: 48,
+                      height: 48,
+                      fit: BoxFit.contain),
                 ),
               ))
         : (iconPath.isEmpty
@@ -557,15 +539,13 @@ class _TaskCard extends StatelessWidget {
                   height: 48,
                   fit: BoxFit.contain,
                   errorBuilder: (context, error, stackTrace) => Image.asset(
-                    'assets/images/no_image.png',
-                    width: 48,
-                    height: 48,
-                    fit: BoxFit.contain,
-                  ),
+                      'assets/images/no_image.png',
+                      width: 48,
+                      height: 48,
+                      fit: BoxFit.contain),
                 ),
               ));
 
-    // สีป้าย: เสร็จแล้ว = เขียวหม่น, ไม่เสร็จ = น้ำตาลเข้มเดิม
     final Color chipColor =
         isCompleted ? const Color(0xFFC98993) : const Color(0xFF564843);
 
@@ -578,10 +558,8 @@ class _TaskCard extends StatelessWidget {
         leading: imageWidget,
         title: Text(
           label,
-          style: GoogleFonts.kanit(
-            fontSize: 20,
-            color: const Color(0xFFC98993),
-          ),
+          style:
+              GoogleFonts.kanit(fontSize: 20, color: const Color(0xFFC98993)),
           overflow: TextOverflow.ellipsis,
           maxLines: 1,
         ),
@@ -591,15 +569,11 @@ class _TaskCard extends StatelessWidget {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
               decoration: BoxDecoration(
-                color: chipColor,
-                borderRadius: BorderRadius.circular(12),
-              ),
+                  color: chipColor, borderRadius: BorderRadius.circular(12)),
               child: Text(
                 displayText,
                 style: GoogleFonts.kanit(
-                  fontSize: 14,
-                  color: const Color(0xFFFAFAFA),
-                ),
+                    fontSize: 14, color: const Color(0xFFFAFAFA)),
               ),
             ),
             IconButton(
