@@ -547,6 +547,8 @@ class _ChooseactivityPageState extends State<ChooseactivityPage> {
                               ),
                             ),
                             const SizedBox(width: 8),
+
+                            
                             // ส่วนที่เลือก Day/Week
                             Row(
                               children: [
@@ -603,6 +605,9 @@ class _ChooseactivityPageState extends State<ChooseactivityPage> {
                                 ),
                               ],
                             ),
+
+
+                            //edit value
                           ],
                         ),
                         const SizedBox(height: 20),
