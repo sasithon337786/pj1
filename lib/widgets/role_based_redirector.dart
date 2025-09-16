@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:pj1/Addmin/main_Addmin.dart';
 import 'package:pj1/add.dart';
+import 'package:pj1/login.dart';
 // import 'package:pj1/login.dart';
-import 'package:pj1/screens/login_screen.dart';
+
 import 'package:pj1/services/auth_service.dart';
 import 'package:pj1/widgets/loading_screen.dart';
 

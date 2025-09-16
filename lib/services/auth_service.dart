@@ -26,7 +26,7 @@ class AuthService {
 
   /// Get authenticated headers for API requests
   static Future<Map<String, String>> getAuthHeaders() async {
-    final idToken = await getIdToken(true);
+    final idToken = await getIdToken(forceRefresh: true);
     return {
       'Content-Type': 'application/json; charset=UTF-8',
       if (idToken != null) 'Authorization': 'Bearer $idToken',
