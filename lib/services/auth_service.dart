@@ -139,7 +139,7 @@ class AuthService {
       }
 
       if (response.statusCode == 401 || response.statusCode == 403) {
-        await signOut();
+        // await signOut();
         return null;
       }
 

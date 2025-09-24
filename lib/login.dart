@@ -130,30 +130,31 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Future<void> _handleGoogleLogin() async {
-  setState(() => _isGoogleLoading = true);
-  try {
-    final data = await _authService.signInWithGoogle();
-    final role = data.user.role; // ✅ ใช้ object property แทน []
+    setState(() => _isGoogleLoading = true);
+    try {
+      final data = await _authService.signInWithGoogle();
+      final role = data.user.role; // ✅ ใช้ object property แทน []
 
-    _showSnackBar('Google sign-in successful!', backgroundColor: Colors.green);
+      _showSnackBar('Google sign-in successful!',
+          backgroundColor: Colors.green);
 
-    if (role == 'admin') {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (_) => const MainAdmin()),
-      );
-    } else {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (_) => HomePage()),
-      );
+      if (role == 'admin') {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const MainAdmin()),
+        );
+      } else {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => HomePage()),
+        );
+      }
+    } catch (e) {
+      _showSnackBar('Google login failed: $e');
+    } finally {
+      setState(() => _isGoogleLoading = false);
     }
-  } catch (e) {
-    _showSnackBar('Google login failed: $e');
-  } finally {
-    setState(() => _isGoogleLoading = false);
   }
-}
 
   void _showError(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
@@ -165,44 +166,43 @@ class _LoginScreenState extends State<LoginScreen> {
     print(message);
   }
 
-   Future<void> _handleEmailLogin() async {
-  if (!_formKey.currentState!.validate() || !isRobotChecked) {
-    if (!isRobotChecked) {
-      _showSnackBar("Please check 'I'm not a robot'.",
-          backgroundColor: Colors.orange);
+  Future<void> _handleEmailLogin() async {
+    if (!_formKey.currentState!.validate() || !isRobotChecked) {
+      if (!isRobotChecked) {
+        _showSnackBar("Please check 'I'm not a robot'.",
+            backgroundColor: Colors.orange);
+      }
+      return;
     }
-    return;
-  }
 
-  setState(() => _isLoading = true);
-  try {
-    final data = await _authService.signInWithEmailAndPassword(
-      email: _emailController.text,
-      password: _passwordController.text,
-    );
-
-    final role = data.user.role; // ✅ ใช้ object property แทน []
-
-    _showSnackBar('Login successful!', backgroundColor: Colors.green);
-
-    if (role == 'admin') {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (_) => const MainAdmin()),
+    setState(() => _isLoading = true);
+    try {
+      final data = await _authService.signInWithEmailAndPassword(
+        email: _emailController.text,
+        password: _passwordController.text,
       );
-    } else {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (_) => HomePage()),
-      );
+
+      final role = data.user.role; // ✅ ใช้ object property แทน []
+
+      _showSnackBar('Login successful!', backgroundColor: Colors.green);
+
+      if (role == 'admin') {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const MainAdmin()),
+        );
+      } else {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => HomePage()),
+        );
+      }
+    } catch (e) {
+      _showSnackBar('Login failed: $e');
+    } finally {
+      setState(() => _isLoading = false);
     }
-  } catch (e) {
-    _showSnackBar('Login failed: $e');
-  } finally {
-    setState(() => _isLoading = false);
   }
-}
-
 
   @override
   Widget build(BuildContext context) {
@@ -437,8 +437,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         const SizedBox(width: 15),
                         Expanded(
                           child: ElevatedButton(
-                            onPressed:
-                                _isLoading ? null : _handleEmailLogin,
+                            onPressed: _isLoading ? null : _handleEmailLogin,
                             style: ElevatedButton.styleFrom(
                               backgroundColor: const Color(0xFF564843),
                               padding: const EdgeInsets.symmetric(vertical: 12),
