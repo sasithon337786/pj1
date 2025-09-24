@@ -65,7 +65,8 @@ class _IncreaseactivityPageState extends State<Increaseactivity> {
   void initState() {
     super.initState();
     _goalAmount = double.tryParse(widget.goal ?? '') ?? 3000.0;
-    _fetchCurrentValue();
+    // เรียกดึงค่า current/goal ตอนหน้าเริ่มต้น
+    _fetchCurrentValue(widget.actDetailId);
   }
 
   @override
@@ -75,27 +76,32 @@ class _IncreaseactivityPageState extends State<Increaseactivity> {
   }
 
   // ดึง current_value ล่าสุด (ต้องแนบ token)
-  Future<void> _fetchCurrentValue() async {
+  Future<void> _fetchCurrentValue(String actDetailId) async {
     setState(() => _isLoading = true);
     try {
       final url = Uri.parse(
-        '${ApiEndpoints.baseUrl}/api/activityDetail/activity-detail/${Uri.encodeComponent(widget.actDetailId)}',
+        '${ApiEndpoints.baseUrl}/api/activityDetail/getActivityDetailById?act_detail_id=$actDetailId',
       );
-      final res = await http.get(url, headers: await _authHeaders());
+
+      final res = await http.get(
+        url,
+        headers: await _authHeaders(),
+      );
+
       if (res.statusCode == 200) {
         final data = jsonDecode(res.body);
 
         final cv = data['current_value'];
-        if (cv is num) {
+        if (cv is num)
           _currentAmount = cv.toDouble();
-        } else if (cv is String) {
+        else if (cv is String)
           _currentAmount = double.tryParse(cv) ?? _currentAmount;
-        }
 
         final g = data['goal'];
         if (g != null) {
-          if (g is num) _goalAmount = g.toDouble();
-          if (g is String) _goalAmount = double.tryParse(g) ?? _goalAmount;
+          if (g is num)
+            _goalAmount = g.toDouble();
+          else if (g is String) _goalAmount = double.tryParse(g) ?? _goalAmount;
         }
 
         if (mounted) setState(() {});
@@ -140,14 +146,14 @@ class _IncreaseactivityPageState extends State<Increaseactivity> {
     );
   }
 
-  // เพิ่มแบบทีละก้อน (positive only) — ต้องแนบ token
   Future<void> _persistIncrease(double amountToAdd) async {
     if (_isSaving) return;
     setState(() => _isSaving = true);
     try {
       final url = Uri.parse(
-        '${ApiEndpoints.baseUrl}/api/activityDetail/activity-detail/${Uri.encodeComponent(widget.actDetailId)}/increase',
+        '${ApiEndpoints.baseUrl}/api/activityDetail/increaseCurrentValue?act_detail_id=${Uri.encodeComponent(widget.actDetailId)}',
       );
+
       final res = await http.post(
         url,
         headers: await _authHeaders(),
@@ -156,105 +162,64 @@ class _IncreaseactivityPageState extends State<Increaseactivity> {
 
       if (res.statusCode == 200) {
         final data = jsonDecode(res.body);
-
         final cv = data['current_value'];
-        if (cv is num) {
+        if (cv is num)
           _currentAmount = cv.toDouble();
-        } else if (cv is String) {
+        else if (cv is String)
           _currentAmount = double.tryParse(cv) ?? _currentAmount;
-        }
 
         final g = data['goal'];
         if (g != null) {
-          if (g is num) _goalAmount = g.toDouble();
-          if (g is String) _goalAmount = double.tryParse(g) ?? _goalAmount;
+          if (g is num)
+            _goalAmount = g.toDouble();
+          else if (g is String) _goalAmount = double.tryParse(g) ?? _goalAmount;
         }
 
         _hasChanged = true;
         if (mounted) setState(() {});
-      } else if (res.statusCode == 404) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('รายการกิจกรรมไม่พบ')),
-          );
-        }
-      } else if (res.statusCode == 401 || res.statusCode == 403) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-                content: Text('สิทธิ์ไม่ถูกต้อง กรุณาเข้าสู่ระบบใหม่')),
-          );
-        }
       } else {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('บันทึกไม่สำเร็จ (${res.statusCode})')),
-          );
-        }
+        debugPrint('Increase failed: ${res.statusCode} ${res.body}');
       }
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('เชื่อมต่อเซิร์ฟเวอร์ไม่ได้')),
-        );
-      }
+      debugPrint('Increase error: $e');
     } finally {
       if (mounted) setState(() => _isSaving = false);
     }
   }
 
-  // ตั้งค่า current_value แบบ absolute — ต้องแนบ token
   Future<void> _persistUpdateAbsolute(double newValue) async {
     if (_isSaving) return;
     setState(() => _isSaving = true);
     try {
       final url = Uri.parse(
-        '${ApiEndpoints.baseUrl}/api/activityDetail/activity-detail/${Uri.encodeComponent(widget.actDetailId)}/current',
+        '${ApiEndpoints.baseUrl}/api/activityDetail/updateCurrentValue?act_detail_id=${Uri.encodeComponent(widget.actDetailId)}',
       );
-      final res = await http.patch(
-        url,
-        headers: await _authHeaders(),
-        body: jsonEncode({'current_value': newValue}),
-      );
+      final res = await http.put(url,
+          headers: await _authHeaders(),
+          body: jsonEncode({'current_value': newValue}));
 
       if (res.statusCode == 200) {
         final data = jsonDecode(res.body);
         final cv = data['current_value'];
-        if (cv is num) _currentAmount = cv.toDouble();
-        if (cv is String)
+        if (cv is num)
+          _currentAmount = cv.toDouble();
+        else if (cv is String)
           _currentAmount = double.tryParse(cv) ?? _currentAmount;
 
         final g = data['goal'];
         if (g != null) {
-          if (g is num) _goalAmount = g.toDouble();
-          if (g is String) _goalAmount = double.tryParse(g) ?? _goalAmount;
+          if (g is num)
+            _goalAmount = g.toDouble();
+          else if (g is String) _goalAmount = double.tryParse(g) ?? _goalAmount;
         }
 
         _hasChanged = true;
-        if (mounted) {
-          setState(() {});
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('อัปเดตค่าสำเร็จ')),
-          );
-        }
+        if (mounted) setState(() {});
       } else {
-        String? msg;
-        try {
-          msg = jsonDecode(res.body)['message']?.toString();
-        } catch (_) {}
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-                content: Text(msg ?? 'อัปเดตไม่สำเร็จ (${res.statusCode})')),
-          );
-        }
+        debugPrint('Update absolute failed: ${res.statusCode} ${res.body}');
       }
-    } catch (_) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('เชื่อมต่อเซิร์ฟเวอร์ไม่ได้')),
-        );
-      }
+    } catch (e) {
+      debugPrint('Update absolute error: $e');
     } finally {
       if (mounted) setState(() => _isSaving = false);
     }
