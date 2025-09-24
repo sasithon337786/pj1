@@ -1,3 +1,3 @@
 class ApiEndpoints {
-  static const String baseUrl = 'https://3ccefd80dae2.ngrok-free.app';
+  static const String baseUrl = 'https://f9f5fc7b8817.ngrok-free.app';
 }

@@ -149,27 +149,38 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
 
   // ฟังก์ชันสำหรับโหลดหมวดหมู่จาก backend
   Future<void> loadUserCategories() async {
-    final uid = FirebaseAuth.instance.currentUser?.uid;
-    if (uid == null) return;
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
 
     try {
+      final uid = user.uid;
+      final idToken = await user.getIdToken(); // 👈 เอา token มาก่อน
       final role = await _getUserRole(uid);
+
       http.Response response;
 
       if (role == 'admin') {
         response = await http.get(
           Uri.parse(
-              '${ApiEndpoints.baseUrl}/api/adminCate/getDefaultCategories'),
+              '${ApiEndpoints.baseUrl}/api/category/getDefaultCategories'),
+          headers: {
+            'Authorization': 'Bearer $idToken', // 👈 ส่ง token ใน header
+            'Content-Type': 'application/json; charset=utf-8',
+          },
         );
       } else {
         response = await http.get(
           Uri.parse(
               '${ApiEndpoints.baseUrl}/api/category/getCategory?uid=$uid'),
+          headers: {
+            'Authorization': 'Bearer $idToken', // 👈 ส่ง token ใน header
+            'Content-Type': 'application/json; charset=utf-8',
+          },
         );
       }
 
       if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
+        final data = jsonDecode(utf8.decode(response.bodyBytes));
         final categoriesData = (data as List).map((item) {
           return Category(
             id: int.tryParse(item['cate_id'].toString()),
@@ -188,7 +199,8 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
           }
         });
       } else {
-        print('Failed to load categories: ${response.statusCode}');
+        print(
+            'Failed to load categories: ${response.statusCode} -> ${response.body}');
       }
     } catch (e) {
       print('Error loading categories: $e');
@@ -201,18 +213,27 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
     if (user == null || selectedCategoryId == null) return;
 
     try {
+      final idToken = await user.getIdToken(); // 👈 ต้องส่ง token ไปกับ header
       final role = await _getUserRole(user.uid);
       http.Response response;
 
       if (role == 'admin') {
         response = await http.get(
           Uri.parse(
-              '${ApiEndpoints.baseUrl}/api/adminAct/getDefaultActivity?cate_id=$selectedCategoryId'),
+            '${ApiEndpoints.baseUrl}/api/activity/getAct?cate_id=$selectedCategoryId',
+          ),
+          headers: {
+            'Authorization': 'Bearer $idToken',
+          },
         );
       } else {
         response = await http.get(
           Uri.parse(
-              '${ApiEndpoints.baseUrl}/api/activity/getAct?uid=${user.uid}&cate_id=$selectedCategoryId'),
+            '${ApiEndpoints.baseUrl}/api/activity/getAct?cate_id=$selectedCategoryId',
+          ),
+          headers: {
+            'Authorization': 'Bearer $idToken',
+          },
         );
       }
 
@@ -244,19 +265,28 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
     }
   }
 
-  // ฟังก์ชันสำหรับดึงกิจกรรมทั้งหมดจาก backend
-  Future<List<Task>> getTasksFromDatabase(String uid) async {
+// ฟังก์ชันสำหรับดึงกิจกรรมทั้งหมดจาก backend
+  Future<List<Task>> getTasksFromDatabase(String uid, int cateId) async {
     try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) throw Exception("User not logged in");
+      final idToken = await user.getIdToken();
+      print(idToken); // Debug: print the token
       final role = await _getUserRole(uid);
       String apiUrl;
 
       if (role == 'admin') {
-        apiUrl = '${ApiEndpoints.baseUrl}/api/adminAct/getDefaultActivity';
+        apiUrl = '${ApiEndpoints.baseUrl}/api/activity/getAct?cate_id=$cateId';
       } else {
-        apiUrl = '${ApiEndpoints.baseUrl}/api/activity/getAct?uid=$uid';
+        apiUrl = '${ApiEndpoints.baseUrl}/api/activity/getAct?cate_id=$cateId';
       }
 
-      final response = await http.get(Uri.parse(apiUrl));
+      final response = await http.get(
+        Uri.parse(apiUrl),
+        headers: {
+          'Authorization': 'Bearer $idToken',
+        },
+      );
 
       if (response.statusCode == 200) {
         final List<dynamic> data = jsonDecode(response.body);

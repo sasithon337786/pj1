@@ -31,9 +31,12 @@ class MyApp extends StatelessWidget {
           }
 
           if (!snap.hasData) {
+            debugPrint("🔴 No user found → go to LoginScreen");
             return const LoginScreen();
           }
 
+          debugPrint(
+              "🟢 User logged in: ${snap.data!.uid} → go to RoleBasedRedirector");
           return const RoleBasedRedirector();
         },
       ),
