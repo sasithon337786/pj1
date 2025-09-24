@@ -60,7 +60,7 @@ class _CountdownPageState extends State<CountdownPage> {
     _goalAmount =
         double.tryParse(widget.goal ?? '') ?? 20.0; // ดีฟอลต์ 20 "นาที"
     _target = _durationFromUnit(widget.unit, _goalAmount);
-    _fetchDetail(); // ดึง goal/current ล่าสุดจากหลังบ้าน
+    _fetchDetail(widget.actDetailId); // ดึง goal/current ล่าสุดจากหลังบ้าน
   }
 
   @override
@@ -70,24 +70,29 @@ class _CountdownPageState extends State<CountdownPage> {
   }
 
   // ---------- REST ----------
-  Future<void> _fetchDetail() async {
+  // ดึงข้อมูล activity_detail ล่าสุด
+  Future<void> _fetchDetail(String actDetailId) async {
     setState(() => _loading = true);
     try {
       final url = Uri.parse(
-        '${ApiEndpoints.baseUrl}/api/activityDetail/activity-detail/${Uri.encodeComponent(widget.actDetailId)}',
+        '${ApiEndpoints.baseUrl}/api/activityDetail/getActivityDetailById?act_detail_id=${Uri.encodeComponent(widget.actDetailId)}',
       );
       final res = await http.get(url, headers: await _authHeaders());
 
       if (res.statusCode == 200) {
         final data = jsonDecode(res.body);
 
+        // อัปเดต goal
         final g = data['goal'];
-        if (g is num) _goalAmount = g.toDouble();
-        if (g is String) _goalAmount = double.tryParse(g) ?? _goalAmount;
+        if (g is num)
+          _goalAmount = g.toDouble();
+        else if (g is String) _goalAmount = double.tryParse(g) ?? _goalAmount;
 
+        // อัปเดต current_value
         final cv = data['current_value'];
-        if (cv is num) _serverCurrent = cv.toDouble();
-        if (cv is String)
+        if (cv is num)
+          _serverCurrent = cv.toDouble();
+        else if (cv is String)
           _serverCurrent = double.tryParse(cv) ?? _serverCurrent;
 
         _target = _durationFromUnit(widget.unit, _goalAmount);
@@ -121,10 +126,12 @@ class _CountdownPageState extends State<CountdownPage> {
   Future<void> _persistIncrease(double amountToAdd) async {
     if (_saving) return;
     setState(() => _saving = true);
+
     try {
       final url = Uri.parse(
-        '${ApiEndpoints.baseUrl}/api/activityDetail/activity-detail/${Uri.encodeComponent(widget.actDetailId)}/increase',
+        '${ApiEndpoints.baseUrl}/api/activityDetail/increaseCurrentValue?act_detail_id=${Uri.encodeComponent(widget.actDetailId)}',
       );
+
       final res = await http.post(
         url,
         headers: await _authHeaders(),
@@ -134,15 +141,19 @@ class _CountdownPageState extends State<CountdownPage> {
       if (res.statusCode == 200) {
         final data = jsonDecode(res.body);
 
+        // อัปเดต current_value
         final cv = data['current_value'];
-        if (cv is num) _serverCurrent = cv.toDouble();
-        if (cv is String)
+        if (cv is num)
+          _serverCurrent = cv.toDouble();
+        else if (cv is String)
           _serverCurrent = double.tryParse(cv) ?? _serverCurrent;
 
+        // อัปเดต goal
         final g = data['goal'];
         if (g != null) {
-          if (g is num) _goalAmount = g.toDouble();
-          if (g is String) _goalAmount = double.tryParse(g) ?? _goalAmount;
+          if (g is num)
+            _goalAmount = g.toDouble();
+          else if (g is String) _goalAmount = double.tryParse(g) ?? _goalAmount;
         }
 
         if (mounted) {

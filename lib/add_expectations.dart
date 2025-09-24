@@ -72,30 +72,38 @@ class _ExpectationScreenState extends State<ExpectationScreen> {
   Future<void> _submitExpectation() async {
     final String expectationValue = expectationController.text;
     final String percentageValue = percentageController.text;
-    final uid = FirebaseAuth.instance.currentUser!.uid;
-    if (expectationValue.isEmpty || percentageValue.isEmpty) {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
+    final uid = user.uid;
+
+    if (expectationValue.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('กรุณากรอกข้อมูลให้ครบถ้วน')),
+        const SnackBar(content: Text('กรุณากรอกข้อมูลให้ครบถ้วน')),
       );
       return;
     }
 
     try {
-      final url = Uri.parse(
-          '${ApiEndpoints.baseUrl}/api/expuser/createexp'); // 🔁 เปลี่ยน IP ตามเครื่อง backend
+      final idToken = await user.getIdToken(true);
+      final url = Uri.parse('${ApiEndpoints.baseUrl}/api/expuser/createexp');
+
       final response = await http.post(
         url,
-        headers: {"Content-Type": "application/json"},
+        headers: {
+          'Content-Type': 'application/json; charset=UTF-8',
+          'Authorization': 'Bearer $idToken', // 🔑 เพิ่ม token
+        },
         body: jsonEncode({
-          "act_id": widget.actId, // 🟡 แก้ให้ตรงกับกิจกรรมของจริง
-          "uid": uid, // 🟡 แก้ให้ตรงกับผู้ใช้ที่ล็อกอิน
-          "user_exp": expectationValue
+          "act_id": widget.actId,
+          "uid": uid,
+          "user_exp": expectationValue,
         }),
       );
 
       if (response.statusCode == 200) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('บันทึกความคาดหวังเรียบร้อย')),
+          const SnackBar(content: Text('บันทึกความคาดหวังเรียบร้อย')),
         );
         Navigator.push(
           context,
@@ -107,9 +115,9 @@ class _ExpectationScreenState extends State<ExpectationScreen> {
         );
       }
     } catch (error) {
-      print('Error: $error');
+      debugPrint('Error: $error');
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('เชื่อมต่อไม่ได้')),
+        const SnackBar(content: Text('เชื่อมต่อไม่ได้')),
       );
     }
   }

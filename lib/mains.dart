@@ -86,93 +86,62 @@ class _HomePageState extends State<HomePage> {
   }
 
   Future<List<Map<String, dynamic>>> _fetchUserActivities() async {
-    currentUserId = FirebaseAuth.instance.currentUser?.uid;
-    if (currentUserId == null) return [];
-    
-
-    String _fmt(num n) => (n % 1 == 0) ? n.toInt().toString() : n.toString();
+    final currentUser = FirebaseAuth.instance.currentUser;
+    if (currentUser == null) return [];
 
     try {
-      // ✅ ดึงเฉพาะของ “ฉัน” ด้วย token (ไม่มี query uid แล้ว)
+      final idToken = await currentUser.getIdToken(true); // refresh token เสมอ
+
+      // เรียก API เดียว
       final detailUri = Uri.parse(
-        '${ApiEndpoints.baseUrl}/api/activityDetail/activity-detail',
+        '${ApiEndpoints.baseUrl}/api/activityDetail/getMyActivityDetails',
       );
-      final detailResponse = await http
-          .get(detailUri, headers: await _authHeaders())
-          .timeout(const Duration(seconds: 12));
-      if (detailResponse.statusCode != 200) return [];
+      final response = await http.get(
+        detailUri,
+        headers: {
+          'Authorization': 'Bearer $idToken',
+          'Content-Type': 'application/json',
+        },
+      ).timeout(const Duration(seconds: 12));
 
-      final List<dynamic> detailList = jsonDecode(detailResponse.body);
+      if (response.statusCode != 200) return [];
+      final List<dynamic> detailList = jsonDecode(response.body);
 
-      // getAct ยังใช้ uid ตามหลังบ้านเดิม (หรือถ้าหลังบ้านแก้ภายหลังค่อยปรับ)
-      final actUri = Uri.parse(
-        '${ApiEndpoints.baseUrl}/api/activity/getAct?uid=$currentUserId',
-      );
-      final activityResponse =
-          await http.get(actUri).timeout(const Duration(seconds: 12));
-      if (activityResponse.statusCode != 200) return [];
+      String _fmt(num n) => (n % 1 == 0) ? n.toInt().toString() : n.toString();
 
-      final List<dynamic> activityList = jsonDecode(activityResponse.body);
+      final List<Map<String, dynamic>> activities = [];
 
-      final Map<String, Map<String, dynamic>> activityMap = {};
-      for (var activity in activityList) {
-        final actId = activity['act_id']?.toString() ?? '';
-        activityMap[actId] = {
-          'act_name': activity['act_name'],
-          'icon_path': activity['act_pic'],
-        };
-      }
-      // รวมข้อมูล detail + master และเตรียม "ข้อความแสดงผล"
-      final List<Map<String, dynamic>> combined = [];
       for (var detail in detailList) {
-        final actId = detail['act_id']?.toString() ?? '';
-        final master = activityMap[actId];
+        final double goal = (detail['goal'] is num)
+            ? (detail['goal'] as num).toDouble()
+            : double.tryParse(detail['goal']?.toString() ?? '0') ?? 0;
 
-        final unit =
-            (detail['unit'] ?? detail['goal_unit'] ?? detail['act_unit'] ?? '')
-                .toString();
+        final double current = (detail['current_value'] is num)
+            ? (detail['current_value'] as num).toDouble()
+            : double.tryParse(detail['current_value']?.toString() ?? '0') ?? 0;
 
-        double goalNum = 0;
-        final rawGoal = detail['goal'];
-        if (rawGoal is num) goalNum = rawGoal.toDouble();
-        if (rawGoal is String) goalNum = double.tryParse(rawGoal) ?? 0;
+        final String unit = detail['unit']?.toString() ?? '';
 
-        double currentNum = 0;
-        final rawCurrent = detail['current_value'];
-        if (rawCurrent is num) currentNum = rawCurrent.toDouble();
-        if (rawCurrent is String) currentNum = double.tryParse(rawCurrent) ?? 0;
-
-        final bool isCompleted = goalNum > 0 && currentNum >= goalNum;
+        final bool isCompleted = goal > 0 && current >= goal;
         final String displayText = isCompleted
             ? 'ทำเสร็จแล้ว'
-            : '${_fmt(currentNum)}/${_fmt(goalNum)}${unit.isNotEmpty ? ' $unit' : ''}';
+            : '${_fmt(current)}/${_fmt(goal)}${unit.isNotEmpty ? ' $unit' : ''}';
 
-        combined.add({
+        activities.add({
           'act_detail_id': detail['act_detail_id']?.toString() ?? '',
-          'act_name': master?['act_name'] ?? 'Unknown Activity',
-          'icon_path': master?['icon_path'] ?? '',
-          'goal': goalNum,
+          'act_name': detail['act_name'] ?? 'Unknown Activity',
+          'icon_path': detail['act_pic'] ?? '',
+          'goal': goal,
           'unit': unit,
-          'current_value': currentNum,
+          'current_value': current,
           'display_text': displayText,
           'is_completed': isCompleted,
         });
       }
 
-      return combined;
-    } on TimeoutException {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('เชื่อมต่อนานเกินไป ลองใหม่อีกครั้ง')),
-        );
-      }
-      return [];
+      return activities;
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('เกิดข้อผิดพลาด: $e')),
-        );
-      }
+      debugPrint("Error fetching user activities: $e");
       return [];
     }
   }
@@ -180,14 +149,21 @@ class _HomePageState extends State<HomePage> {
   Future<void> _deleteActivity(String actDetailId) async {
     try {
       final delUrl =
-          '${ApiEndpoints.baseUrl}/api/activityDetail/activity-detail/$actDetailId';
+          '${ApiEndpoints.baseUrl}/api/activityDetail/deleteActivityDetail?act_detail_id=${Uri.encodeComponent(actDetailId)}';
       final response = await http
-          .delete(Uri.parse(delUrl),
-              headers: await _authHeaders()) // ✅ แนบ token
+          .delete(
+            Uri.parse(delUrl),
+            headers: await _authHeaders(),
+          )
           .timeout(const Duration(seconds: 12));
 
       if (response.statusCode == 200) {
         _reload();
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('ลบกิจกรรมเรียบร้อย')),
+          );
+        }
       } else {
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(

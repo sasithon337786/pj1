@@ -16,19 +16,31 @@ class Targetpage extends StatefulWidget {
   State<Targetpage> createState() => _TargetpageScreenState();
 }
 
-Future<List<Map<String, dynamic>>> fetchActivities(String uid) async {
+Future<List<Map<String, dynamic>>> fetchActivities() async {
   try {
-    final url =
-        Uri.parse('${ApiEndpoints.baseUrl}/api/activityDetail/getActDetail/$uid');
-    final response = await http.get(url);
+    // ดึง idToken จาก Firebase
+    final idToken = await FirebaseAuth.instance.currentUser?.getIdToken(true);
+    final headers = {
+      'Content-Type': 'application/json; charset=UTF-8',
+      if (idToken != null) 'Authorization': 'Bearer $idToken',
+    };
+
+    // เรียก API แบบ query param (uid จาก user ปัจจุบัน)
+    final url = Uri.parse(
+      '${ApiEndpoints.baseUrl}/api/activityDetail/getMyActivityDetails?uid=${FirebaseAuth.instance.currentUser?.uid}',
+    );
+
+    final response = await http.get(url, headers: headers);
 
     if (response.statusCode == 200) {
       return List<Map<String, dynamic>>.from(json.decode(response.body));
     } else {
+      debugPrint(
+          'fetchActivities failed: ${response.statusCode} ${response.body}');
       return [];
     }
   } catch (e) {
-    print('fetchActivities error: $e');
+    debugPrint('fetchActivities error: $e');
     return [];
   }
 }
@@ -83,7 +95,7 @@ class _TargetpageScreenState extends State<Targetpage> {
               ),
               Expanded(
                 child: FutureBuilder<List<Map<String, dynamic>>>(
-                  future: fetchActivities(uid),
+                  future: fetchActivities(),
                   builder: (context, snapshot) {
                     if (snapshot.connectionState == ConnectionState.waiting) {
                       return const Center(child: CircularProgressIndicator());
@@ -273,7 +285,8 @@ class TaskCard extends StatelessWidget {
           Navigator.push(
             context,
             MaterialPageRoute(
-              builder: (context) => ExpectationScreen(actId: actId,label: label, actPic: actPic),
+              builder: (context) =>
+                  ExpectationScreen(actId: actId, label: label, actPic: actPic),
             ),
           );
         },

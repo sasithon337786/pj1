@@ -264,22 +264,19 @@ class _ChooseactivityPageState extends State<ChooseactivityPage> {
   }
 
   Future<void> _saveActivityDetail() async {
-    // ต้องล็อกอินก่อน
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) {
       _showAlertDialog('Error', 'กรุณาเข้าสู่ระบบก่อนบันทึกข้อมูล');
       return;
     }
     final idToken = await user.getIdToken(true);
-    final uid = user.uid;
 
-    // ต้องมี actId
     if (widget.actId == null) {
       _showAlertDialog('Error', 'ไม่พบ ID กิจกรรม กรุณาลองใหม่');
       return;
     }
 
-    // ตรวจฟิลด์ที่จำเป็น
+    // ✅ validate
     final parsedGoal = double.tryParse(goalController.text.trim());
     if (parsedGoal == null || parsedGoal <= 0) {
       _showAlertDialog('ข้อมูลไม่ครบถ้วน', 'กรุณากรอก Goal ให้ถูกต้อง (> 0)');
@@ -300,14 +297,14 @@ class _ChooseactivityPageState extends State<ChooseactivityPage> {
       return;
     }
 
-    // แปลงเวลาเป็น ["HH:mm", ...]
+    // ✅ format เวลาเป็น ["HH:mm", ...]
     final List<String> timeRemindStrings = selectedTimes.map((t) {
       final hh = t.hour.toString().padLeft(2, '0');
       final mm = t.minute.toString().padLeft(2, '0');
       return '$hh:$mm';
     }).toList();
 
-    // Day / Week
+    // ✅ Day / Week
     final String roundValueForDB = isWeekSelected ? 'Week' : 'Day';
 
     final String apiUrl =
@@ -316,21 +313,17 @@ class _ChooseactivityPageState extends State<ChooseactivityPage> {
     try {
       final response = await http.post(
         Uri.parse(apiUrl),
-        headers: <String, String>{
+        headers: {
           'Content-Type': 'application/json; charset=UTF-8',
-          // ✅ ใส่ Firebase ID Token เพื่อผ่าน middleware บน backend
-          'Authorization': 'Bearer $idToken',
+          'Authorization': 'Bearer $idToken', // ✅ ใช้ token
         },
-        body: jsonEncode(<String, dynamic>{
-          // ถ้า backend ปรับไปอ่าน uid จาก token แล้ว จะไม่ต้องส่งฟิลด์ uid ก็ได้
-          'uid': uid,
+        body: jsonEncode({
           'act_id': widget.actId,
-          'goal': parsedGoal, // ส่งเป็นตัวเลขจริง ๆ
+          'goal': parsedGoal,
           'unit': selectedUnit,
-          'round': roundValueForDB, // 'Day' หรือ 'Week'
+          'round': roundValueForDB,
           'message': messageController.text.trim(),
           'time_remind': timeRemindStrings,
-          // 'period': roundValueForDB, // ถ้า backend ไม่ได้ใช้ฟิลด์นี้ ตัดออกได้
         }),
       );
 
@@ -341,20 +334,16 @@ class _ChooseactivityPageState extends State<ChooseactivityPage> {
           context,
           MaterialPageRoute(builder: (context) => const HomePage()),
         );
-      } else if (response.statusCode == 401 || response.statusCode == 403) {
-        // token หมดอายุ/ไม่ถูกต้อง
-        _showAlertDialog(
-            'เข้าสู่ระบบใหม่', 'เซสชันหมดอายุ กรุณาเข้าสู่ระบบอีกครั้ง');
       } else {
-        final msg = () {
-          try {
-            return jsonDecode(response.body)['message']?.toString();
-          } catch (_) {
-            return null;
-          }
-        }();
+        String? msg;
+        try {
+          final body = jsonDecode(response.body);
+          msg = body['message']?.toString();
+        } catch (_) {
+          msg = null;
+        }
         _showAlertDialog('เกิดข้อผิดพลาด',
-            'ไม่สามารถบันทึกข้อมูลได้: ${msg ?? response.statusCode}');
+            msg ?? 'ไม่สามารถบันทึกข้อมูลได้ (code: ${response.statusCode})');
         debugPrint(
             'save detail failed: ${response.statusCode} ${response.body}');
       }
@@ -548,7 +537,6 @@ class _ChooseactivityPageState extends State<ChooseactivityPage> {
                             ),
                             const SizedBox(width: 8),
 
-                            
                             // ส่วนที่เลือก Day/Week
                             Row(
                               children: [
@@ -605,7 +593,6 @@ class _ChooseactivityPageState extends State<ChooseactivityPage> {
                                 ),
                               ],
                             ),
-
 
                             //edit value
                           ],
