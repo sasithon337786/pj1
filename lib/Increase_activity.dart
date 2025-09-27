@@ -78,25 +78,35 @@ class _IncreaseactivityPageState extends State<Increaseactivity> {
   // ดึง current_value ล่าสุด (ต้องแนบ token)
   Future<void> _fetchCurrentValue(String actDetailId) async {
     setState(() => _isLoading = true);
+
     try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) return;
+
+      final idToken = await user.getIdToken(true);
       final url = Uri.parse(
-        '${ApiEndpoints.baseUrl}/api/activityDetail/getActivityDetailById?act_detail_id=$actDetailId',
+        '${ApiEndpoints.baseUrl}/api/activityHistory/getTodaySum?uid=${user.uid}&act_detail_id=$actDetailId',
       );
 
       final res = await http.get(
         url,
-        headers: await _authHeaders(),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $idToken',
+        },
       );
 
       if (res.statusCode == 200) {
         final data = jsonDecode(res.body);
 
-        final cv = data['current_value'];
-        if (cv is num)
-          _currentAmount = cv.toDouble();
-        else if (cv is String)
-          _currentAmount = double.tryParse(cv) ?? _currentAmount;
+        // ดึง total action ของวันนี้
+        final todaySum = data['todaySum'];
+        if (todaySum is num)
+          _currentAmount = todaySum.toDouble();
+        else if (todaySum is String)
+          _currentAmount = double.tryParse(todaySum) ?? _currentAmount;
 
+        // ดึง goal จาก response
         final g = data['goal'];
         if (g != null) {
           if (g is num)
@@ -151,7 +161,7 @@ class _IncreaseactivityPageState extends State<Increaseactivity> {
     setState(() => _isSaving = true);
     try {
       final url = Uri.parse(
-        '${ApiEndpoints.baseUrl}/api/activityDetail/increaseCurrentValue?act_detail_id=${Uri.encodeComponent(widget.actDetailId)}',
+        '${ApiEndpoints.baseUrl}/api/activityHistory/increaseCurrentValue?act_detail_id=${Uri.encodeComponent(widget.actDetailId)}',
       );
 
       final res = await http.post(
@@ -192,7 +202,7 @@ class _IncreaseactivityPageState extends State<Increaseactivity> {
     setState(() => _isSaving = true);
     try {
       final url = Uri.parse(
-        '${ApiEndpoints.baseUrl}/api/activityDetail/updateCurrentValue?act_detail_id=${Uri.encodeComponent(widget.actDetailId)}',
+        '${ApiEndpoints.baseUrl}/api/activityHistory/updateCurrentValue?act_detail_id=${Uri.encodeComponent(widget.actDetailId)}',
       );
       final res = await http.put(url,
           headers: await _authHeaders(),
