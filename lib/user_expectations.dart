@@ -29,12 +29,14 @@ class ExpectationResultScreen extends StatefulWidget {
 class _ExpectationResultScreenState extends State<ExpectationResultScreen> {
   int _selectedIndex = 0;
   bool isLoading = true;
+  double? _percent;
   // final int actId;
   final TextEditingController expectationController = TextEditingController();
   @override
   void initState() {
     super.initState();
     fetchExpectation();
+    fetchPercent();
   }
 
   Future<void> fetchExpectation() async {
@@ -57,28 +59,51 @@ class _ExpectationResultScreenState extends State<ExpectationResultScreen> {
 
       if (response.statusCode == 200) {
         final List data = jsonDecode(response.body);
-        if (data.isNotEmpty) {
-          setState(() {
-            expectationController.text = data[0]['user_exp'] ?? '';
-            isLoading = false;
-          });
-        } else {
-          setState(() {
-            expectationController.text = '';
-            isLoading = false;
-          });
-        }
-      } else {
         setState(() {
+          expectationController.text =
+              data.isNotEmpty ? data[0]['user_exp'] ?? '' : '';
           isLoading = false;
         });
+      } else {
+        setState(() => isLoading = false);
         debugPrint("Error: ${response.statusCode} ${response.body}");
       }
     } catch (e) {
       debugPrint("fetchExpectation error: $e");
-      setState(() {
-        isLoading = false;
-      });
+      setState(() => isLoading = false);
+    }
+  }
+
+  // ฟังก์ชันดึง percent จาก API
+  Future<void> fetchPercent() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
+    try {
+      final idToken = await user.getIdToken(true);
+      final url = Uri.parse(
+        '${ApiEndpoints.baseUrl}/api/activityHistory/increaseCurrentValue?act_detail_id=${widget.actId}',
+      );
+
+      final response = await http.put(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $idToken',
+        },
+        body: jsonEncode({'action': 0}), // ส่ง 0 เพื่อเรียกดู percent ล่าสุด
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        setState(() {
+          _percent = (data['percent'] != null) ? data['percent'].toDouble() : 0;
+        });
+      } else {
+        debugPrint('Failed to fetch percent: ${response.body}');
+      }
+    } catch (e) {
+      debugPrint('fetchPercent error: $e');
     }
   }
 
@@ -287,7 +312,9 @@ class _ExpectationResultScreenState extends State<ExpectationResultScreen> {
                     ),
                     const SizedBox(height: 20),
                     Text(
-                      'Good Job!!!',
+                      _percent != null
+                          ? '${_percent!.toStringAsFixed(1)}%'
+                          : 'รอคำนวณ...',
                       style: GoogleFonts.kanit(
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
