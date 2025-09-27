@@ -8,6 +8,7 @@ import 'package:pj1/add_expectations.dart';
 import 'package:pj1/constant/api_endpoint.dart';
 import 'package:pj1/grap.dart';
 import 'package:pj1/mains.dart';
+import 'package:pj1/user_expectations.dart';
 
 class Targetpage extends StatefulWidget {
   const Targetpage({super.key});
@@ -266,6 +267,61 @@ class TaskCard extends StatelessWidget {
     required this.actId,
     required this.actPic,
   });
+  Future<void> _handleTap(BuildContext context) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
+    final idToken = await user.getIdToken(true);
+    final headers = {
+      'Content-Type': 'application/json; charset=UTF-8',
+      'Authorization': 'Bearer $idToken',
+    };
+
+    try {
+      final expUrl = Uri.parse('${ApiEndpoints.baseUrl}/api/expuser/check');
+      final expResp = await http.post(
+        expUrl,
+        headers: headers,
+        body: jsonEncode({"act_id": actId, "uid": user.uid}),
+      );
+
+      if (expResp.statusCode == 200) {
+        final data = jsonDecode(expResp.body);
+        final exists = data['exists'] == true;
+
+        if (exists) {
+          // ถ้ามีข้อมูล → ไปหน้า ExpectationResultScreen
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => ExpectationResultScreen(
+                actId: actId, 
+                expectationText: data['user_exp'] ?? '',
+              ),
+            ),
+          );
+        } else {
+          // ถ้าไม่มี → ไปหน้า ExpectationScreen
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) =>
+                  ExpectationScreen(actId: actId, label: label, actPic: actPic),
+            ),
+          );
+        }
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('เกิดข้อผิดพลาดในการเช็คข้อมูล')),
+        );
+      }
+    } catch (e) {
+      debugPrint('Error checking expectation: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('เชื่อมต่อ API ไม่ได้')),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -305,62 +361,7 @@ class TaskCard extends StatelessWidget {
             ),
           ),
         ),
-        onTap: () async {
-          final user = FirebaseAuth.instance.currentUser;
-          if (user == null) return;
-
-          final idToken = await user.getIdToken(true);
-          final headers = {
-            'Content-Type': 'application/json; charset=UTF-8',
-            'Authorization': 'Bearer $idToken',
-          };
-
-          try {
-            final expUrl =
-                Uri.parse('${ApiEndpoints.baseUrl}/api/expuser/check');
-            final expResp = await http.post(
-              expUrl,
-              headers: headers,
-              body: jsonEncode({"act_id": actId, "uid": user.uid}),
-            );
-
-            if (expResp.statusCode == 200) {
-              final data = jsonDecode(expResp.body);
-              final exists = data['exists'] == true;
-
-              if (exists) {
-                // ถ้ามีข้อมูล → ไปหน้า ExpectationResultScreen
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => ExpectationResultScreen(
-                      actId: actId,
-                      expectationText: data['user_exp'] ?? '',
-                    ),
-                  ),
-                );
-              } else {
-                // ถ้าไม่มี → ไปหน้า ExpectationScreen
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => ExpectationScreen(
-                        actId: actId, label: label, actPic: actPic),
-                  ),
-                );
-              }
-            } else {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('เกิดข้อผิดพลาดในการเช็คข้อมูล')),
-              );
-            }
-          } catch (e) {
-            debugPrint('Error checking expectation: $e');
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('เชื่อมต่อ API ไม่ได้')),
-            );
-          }
-        },
+        onTap: () => _handleTap(context),
       ),
     );
   }
