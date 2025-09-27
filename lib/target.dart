@@ -295,7 +295,7 @@ class TaskCard extends StatelessWidget {
             context,
             MaterialPageRoute(
               builder: (context) => ExpectationResultScreen(
-                actId: actId, 
+                actId: actId,
                 expectationText: data['user_exp'] ?? '',
               ),
             ),
@@ -326,12 +326,14 @@ class TaskCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      margin: const EdgeInsets.symmetric(vertical: 6),
+      margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
       decoration: BoxDecoration(
         color: const Color(0xFF564843),
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(18),
       ),
       child: ListTile(
+        contentPadding: EdgeInsets.zero,
         leading: ClipRRect(
           borderRadius: BorderRadius.circular(8),
           child: Image.network(
@@ -345,7 +347,7 @@ class TaskCard extends StatelessWidget {
         ),
         title: Text(
           label,
-          style: GoogleFonts.kanit(color: Colors.white, fontSize: 18),
+          style: GoogleFonts.kanit(color: Colors.white, fontSize: 17),
         ),
         trailing: Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),

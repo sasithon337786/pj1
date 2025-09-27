@@ -180,7 +180,7 @@ class _ExpectationResultScreenState extends State<ExpectationResultScreen> {
               child: Container(
                 padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFF6E9E4),
+                  color: const Color(0xFFFFF5F8),
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: Column(
@@ -190,29 +190,65 @@ class _ExpectationResultScreenState extends State<ExpectationResultScreen> {
                       children: [
                         Image.asset(
                           'assets/icons/winking-face.png',
-                          width: 24,
-                          height: 24,
+                          width: 30,
+                          height: 30,
                         ),
                         const SizedBox(width: 8),
                         Text(
                           'EXPECTATIONS',
                           style: GoogleFonts.kanit(
-                              fontSize: 18,
-                              color: const Color(0xFF5B4436),
-                              fontWeight: FontWeight.bold),
+                            fontSize: 18,
+                            color: const Color(0xFF5B4436),
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                       ],
                     ),
-                    const SizedBox(height: 10),
-                    Text(
-                      expectationController.text.isNotEmpty
-                          ? expectationController.text
-                          : 'ไม่มีข้อมูลความคาดหวัง',
-                      style: GoogleFonts.kanit(
-                        fontSize: 14,
-                        color: const Color(0xFF5B4436),
+                    const SizedBox(height: 20),
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 14, vertical: 12),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFFF5F8), // พื้นหลังชมพูอ่อน
+                        border: Border.all(
+                          color: const Color(0xFFC98993), // กรอบชมพู
+                          width: 1.5,
+                        ),
+                        borderRadius:
+                            BorderRadius.circular(16), // มุมโค้งมน น่ารัก ๆ
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.05),
+                            blurRadius: 6,
+                            offset: const Offset(0, 3),
+                          ),
+                        ],
                       ),
-                    ),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Icon(
+                            Icons.favorite, // ใช้หัวใจเพิ่มความน่ารัก
+                            color: Color(0xFFC98993),
+                            size: 20,
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              expectationController.text.isNotEmpty
+                                  ? expectationController.text
+                                  : 'ไม่มีข้อมูลความคาดหวัง',
+                              style: GoogleFonts.kanit(
+                                fontSize: 15,
+                                color: const Color(0xFF5B4436),
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    )
                   ],
                 ),
               ),
@@ -223,7 +259,7 @@ class _ExpectationResultScreenState extends State<ExpectationResultScreen> {
               child: Container(
                 padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFF6E9E4),
+                  color: const Color(0xFFFFF5F8),
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: Column(
@@ -234,14 +270,14 @@ class _ExpectationResultScreenState extends State<ExpectationResultScreen> {
                           children: [
                             Image.asset(
                               'assets/icons/persent.png',
-                              width: 24,
-                              height: 24,
+                              width: 30,
+                              height: 30,
                             ),
                             const SizedBox(width: 8),
                             Text(
                               'เปอร์เซ็นต์ความคาดหวังของคุณ',
                               style: GoogleFonts.kanit(
-                                  fontSize: 15,
+                                  fontSize: 18,
                                   color: const Color(0xFF5B4436),
                                   fontWeight: FontWeight.bold),
                             ),

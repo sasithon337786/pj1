@@ -213,7 +213,7 @@ class _ExpectationScreenState extends State<ExpectationScreen> {
                           ),
                         ],
                       ),
-                      const SizedBox(height: 10),
+                      const SizedBox(height: 22),
                       Row(
                         children: [
                           ClipRRect(
@@ -242,6 +242,7 @@ class _ExpectationScreenState extends State<ExpectationScreen> {
                         ],
                       ),
 
+                      const SizedBox(height: 17),
                       //add name pic
                       TextField(
                         controller: expectationController,
