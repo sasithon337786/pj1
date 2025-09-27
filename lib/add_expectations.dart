@@ -71,7 +71,7 @@ class _ExpectationScreenState extends State<ExpectationScreen> {
 
   Future<void> _submitExpectation() async {
     final String expectationValue = expectationController.text;
-    final String percentageValue = percentageController.text;
+    // final String percentageValue = percentageController.text;
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
 
@@ -105,9 +105,11 @@ class _ExpectationScreenState extends State<ExpectationScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('บันทึกความคาดหวังเรียบร้อย')),
         );
-        Navigator.push(
+
+        // ไปหน้า Targetpage
+        Navigator.pushReplacement(
           context,
-          MaterialPageRoute(builder: (context) => ExpectationResultScreen()),
+          MaterialPageRoute(builder: (context) => const Targetpage()),
         );
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
