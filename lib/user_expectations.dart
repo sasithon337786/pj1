@@ -31,48 +31,40 @@ class _ExpectationResultScreenState extends State<ExpectationResultScreen> {
   bool isLoading = true;
   // final int actId;
   final TextEditingController expectationController = TextEditingController();
-   @override
+  @override
   void initState() {
     super.initState();
-    _checkExistingExpectation();
+    fetchExpectation();
   }
 
-  Future<void> _checkExistingExpectation() async {
+  Future<void> fetchExpectation() async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
 
     try {
       final idToken = await user.getIdToken(true);
-      final url = Uri.parse('${ApiEndpoints.baseUrl}/api/expuser/check');
+      final url = Uri.parse(
+        '${ApiEndpoints.baseUrl}/api/expuser/getuidex?uid=${user.uid}&act_id=${widget.actId}',
+      );
 
-      final response = await http.post(
+      final response = await http.get(
         url,
         headers: {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer $idToken',
         },
-        body: jsonEncode({
-          "act_id": widget.actId,
-          "uid": user.uid,
-        }),
       );
 
       if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        if (data['exists'] == true) {
-          // มีข้อมูล → ไปหน้า ExpectationResultScreen
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(
-              builder: (context) => ExpectationResultScreen(
-                actId: widget.actId,
-                expectationText: data['user_exp'], // ค่าที่ได้จาก DB
-              ),
-            ),
-          );
-        } else {
-          // ไม่มีข้อมูล → อยู่หน้า ExpectationScreen
+        final List data = jsonDecode(response.body);
+        if (data.isNotEmpty) {
           setState(() {
+            expectationController.text = data[0]['user_exp'] ?? '';
+            isLoading = false;
+          });
+        } else {
+          setState(() {
+            expectationController.text = '';
             isLoading = false;
           });
         }
@@ -80,9 +72,10 @@ class _ExpectationResultScreenState extends State<ExpectationResultScreen> {
         setState(() {
           isLoading = false;
         });
+        debugPrint("Error: ${response.statusCode} ${response.body}");
       }
     } catch (e) {
-      debugPrint('Error checking expectation: $e');
+      debugPrint("fetchExpectation error: $e");
       setState(() {
         isLoading = false;
       });
@@ -213,7 +206,7 @@ class _ExpectationResultScreenState extends State<ExpectationResultScreen> {
                     const SizedBox(height: 10),
                     Text(
                       expectationController.text.isNotEmpty
-                          ? widget.expectationText
+                          ? expectationController.text
                           : 'ไม่มีข้อมูลความคาดหวัง',
                       style: GoogleFonts.kanit(
                         fontSize: 14,
@@ -257,7 +250,6 @@ class _ExpectationResultScreenState extends State<ExpectationResultScreen> {
                       ],
                     ),
                     const SizedBox(height: 20),
-                    
                     Text(
                       'Good Job!!!',
                       style: GoogleFonts.kanit(
