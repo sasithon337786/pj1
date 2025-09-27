@@ -1,12 +1,25 @@
+import 'dart:convert';
+
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:http/http.dart' as http;
 import 'package:pj1/account.dart';
+import 'package:pj1/constant/api_endpoint.dart';
 import 'package:pj1/grap.dart';
 import 'package:pj1/mains.dart';
 import 'package:pj1/target.dart';
 
 class ExpectationResultScreen extends StatefulWidget {
-  const ExpectationResultScreen({super.key});
+  final int actId;
+  final String expectationText;
+  // ถ้าไม่ใช้ percentTarget ให้ลบออก
+
+  const ExpectationResultScreen({
+    super.key,
+    required this.actId,
+    required this.expectationText,
+  });
 
   @override
   State<ExpectationResultScreen> createState() =>
@@ -14,10 +27,67 @@ class ExpectationResultScreen extends StatefulWidget {
 }
 
 class _ExpectationResultScreenState extends State<ExpectationResultScreen> {
-  String expectationText =
-      'ฉันมีปัญหาเรื่องการดื่มน้ำมากลำกลักเล่นแอปนี้ ตั้งเป้าว่าจะดื่มน้ำ 300 ml ต่อวันซึ่งที่ผ่านมาอาจดื่มได้น้อย\nอยากดื่มน้ำให้ได้อีก 50% จากที่ตั้งเป้าไว้';
-  int percentTarget = 87;
-  int _selectedIndex = 2;
+  int _selectedIndex = 0;
+  bool isLoading = true;
+  // final int actId;
+  final TextEditingController expectationController = TextEditingController();
+   @override
+  void initState() {
+    super.initState();
+    _checkExistingExpectation();
+  }
+
+  Future<void> _checkExistingExpectation() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
+    try {
+      final idToken = await user.getIdToken(true);
+      final url = Uri.parse('${ApiEndpoints.baseUrl}/api/expuser/check');
+
+      final response = await http.post(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $idToken',
+        },
+        body: jsonEncode({
+          "act_id": widget.actId,
+          "uid": user.uid,
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if (data['exists'] == true) {
+          // มีข้อมูล → ไปหน้า ExpectationResultScreen
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+              builder: (context) => ExpectationResultScreen(
+                actId: widget.actId,
+                expectationText: data['user_exp'], // ค่าที่ได้จาก DB
+              ),
+            ),
+          );
+        } else {
+          // ไม่มีข้อมูล → อยู่หน้า ExpectationScreen
+          setState(() {
+            isLoading = false;
+          });
+        }
+      } else {
+        setState(() {
+          isLoading = false;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error checking expectation: $e');
+      setState(() {
+        isLoading = false;
+      });
+    }
+  }
 
   void _onItemTapped(int index) {
     setState(() {
@@ -142,7 +212,9 @@ class _ExpectationResultScreenState extends State<ExpectationResultScreen> {
                     ),
                     const SizedBox(height: 10),
                     Text(
-                      expectationText,
+                      expectationController.text.isNotEmpty
+                          ? widget.expectationText
+                          : 'ไม่มีข้อมูลความคาดหวัง',
                       style: GoogleFonts.kanit(
                         fontSize: 14,
                         color: const Color(0xFF5B4436),
@@ -185,15 +257,7 @@ class _ExpectationResultScreenState extends State<ExpectationResultScreen> {
                       ],
                     ),
                     const SizedBox(height: 20),
-                    Text(
-                      '$percentTarget%',
-                      style: GoogleFonts.kanit(
-                        fontSize: 50,
-                        fontWeight: FontWeight.bold,
-                        color: const Color(0xFF5B4436),
-                      ),
-                    ),
-                    const SizedBox(height: 10),
+                    
                     Text(
                       'Good Job!!!',
                       style: GoogleFonts.kanit(

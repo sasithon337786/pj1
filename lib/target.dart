@@ -16,24 +16,48 @@ class Targetpage extends StatefulWidget {
   State<Targetpage> createState() => _TargetpageScreenState();
 }
 
-Future<List<Map<String, dynamic>>> fetchActivities() async {
+Future<List<Map<String, dynamic>>> fetchActivitiesWithStatus() async {
   try {
-    // ดึง idToken จาก Firebase
-    final idToken = await FirebaseAuth.instance.currentUser?.getIdToken(true);
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return [];
+
+    final idToken = await user.getIdToken(true);
     final headers = {
       'Content-Type': 'application/json; charset=UTF-8',
-      if (idToken != null) 'Authorization': 'Bearer $idToken',
+      'Authorization': 'Bearer $idToken',
     };
 
-    // เรียก API แบบ query param (uid จาก user ปัจจุบัน)
+    // ดึง activities ของผู้ใช้
     final url = Uri.parse(
-      '${ApiEndpoints.baseUrl}/api/activityDetail/getMyActivityDetails?uid=${FirebaseAuth.instance.currentUser?.uid}',
+      '${ApiEndpoints.baseUrl}/api/activityDetail/getMyActivityDetails?uid=${user.uid}',
     );
 
     final response = await http.get(url, headers: headers);
 
     if (response.statusCode == 200) {
-      return List<Map<String, dynamic>>.from(json.decode(response.body));
+      final activities =
+          List<Map<String, dynamic>>.from(json.decode(response.body));
+
+      // สำหรับแต่ละ activity ให้เช็ค expectation
+      for (var act in activities) {
+        final expUrl = Uri.parse('${ApiEndpoints.baseUrl}/api/expuser/check');
+        final expResp = await http.post(
+          expUrl,
+          headers: headers,
+          body: jsonEncode({"act_id": act['act_id'], "uid": user.uid}),
+        );
+
+        if (expResp.statusCode == 200) {
+          final data = jsonDecode(expResp.body);
+          act['hasExpectation'] = data['exists'] == true;
+          act['user_exp'] = data['user_exp'] ?? '';
+        } else {
+          act['hasExpectation'] = false;
+          act['user_exp'] = '';
+        }
+      }
+
+      return activities;
     } else {
       debugPrint(
           'fetchActivities failed: ${response.statusCode} ${response.body}');
@@ -95,7 +119,7 @@ class _TargetpageScreenState extends State<Targetpage> {
               ),
               Expanded(
                 child: FutureBuilder<List<Map<String, dynamic>>>(
-                  future: fetchActivities(),
+                  future: fetchActivitiesWithStatus(),
                   builder: (context, snapshot) {
                     if (snapshot.connectionState == ConnectionState.waiting) {
                       return const Center(child: CircularProgressIndicator());
@@ -281,14 +305,61 @@ class TaskCard extends StatelessWidget {
             ),
           ),
         ),
-        onTap: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) =>
-                  ExpectationScreen(actId: actId, label: label, actPic: actPic),
-            ),
-          );
+        onTap: () async {
+          final user = FirebaseAuth.instance.currentUser;
+          if (user == null) return;
+
+          final idToken = await user.getIdToken(true);
+          final headers = {
+            'Content-Type': 'application/json; charset=UTF-8',
+            'Authorization': 'Bearer $idToken',
+          };
+
+          try {
+            final expUrl =
+                Uri.parse('${ApiEndpoints.baseUrl}/api/expuser/check');
+            final expResp = await http.post(
+              expUrl,
+              headers: headers,
+              body: jsonEncode({"act_id": actId, "uid": user.uid}),
+            );
+
+            if (expResp.statusCode == 200) {
+              final data = jsonDecode(expResp.body);
+              final exists = data['exists'] == true;
+
+              if (exists) {
+                // ถ้ามีข้อมูล → ไปหน้า ExpectationResultScreen
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => ExpectationResultScreen(
+                      actId: actId,
+                      expectationText: data['user_exp'] ?? '',
+                    ),
+                  ),
+                );
+              } else {
+                // ถ้าไม่มี → ไปหน้า ExpectationScreen
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => ExpectationScreen(
+                        actId: actId, label: label, actPic: actPic),
+                  ),
+                );
+              }
+            } else {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('เกิดข้อผิดพลาดในการเช็คข้อมูล')),
+              );
+            }
+          } catch (e) {
+            debugPrint('Error checking expectation: $e');
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('เชื่อมต่อ API ไม่ได้')),
+            );
+          }
         },
       ),
     );
