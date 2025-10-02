@@ -20,13 +20,26 @@ class RoleBasedRedirector extends StatelessWidget {
           return const LoadingScreen();
         }
 
-        if (snapshot.hasError || snapshot.data == null) {
+        if (snapshot.hasError ||
+            snapshot.data == null ||
+            snapshot.data!.isEmpty) {
+          debugPrint("🔴 Role not found → go to LoginScreen");
           return const LoginScreen();
         }
 
-        return snapshot.data == 'admin'
-            ? const MainAdmin()
-            : const HomePage();
+        final role = snapshot.data!;
+        debugPrint("🟢 User role detected: $role");
+
+        switch (role) {
+          case 'admin':
+            return const MainAdmin();
+          case 'user':
+            return const HomePage();
+          default:
+            // กัน role แปลกๆ หรือยังไม่ได้ assign
+            debugPrint("⚠️ Unknown role: $role → go to LoginScreen");
+            return const LoginScreen();
+        }
       },
     );
   }

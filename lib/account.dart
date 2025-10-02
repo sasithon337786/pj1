@@ -149,6 +149,221 @@ class _AccountPageState extends State<AccountPage> {
       ),
     );
   }
+
+  void _openEditProfileDialog() {
+    // ค่าเริ่มต้นจาก user ปัจจุบัน
+    final nameCtrl = TextEditingController(text: user?.username ?? '');
+    final emailCtrl = TextEditingController(text: user?.email ?? '');
+    final bdayCtrl = TextEditingController(
+      text: user?.birthday != null
+          ? DateFormat('dd/MM/yyyy').format(user!.birthday!)
+          : '',
+    );
+
+    final formKey = GlobalKey<FormState>();
+
+    String? _required(String? v) =>
+        (v == null || v.trim().isEmpty) ? 'กรุณากรอกข้อมูล' : null;
+
+    String? _email(String? v) {
+      if (v == null || v.trim().isEmpty) return 'กรุณากรอกอีเมล';
+      final ok = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(v.trim());
+      return ok ? null : 'อีเมลไม่ถูกต้อง';
+    }
+
+    Future<void> _pickBirthday(StateSetter setDState) async {
+      final now = DateTime.now();
+      final initial =
+          user?.birthday ?? DateTime(now.year - 18, now.month, now.day);
+      final picked = await showDatePicker(
+        context: context,
+        initialDate: initial,
+        firstDate: DateTime(1900),
+        lastDate: now,
+        helpText: 'เลือกวันเกิด',
+        cancelText: 'ยกเลิก',
+        confirmText: 'ยืนยัน',
+      );
+      if (picked != null) {
+        bdayCtrl.text = DateFormat('dd/MM/yyyy').format(picked);
+        setDState(() {});
+      }
+    }
+
+    InputDecoration _dec(String hint, {Widget? suffix}) {
+      return InputDecoration(
+        hintText: hint,
+        hintStyle: GoogleFonts.kanit(color: Colors.black38),
+        filled: true,
+        fillColor: _pill.withOpacity(0.6),
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: BorderSide.none,
+        ),
+        suffixIcon: suffix,
+      );
+    }
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) {
+        bool saving = false;
+
+        return StatefulBuilder(
+          builder: (ctx, setDState) {
+            Future<void> _submit() async {
+              if (!formKey.currentState!.validate()) return;
+              setDState(() => saving = true);
+
+              try {
+                final idToken =
+                    await FirebaseAuth.instance.currentUser!.getIdToken();
+                final resp = await http.put(
+                  Uri.parse('${ApiEndpoints.baseUrl}/api/users/edit'),
+                  headers: {
+                    'Authorization': 'Bearer $idToken',
+                    'Content-Type': 'application/json',
+                  },
+                  body: jsonEncode({
+                    'username': nameCtrl.text.trim(),
+                    'email': emailCtrl.text.trim(),
+                    'birthday': bdayCtrl.text.trim().isEmpty
+                        ? null
+                        : DateFormat('yyyy-MM-dd').format(
+                            DateFormat('dd/MM/yyyy')
+                                .parse(bdayCtrl.text.trim()),
+                          ),
+                  }),
+                );
+
+                // ตรวจผลลัพธ์จาก API
+                final Map<String, dynamic> body =
+                    (resp.body.isNotEmpty) ? jsonDecode(resp.body) : {};
+                final ok = resp.statusCode == 200 &&
+                    (body['success'] == true || body['message'] != null);
+
+                if (!ok) {
+                  final msg = body['message']?.toString() ??
+                      'อัปเดตไม่สำเร็จ (HTTP ${resp.statusCode})';
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text(msg)),
+                    );
+                  }
+                  return;
+                }
+
+                // ✅ ดึงข้อมูลล่าสุดจากเซิร์ฟเวอร์มาอัปเดตในแอป
+                await _loadUserProfile();
+
+                if (!mounted) return;
+                Navigator.pop(ctx);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('อัปเดตข้อมูลเรียบร้อย')),
+                );
+              } catch (e) {
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('อัปเดตไม่สำเร็จ: $e')),
+                  );
+                }
+              } finally {
+                setDState(() => saving = false);
+              }
+            }
+
+            return AlertDialog(
+              backgroundColor: _card,
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(18)),
+              titlePadding: const EdgeInsets.fromLTRB(20, 18, 20, 0),
+              contentPadding: const EdgeInsets.fromLTRB(20, 10, 20, 8),
+              actionsPadding: const EdgeInsets.fromLTRB(20, 0, 20, 14),
+              title: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('แก้ไขข้อมูลส่วนตัว',
+                      style: GoogleFonts.kanit(
+                        color: _appBar,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 20,
+                      )),
+                  const SizedBox(height: 6),
+                  Container(height: 2, color: _appBar.withOpacity(0.5)),
+                ],
+              ),
+              content: Form(
+                key: formKey,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    TextFormField(
+                      controller: nameCtrl,
+                      validator: _required,
+                      style: GoogleFonts.kanit(),
+                      decoration: _dec('ชื่อ'),
+                      textInputAction: TextInputAction.next,
+                    ),
+                    const SizedBox(height: 10),
+                    TextFormField(
+                      controller: emailCtrl,
+                      validator: _email,
+                      keyboardType: TextInputType.emailAddress,
+                      style: GoogleFonts.kanit(),
+                      decoration: _dec('อีเมล'),
+                      textInputAction: TextInputAction.next,
+                    ),
+                    const SizedBox(height: 10),
+                    TextFormField(
+                      controller: bdayCtrl,
+                      readOnly: true,
+                      onTap: () => _pickBirthday(setDState),
+                      validator: _required,
+                      style: GoogleFonts.kanit(),
+                      decoration: _dec('วันเกิด (วัน/เดือน/ปี)',
+                          suffix: const Icon(Icons.calendar_today)),
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: saving ? null : () => Navigator.pop(ctx),
+                  child:
+                      Text('ยกเลิก', style: GoogleFonts.kanit(color: _accent)),
+                ),
+                SizedBox(
+                  height: 44,
+                  child: ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: _appBar,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    onPressed: saving ? null : _submit,
+                    child: saving
+                        ? const SizedBox(
+                            width: 22,
+                            height: 22,
+                            child: CircularProgressIndicator(
+                                strokeWidth: 2, color: Colors.white),
+                          )
+                        : Text('ยืนยัน',
+                            style: GoogleFonts.kanit(color: Colors.white)),
+                  ),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
   // ------------------------------------------------
 
   // =============== 👇 เพิ่มสำหรับ "ส่งคำร้อง" เป็น Dialog ===============
@@ -494,14 +709,14 @@ class _AccountPageState extends State<AccountPage> {
             ],
           ),
           const SizedBox(height: 16),
+
           // ปุ่มคู่: แก้ไข / ส่งคำร้อง
           Row(
             children: [
               Expanded(
                 child: ElevatedButton.icon(
-                  onPressed: () {
-                    // TODO: Add Edit Profile screen
-                  },
+                  onPressed:
+                      _openEditProfileDialog, // <<< เรียก dialog ที่เพิ่ม
                   style: ElevatedButton.styleFrom(
                     backgroundColor: _appBar,
                     padding: const EdgeInsets.symmetric(vertical: 12),
