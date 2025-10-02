@@ -17,6 +17,20 @@ class Targetpage extends StatefulWidget {
   State<Targetpage> createState() => _TargetpageScreenState();
 }
 
+/// ===== Helpers ป้องกัน null/ชนิดไม่ตรง =====
+int _toInt(dynamic v, {int fallback = 0}) {
+  if (v == null) return fallback;
+  if (v is int) return v;
+  if (v is num) return v.toInt();
+  return int.tryParse(v.toString()) ?? fallback;
+}
+
+String _toString(dynamic v, {String fallback = ''}) {
+  if (v == null) return fallback;
+  return v.toString();
+}
+
+/// ดึง activities พร้อมเช็คว่ามี expectation แล้วหรือยัง
 Future<List<Map<String, dynamic>>> fetchActivitiesWithStatus() async {
   try {
     final user = FirebaseAuth.instance.currentUser;
@@ -28,7 +42,7 @@ Future<List<Map<String, dynamic>>> fetchActivitiesWithStatus() async {
       'Authorization': 'Bearer $idToken',
     };
 
-    // ดึง activities ของผู้ใช้
+    // ✅ ดึง activities ของผู้ใช้ (ปลายทางนี้ของคุณ)
     final url = Uri.parse(
       '${ApiEndpoints.baseUrl}/api/activityDetail/getMyActivityDetails?uid=${user.uid}',
     );
@@ -39,13 +53,21 @@ Future<List<Map<String, dynamic>>> fetchActivitiesWithStatus() async {
       final activities =
           List<Map<String, dynamic>>.from(json.decode(response.body));
 
-      // สำหรับแต่ละ activity ให้เช็ค expectation
+      // ✅ เติมสถานะ expectation ให้แต่ละ activity (ใช้ id ที่รองรับได้ทั้ง act_id/act_detail_id)
       for (var act in activities) {
+        final finalActId =
+            _toInt(act['act_id'] ?? act['act_detail_id'], fallback: 0);
+        if (finalActId <= 0) {
+          act['hasExpectation'] = false;
+          act['user_exp'] = '';
+          continue;
+        }
+
         final expUrl = Uri.parse('${ApiEndpoints.baseUrl}/api/expuser/check');
         final expResp = await http.post(
           expUrl,
           headers: headers,
-          body: jsonEncode({"act_id": act['act_id'], "uid": user.uid}),
+          body: jsonEncode({"act_id": finalActId, "uid": user.uid}),
         );
 
         if (expResp.statusCode == 200) {
@@ -86,7 +108,7 @@ class _TargetpageScreenState extends State<Targetpage> {
         );
         break;
       case 1:
-        // อยู่หน้าเดียวกัน ไม่ต้องทำอะไร
+        // อยู่หน้าเดียวกัน
         break;
       case 2:
         Navigator.pushReplacement(
@@ -105,8 +127,6 @@ class _TargetpageScreenState extends State<Targetpage> {
 
   @override
   Widget build(BuildContext context) {
-    final uid = FirebaseAuth.instance.currentUser!.uid;
-
     return Scaffold(
       backgroundColor: const Color(0xFFC98993),
       body: Stack(
@@ -130,7 +150,31 @@ class _TargetpageScreenState extends State<Targetpage> {
                       return const Center(child: Text('ยังไม่มีกิจกรรม'));
                     }
 
-                    final activities = snapshot.data!;
+                    // ✅ map ให้รองรับได้ทั้ง act_id/act_detail_id และ act_pic/icon_path
+                    final normalized = snapshot.data!
+                        .map((raw) {
+                          final id = _toInt(
+                              raw['act_id'] ?? raw['act_detail_id'],
+                              fallback: 0);
+                          if (id <= 0)
+                            return null; // ตัดทิ้งรายการที่ไม่มี id ที่ใช้ได้
+                          return {
+                            'id': id,
+                            'name': _toString(raw['act_name'],
+                                fallback: 'Unknown Activity'),
+                            'pic':
+                                _toString(raw['act_pic'] ?? raw['icon_path']),
+                          };
+                        })
+                        .where((e) => e != null)
+                        .cast<Map<String, dynamic>>()
+                        .toList();
+
+                    if (normalized.isEmpty) {
+                      return const Center(
+                          child: Text('ยังไม่มีกิจกรรมที่ใช้งานได้'));
+                    }
+
                     return SingleChildScrollView(
                       padding: const EdgeInsets.only(top: 70, bottom: 16),
                       child: Column(
@@ -164,11 +208,11 @@ class _TargetpageScreenState extends State<Targetpage> {
                                   ],
                                 ),
                                 const SizedBox(height: 16),
-                                for (var act in activities)
+                                for (var act in normalized)
                                   TaskCard(
-                                    label: act['act_name'],
-                                    actId: act['act_id'],
-                                    actPic: act['act_pic'],
+                                    label: act['name'] as String,
+                                    actId: act['id'] as int,
+                                    actPic: act['pic'] as String,
                                   ),
                               ],
                             ),
@@ -267,6 +311,7 @@ class TaskCard extends StatelessWidget {
     required this.actId,
     required this.actPic,
   });
+
   Future<void> _handleTap(BuildContext context) async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
@@ -290,7 +335,6 @@ class TaskCard extends StatelessWidget {
         final exists = data['exists'] == true;
 
         if (exists) {
-          // ถ้ามีข้อมูล → ไปหน้า ExpectationResultScreen
           Navigator.push(
             context,
             MaterialPageRoute(
@@ -301,7 +345,6 @@ class TaskCard extends StatelessWidget {
             ),
           );
         } else {
-          // ถ้าไม่มี → ไปหน้า ExpectationScreen
           Navigator.push(
             context,
             MaterialPageRoute(
@@ -336,14 +379,17 @@ class TaskCard extends StatelessWidget {
         contentPadding: EdgeInsets.zero,
         leading: ClipRRect(
           borderRadius: BorderRadius.circular(8),
-          child: Image.network(
-            actPic,
-            width: 40,
-            height: 40,
-            fit: BoxFit.cover,
-            errorBuilder: (context, error, stackTrace) =>
-                const Icon(Icons.image_not_supported, color: Colors.white),
-          ),
+          child: actPic.isEmpty
+              ? const Icon(Icons.image_not_supported, color: Colors.white)
+              : Image.network(
+                  actPic,
+                  width: 40,
+                  height: 40,
+                  fit: BoxFit.cover,
+                  errorBuilder: (context, error, stackTrace) => const Icon(
+                      Icons.image_not_supported,
+                      color: Colors.white),
+                ),
         ),
         title: Text(
           label,
