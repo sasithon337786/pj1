@@ -195,30 +195,50 @@ class _HomePageState extends State<HomePage> {
 
   Future<void> _deleteActivity(String actDetailId) async {
     try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('กรุณาเข้าสู่ระบบก่อน')),
+        );
+        return;
+      }
+
+      final idToken = await user.getIdToken(true);
+
       final delUrl =
           '${ApiEndpoints.baseUrl}/api/activityDetail/deleteActivityDetail?act_detail_id=${Uri.encodeComponent(actDetailId)}';
-      final response = await http
-          .delete(Uri.parse(delUrl), headers: await _authHeaders())
-          .timeout(const Duration(seconds: 12));
+
+      final response = await http.delete(
+        Uri.parse(delUrl),
+        headers: {
+          'Content-Type': 'application/json; charset=UTF-8',
+          'Authorization': 'Bearer $idToken', // ✅ ส่ง token ไปด้วย
+        },
+      ).timeout(const Duration(seconds: 12));
 
       if (!mounted) return;
 
       if (response.statusCode == 200) {
         _reload();
-        ScaffoldMessenger.of(context)
-            .showSnackBar(const SnackBar(content: Text('ลบกิจกรรมเรียบร้อย')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('ลบกิจกรรมเรียบร้อย')),
+        );
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-            content: Text('ลบกิจกรรมไม่สำเร็จ (${response.statusCode})')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+              content: Text('ลบกิจกรรมไม่สำเร็จ (${response.statusCode})')),
+        );
       }
     } on TimeoutException {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('เชื่อมต่อนานเกินไป ลองใหม่อีกครั้ง')));
+        const SnackBar(content: Text('เชื่อมต่อนานเกินไป ลองใหม่อีกครั้ง')),
+      );
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text('เกิดข้อผิดพลาด: $e')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('เกิดข้อผิดพลาด: $e')),
+      );
     }
   }
 
