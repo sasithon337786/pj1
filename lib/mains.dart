@@ -172,7 +172,7 @@ class _HomePageState extends State<HomePage> {
       String actDetailId, Map<String, String> headers) async {
     try {
       final url = Uri.parse(
-        '${ApiEndpoints.baseUrl}/api/activityHistory/getTodayCurrentValue?act_detail_id=$actDetailId',
+        '${ApiEndpoints.baseUrl}/api/activityHistory/getCurrentValue?act_detail_id=$actDetailId',
       );
       final res = await http
           .get(url, headers: headers)
