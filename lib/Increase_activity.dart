@@ -167,7 +167,7 @@ class _IncreaseactivityPageState extends State<Increaseactivity> {
       final res = await http.post(
         url,
         headers: await _authHeaders(),
-        body: jsonEncode({'amount': amountToAdd}),
+        body: jsonEncode({'action': amountToAdd}),
       );
 
       if (res.statusCode == 200) {
@@ -267,6 +267,7 @@ class _IncreaseactivityPageState extends State<Increaseactivity> {
     FocusScope.of(context).unfocus();
 
     await _persistIncrease(toAdd);
+    await _fetchCurrentValue(widget.actDetailId);
     _controller.clear();
 
     if (_currentAmount >= _goalAmount && _goalAmount > 0) {
