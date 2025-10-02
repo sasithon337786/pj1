@@ -116,16 +116,10 @@ class _HomePageState extends State<HomePage> {
             ? (detail['goal'] as num).toDouble()
             : double.tryParse(detail['goal']?.toString() ?? '0') ?? 0;
 
-        final double current = (detail['current_value'] is num)
-            ? (detail['current_value'] as num).toDouble()
-            : double.tryParse(detail['current_value']?.toString() ?? '0') ?? 0;
+        // 👇 current_value ไม่ได้มาจาก API นี้แล้ว
+        final double current = 0;
 
         final String unit = detail['unit']?.toString() ?? '';
-
-        final bool isCompleted = goal > 0 && current >= goal;
-        final String displayText = isCompleted
-            ? 'ทำเสร็จแล้ว'
-            : '${_fmt(current)}/${_fmt(goal)}${unit.isNotEmpty ? ' $unit' : ''}';
 
         activities.add({
           'act_detail_id': detail['act_detail_id']?.toString() ?? '',
@@ -134,8 +128,7 @@ class _HomePageState extends State<HomePage> {
           'goal': goal,
           'unit': unit,
           'current_value': current,
-          'display_text': displayText,
-          'is_completed': isCompleted,
+          'is_completed': false, // คำนวณทีหลังหลังได้ current จริง
         });
       }
 
@@ -144,6 +137,27 @@ class _HomePageState extends State<HomePage> {
       debugPrint("Error fetching user activities: $e");
       return [];
     }
+  }
+
+  Future<int> _fetchCurrentValue(String actDetailId) async {
+    final currentUser = FirebaseAuth.instance.currentUser;
+    if (currentUser == null) return 0;
+
+    final idToken = await currentUser.getIdToken();
+    final url = Uri.parse(
+      '${ApiEndpoints.baseUrl}/api/activityHistory/getTodayCurrentValue?act_detail_id=$actDetailId',
+    );
+
+    final response = await http.get(url, headers: {
+      'Authorization': 'Bearer $idToken',
+      'Content-Type': 'application/json',
+    });
+
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+      return data['current_value'] ?? 0;
+    }
+    return 0;
   }
 
   Future<void> _deleteActivity(String actDetailId) async {

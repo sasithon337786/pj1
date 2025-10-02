@@ -10,8 +10,9 @@ class AuthResponse {
   });
 
   factory AuthResponse.fromJson(Map<String, dynamic> json) {
+    final userJson = json['user'] ?? json; // ถ้าไม่มี key 'user' ใช้ json ตรงๆ
     return AuthResponse(
-      user: UserModel.fromJson(json['user']),
+      user: UserModel.fromJson(userJson),
       token: json['token'] ?? '',
     );
   }

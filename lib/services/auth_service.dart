@@ -103,9 +103,15 @@ class AuthService {
           'photoURL': user.photoURL,
         }),
       );
-
       if (response.statusCode == 200) {
-        return AuthResponse.fromJson(jsonDecode(response.body));
+        if (response.body.isEmpty) {
+          throw Exception('Server returned empty response');
+        }
+        final responseJson = jsonDecode(response.body);
+        if (responseJson == null) {
+          throw Exception('Server returned null response');
+        }
+        return AuthResponse.fromJson(responseJson);
       } else {
         final error =
             jsonDecode(response.body)['message'] ?? 'Server rejected token';
