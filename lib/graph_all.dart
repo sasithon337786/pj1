@@ -49,7 +49,8 @@ class _AllGraphScreenState extends State<AllGraphScreen> {
       final idToken = await user.getIdToken();
 
       // เรียก API
-      final uri = Uri.parse('${ApiEndpoints.baseUrl}/api/activityDetail/daily-overall-percent');
+      final uri = Uri.parse(
+          '${ApiEndpoints.baseUrl}/api/activityDetail/daily-overall-percent');
       final response = await http.get(
         uri,
         headers: {
@@ -110,31 +111,16 @@ class _AllGraphScreenState extends State<AllGraphScreen> {
       return;
     }
 
-    final Map<String, List<double>> byMonth = {}; // key: YYYY-MM
-    for (var i = 0; i < _dates.length; i++) {
-      final d = _dates[i];
-      final key =
-          '${d.year.toString().padLeft(4, '0')}-${d.month.toString().padLeft(2, '0')}';
-      byMonth.putIfAbsent(key, () => []);
-      byMonth[key]!.add(_percents[i]);
-    }
+    // เอา 365 วันล่าสุด
+    final take = _dates.length > 365 ? 365 : _dates.length;
+    final lastDates = _dates.sublist(_dates.length - take);
+    final lastPercents = _percents.sublist(_percents.length - take);
 
-    final keys = byMonth.keys.toList()..sort(); // เก่ามาหาใหม่
-    final last12 = keys.length > 12 ? keys.sublist(keys.length - 12) : keys;
-
-    _yearLabels = last12.map((k) {
-      final parts = k.split('-'); // [YYYY, MM]
-      final mm = parts[1];
-      final yy = parts[0].substring(2); // ปี 2 หลัก
-      return '$mm/$yy';
-    }).toList();
-
-    _yearAverages = last12.map((k) {
-      final vals = byMonth[k]!;
-      final avg =
-          vals.isEmpty ? 0.0 : (vals.reduce((a, b) => a + b) / vals.length);
-      return avg;
-    }).toList();
+    _yearLabels = lastDates
+        .map((d) =>
+            '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}')
+        .toList();
+    _yearAverages = lastPercents;
   }
 
   void _onItemTapped(int index) {
@@ -260,7 +246,7 @@ class _AllGraphScreenState extends State<AllGraphScreen> {
                         FadeTransition(opacity: anim, child: child),
                     child: (selectedTab == 'Month')
                         ? _buildMonthLineChart()
-                        : _buildYearBarChart(),
+                        : _buildYearLineChart(),
                   ),
 
                   const SizedBox(height: 16),
@@ -328,92 +314,24 @@ class _AllGraphScreenState extends State<AllGraphScreen> {
 
   /// กราฟ Month: 30 วันล่าสุด (Line chart)
   Widget _buildMonthLineChart() {
-  if (_monthDates.isEmpty || _monthPercents.isEmpty) {
-    return const SizedBox(
-      height: 250,
-      child: Center(child: Text('ยังไม่มีข้อมูลกราฟ (เดือน)')),
-    );
-  }
-
-  // สร้าง FlSpot สำหรับแต่ละวัน
-  final spots = List.generate(
-    _monthPercents.length,
-    (i) => FlSpot(i.toDouble(), _monthPercents[i]),
-  );
-
-  return SizedBox(
-    height: 250,
-    child: LineChart(
-      LineChartData(
-        minY: 0,
-        maxY: 100,
-        titlesData: FlTitlesData(
-          leftTitles: AxisTitles(
-            sideTitles: SideTitles(
-              showTitles: true,
-              reservedSize: 30,
-              getTitlesWidget: (value, _) => Text('${value.toInt()}%',
-                  style: GoogleFonts.kanit(fontSize: 12)),
-            ),
-          ),
-          bottomTitles: AxisTitles(
-            sideTitles: SideTitles(
-              showTitles: true,
-              interval: (_monthDates.length / 6).clamp(1, 10).toDouble(), // แสดง label ประมาณ 6 จุด
-              getTitlesWidget: (value, meta) {
-                final i = value.toInt();
-                if (i < 0 || i >= _monthDates.length) return const SizedBox.shrink();
-                final d = _monthDates[i];
-                return Transform.rotate(
-                  angle: -0.6, // หมุน label เล็กน้อย
-                  child: Text(
-                    '${d.day.toString().padLeft(2,'0')}/${d.month.toString().padLeft(2,'0')}',
-                    style: GoogleFonts.kanit(fontSize: 11),
-                  ),
-                );
-              },
-            ),
-          ),
-          topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-          rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-        ),
-        lineBarsData: [
-          LineChartBarData(
-            spots: spots,
-            isCurved: true,
-            color: const Color(0xFF5A3E42),
-            barWidth: 3,
-            dotData: FlDotData(show: true),
-          ),
-        ],
-        gridData: FlGridData(show: true),
-        borderData: FlBorderData(
-          show: true,
-          border: const Border(
-            bottom: BorderSide(),
-            left: BorderSide(),
-            right: BorderSide.none,
-            top: BorderSide.none,
-          ),
-        ),
-      ),
-    ),
-  );
-}
-
-
-  /// กราฟ Year: ค่าเฉลี่ยรายเดือนของ 12 เดือนล่าสุด (Bar chart)
-  Widget _buildYearBarChart() {
-    if (_yearLabels.isEmpty || _yearAverages.isEmpty) {
+    if (_monthDates.isEmpty || _monthPercents.isEmpty) {
       return const SizedBox(
-          height: 250, child: Center(child: Text('ยังไม่มีข้อมูลกราฟ (ปี)')));
+        height: 250,
+        child: Center(child: Text('ยังไม่มีข้อมูลกราฟ (เดือน)')),
+      );
     }
 
+    // สร้าง FlSpot สำหรับแต่ละวัน
+    final spots = List.generate(
+      _monthPercents.length,
+      (i) => FlSpot(i.toDouble(), _monthPercents[i]),
+    );
+
     return SizedBox(
-      key: const ValueKey('year-bar'),
       height: 250,
-      child: BarChart(
-        BarChartData(
+      child: LineChart(
+        LineChartData(
+          minY: 0,
           maxY: 100,
           titlesData: FlTitlesData(
             leftTitles: AxisTitles(
@@ -427,6 +345,86 @@ class _AllGraphScreenState extends State<AllGraphScreen> {
             bottomTitles: AxisTitles(
               sideTitles: SideTitles(
                 showTitles: true,
+                interval: (_monthDates.length / 6)
+                    .clamp(1, 10)
+                    .toDouble(), // แสดง label ประมาณ 6 จุด
+                getTitlesWidget: (value, meta) {
+                  final i = value.toInt();
+                  if (i < 0 || i >= _monthDates.length)
+                    return const SizedBox.shrink();
+                  final d = _monthDates[i];
+                  return Transform.rotate(
+                    angle: -0.6, // หมุน label เล็กน้อย
+                    child: Text(
+                      '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}',
+                      style: GoogleFonts.kanit(fontSize: 11),
+                    ),
+                  );
+                },
+              ),
+            ),
+            topTitles:
+                const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+            rightTitles:
+                const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+          ),
+          lineBarsData: [
+            LineChartBarData(
+              spots: spots,
+              isCurved: true,
+              color: const Color(0xFF5A3E42),
+              barWidth: 3,
+              dotData: FlDotData(show: true),
+            ),
+          ],
+          gridData: FlGridData(show: true),
+          borderData: FlBorderData(
+            show: true,
+            border: const Border(
+              bottom: BorderSide(),
+              left: BorderSide(),
+              right: BorderSide.none,
+              top: BorderSide.none,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// กราฟ Year: ค่าเฉลี่ยรายเดือนของ 12 เดือนล่าสุด (Bar chart)
+  Widget _buildYearLineChart() {
+    if (_yearLabels.isEmpty || _yearAverages.isEmpty) {
+      return const SizedBox(
+        height: 250,
+        child: Center(child: Text('ยังไม่มีข้อมูลกราฟ (ปี)')),
+      );
+    }
+
+    final spots = List.generate(
+      _yearAverages.length,
+      (i) => FlSpot(i.toDouble(), _yearAverages[i]),
+    );
+
+    return SizedBox(
+      height: 250,
+      child: LineChart(
+        LineChartData(
+          minY: 0,
+          maxY: 100,
+          titlesData: FlTitlesData(
+            leftTitles: AxisTitles(
+              sideTitles: SideTitles(
+                showTitles: true,
+                reservedSize: 30,
+                getTitlesWidget: (value, _) => Text('${value.toInt()}%',
+                    style: GoogleFonts.kanit(fontSize: 12)),
+              ),
+            ),
+            bottomTitles: AxisTitles(
+              sideTitles: SideTitles(
+                showTitles: true,
+                interval: (_yearLabels.length / 12).clamp(1, 50).toDouble(),
                 getTitlesWidget: (value, meta) {
                   final i = value.toInt();
                   if (i < 0 || i >= _yearLabels.length)
@@ -444,20 +442,16 @@ class _AllGraphScreenState extends State<AllGraphScreen> {
             rightTitles:
                 const AxisTitles(sideTitles: SideTitles(showTitles: false)),
           ),
-          barGroups: List.generate(_yearAverages.length, (i) {
-            return BarChartGroupData(
-              x: i,
-              barRods: [
-                BarChartRodData(
-                  toY: _yearAverages[i],
-                  color: const Color(0xFF5A3E42),
-                  width: 14,
-                  borderRadius: BorderRadius.circular(6),
-                ),
-              ],
-            );
-          }),
-          gridData: FlGridData(show: false),
+          lineBarsData: [
+            LineChartBarData(
+              spots: spots,
+              isCurved: true,
+              color: const Color(0xFF5A3E42),
+              barWidth: 2,
+              dotData: FlDotData(show: false),
+            ),
+          ],
+          gridData: FlGridData(show: true),
           borderData: FlBorderData(
             show: true,
             border: const Border(
