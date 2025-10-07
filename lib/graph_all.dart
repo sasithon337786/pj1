@@ -37,10 +37,56 @@ class _AllGraphScreenState extends State<AllGraphScreen> {
   // -------- ใช้สำหรับ "Year" (avg รายเดือน 12 เดือนล่าสุด) --------
   List<String> _yearLabels = []; // เช่น 01/25, 02/25 ...
   List<double> _yearAverages = [];
+  Future<void> _fetchDailyOverallPercent() async {
+    setState(() => isLoadingPercent = true);
+
+    try {
+      // ดึง Firebase ID token
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) {
+        throw Exception('User not logged in');
+      }
+      final idToken = await user.getIdToken();
+
+      // เรียก API
+      final uri = Uri.parse('${ApiEndpoints.baseUrl}/api/activityDetail/daily-overall-percent');
+      final response = await http.get(
+        uri,
+        headers: {
+          'Authorization': 'Bearer $idToken',
+          'Content-Type': 'application/json',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final body = json.decode(response.body);
+        final List data = body['data'];
+
+        _dates = data.map<DateTime>((e) => DateTime.parse(e['date'])).toList();
+        _percents = data
+            .map<double>((e) => (e['overall_percent'] as num).toDouble())
+            .toList();
+
+        // เตรียมข้อมูลสำหรับ Month / Year
+        _buildMonthSeries();
+        _buildYearSeries();
+
+        // percent ล่าสุด
+        _percent = _percents.isNotEmpty ? _percents.last : null;
+      } else {
+        print('Error fetching data: ${response.statusCode}');
+      }
+    } catch (e) {
+      print('Exception fetching data: $e');
+    } finally {
+      setState(() => isLoadingPercent = false);
+    }
+  }
 
   @override
   void initState() {
     super.initState();
+    _fetchDailyOverallPercent();
   }
 
   // ---------- 30 วันล่าสุดสำหรับแท็บ Month ----------
@@ -282,81 +328,79 @@ class _AllGraphScreenState extends State<AllGraphScreen> {
 
   /// กราฟ Month: 30 วันล่าสุด (Line chart)
   Widget _buildMonthLineChart() {
-    if (_monthDates.isEmpty || _monthPercents.isEmpty) {
-      return const SizedBox(
-          height: 250,
-          child: Center(child: Text('ยังไม่มีข้อมูลกราฟ (เดือน)')));
-    }
-
-    final spots = List.generate(
-      _monthPercents.length,
-      (i) => FlSpot(i.toDouble(), _monthPercents[i]),
-    );
-
-    return SizedBox(
-      key: const ValueKey('month-line'),
+  if (_monthDates.isEmpty || _monthPercents.isEmpty) {
+    return const SizedBox(
       height: 250,
-      child: LineChart(
-        LineChartData(
-          minY: 0,
-          maxY: 100,
-          titlesData: FlTitlesData(
-            leftTitles: AxisTitles(
-              sideTitles: SideTitles(
-                showTitles: true,
-                reservedSize: 30,
-                getTitlesWidget: (value, _) => Text('${value.toInt()}%',
-                    style: GoogleFonts.kanit(fontSize: 12)),
-              ),
+      child: Center(child: Text('ยังไม่มีข้อมูลกราฟ (เดือน)')),
+    );
+  }
+
+  // สร้าง FlSpot สำหรับแต่ละวัน
+  final spots = List.generate(
+    _monthPercents.length,
+    (i) => FlSpot(i.toDouble(), _monthPercents[i]),
+  );
+
+  return SizedBox(
+    height: 250,
+    child: LineChart(
+      LineChartData(
+        minY: 0,
+        maxY: 100,
+        titlesData: FlTitlesData(
+          leftTitles: AxisTitles(
+            sideTitles: SideTitles(
+              showTitles: true,
+              reservedSize: 30,
+              getTitlesWidget: (value, _) => Text('${value.toInt()}%',
+                  style: GoogleFonts.kanit(fontSize: 12)),
             ),
-            bottomTitles: AxisTitles(
-              sideTitles: SideTitles(
-                showTitles: true,
-                interval: (_monthDates.length / 6)
-                    .clamp(1, 10)
-                    .toDouble(), // label ประมาณ 6 จุด
-                getTitlesWidget: (value, meta) {
-                  final i = value.toInt();
-                  if (i < 0 || i >= _monthDates.length)
-                    return const SizedBox.shrink();
-                  final d = _monthDates[i];
-                  final label =
-                      '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}';
-                  return Transform.rotate(
-                    angle: -0.6, // ~ -34°
-                    child: Text(label, style: GoogleFonts.kanit(fontSize: 11)),
-                  );
-                },
-              ),
-            ),
-            topTitles:
-                const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-            rightTitles:
-                const AxisTitles(sideTitles: SideTitles(showTitles: false)),
           ),
-          lineBarsData: [
-            LineChartBarData(
-              spots: spots,
-              isCurved: true,
-              color: const Color(0xFF5A3E42),
-              barWidth: 3,
-              dotData: FlDotData(show: true),
+          bottomTitles: AxisTitles(
+            sideTitles: SideTitles(
+              showTitles: true,
+              interval: (_monthDates.length / 6).clamp(1, 10).toDouble(), // แสดง label ประมาณ 6 จุด
+              getTitlesWidget: (value, meta) {
+                final i = value.toInt();
+                if (i < 0 || i >= _monthDates.length) return const SizedBox.shrink();
+                final d = _monthDates[i];
+                return Transform.rotate(
+                  angle: -0.6, // หมุน label เล็กน้อย
+                  child: Text(
+                    '${d.day.toString().padLeft(2,'0')}/${d.month.toString().padLeft(2,'0')}',
+                    style: GoogleFonts.kanit(fontSize: 11),
+                  ),
+                );
+              },
             ),
-          ],
-          gridData: FlGridData(show: false),
-          borderData: FlBorderData(
-            show: true,
-            border: const Border(
-              bottom: BorderSide(),
-              left: BorderSide(),
-              right: BorderSide.none,
-              top: BorderSide.none,
-            ),
+          ),
+          topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+          rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+        ),
+        lineBarsData: [
+          LineChartBarData(
+            spots: spots,
+            isCurved: true,
+            color: const Color(0xFF5A3E42),
+            barWidth: 3,
+            dotData: FlDotData(show: true),
+          ),
+        ],
+        gridData: FlGridData(show: true),
+        borderData: FlBorderData(
+          show: true,
+          border: const Border(
+            bottom: BorderSide(),
+            left: BorderSide(),
+            right: BorderSide.none,
+            top: BorderSide.none,
           ),
         ),
       ),
-    );
-  }
+    ),
+  );
+}
+
 
   /// กราฟ Year: ค่าเฉลี่ยรายเดือนของ 12 เดือนล่าสุด (Bar chart)
   Widget _buildYearBarChart() {
