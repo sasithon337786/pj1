@@ -48,13 +48,13 @@ class AuthService {
       if (user == null) throw Exception('Failed to authenticate user');
 
       final idToken = await user.getIdToken(true);
-
+      print("ID Token before send: $idToken");
       final response = await http.post(
         Uri.parse('${ApiEndpoints.baseUrl}/api/auth/loginwithemail'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({'idToken': idToken}),
       );
-
+    
       if (response.statusCode == 200) {
         return AuthResponse.fromJson(jsonDecode(response.body));
       } else {
@@ -111,6 +111,8 @@ class AuthService {
         if (responseJson == null) {
           throw Exception('Server returned null response');
         }
+        print('Response JSON: $responseJson');
+
         return AuthResponse.fromJson(responseJson);
       } else {
         final error =
