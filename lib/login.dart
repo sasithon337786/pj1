@@ -133,7 +133,7 @@ class _LoginScreenState extends State<LoginScreen> {
     setState(() => _isGoogleLoading = true);
     try {
       final data = await _authService.signInWithGoogle();
-      final role = data.user.role; // ✅ ใช้ object property แทน []
+      final role = data.role; // ✅ ใช้ object property แทน []
 
       _showSnackBar('Google sign-in successful!',
           backgroundColor: Colors.green);
@@ -182,7 +182,7 @@ class _LoginScreenState extends State<LoginScreen> {
         password: _passwordController.text,
       );
 
-      final role = data.user.role; // ✅ ใช้ object property แทน []
+      final role = data.role; // ✅ ใช้ object property แทน []
 
       _showSnackBar('Login successful!', backgroundColor: Colors.green);
 

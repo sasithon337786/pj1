@@ -33,7 +33,7 @@ class RoleBasedRedirector extends StatelessWidget {
         switch (role) {
           case 'admin':
             return const MainAdmin();
-          case 'user':
+          case 'member':
             return const HomePage();
           default:
             // กัน role แปลกๆ หรือยังไม่ได้ assign
