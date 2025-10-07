@@ -3,20 +3,23 @@ class AuthResponse {
   final String uid;
   final String role;
   final String token;
+  final String? birthday;
 
   AuthResponse({
     required this.message,
     required this.uid,
     required this.role,
     required this.token,
+    this.birthday,
   });
 
   factory AuthResponse.fromJson(Map<String, dynamic> json) {
-    return AuthResponse(
-      message: json['message'] as String,
-      uid: json['uid'] as String,
-      role: json['role'] as String,  // ❌ ใช้ as String? ถ้า backend อาจส่ง null
-      token: json['token'] as String,
-    );
-  }
+  return AuthResponse(
+    message: json['message'] as String? ?? '',
+    uid: json['uid'] as String? ?? '',
+    role: json['role'] as String? ?? 'member', // ใช้ default ถ้า null
+    token: json['token'] as String? ?? '',
+    birthday: json['birthday'] as String?,
+  );
+}
 }
