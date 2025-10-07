@@ -15,7 +15,8 @@ import 'package:pj1/constant/api_endpoint.dart';
 class Increaseactivity extends StatefulWidget {
   final String actName; // ชื่อกิจกรรม
   final String unit; // หน่วย (ml, km, hr, ครั้ง ฯลฯ)
-  final String actDetailId; // id ของ activity_detail
+  final String
+      actDetailId; // id ของ activity_detail (รับเป็น String แต่จะแปลงเป็น int ตอนยิง)
   final String? goal; // เป้าหมายรวม (string)
   final String? imageSrc; // asset หรือ URL
 
@@ -65,7 +66,6 @@ class _IncreaseactivityPageState extends State<Increaseactivity> {
   void initState() {
     super.initState();
     _goalAmount = double.tryParse(widget.goal ?? '') ?? 3000.0;
-    // เรียกดึงค่า current/goal ตอนหน้าเริ่มต้น
     _fetchCurrentValue(widget.actDetailId);
   }
 
@@ -75,43 +75,44 @@ class _IncreaseactivityPageState extends State<Increaseactivity> {
     super.dispose();
   }
 
-  // ดึง current_value ล่าสุด (ต้องแนบ token)
+  double? _latestValue;
+  // ดึงยอดรวมของวันนี้ (ให้ backend อ่าน uid จาก token)
   Future<void> _fetchCurrentValue(String actDetailId) async {
     setState(() => _isLoading = true);
 
     try {
-      final user = FirebaseAuth.instance.currentUser;
-      if (user == null) return;
+      final int? actDetailIdInt = int.tryParse(actDetailId);
+      if (actDetailIdInt == null) {
+        debugPrint('act_detail_id is not a number: $actDetailId');
+        return;
+      }
 
-      final idToken = await user.getIdToken(true);
       final url = Uri.parse(
-        '${ApiEndpoints.baseUrl}/api/activityHistory/getTodaySum?uid=${user.uid}&act_detail_id=$actDetailId',
+        '${ApiEndpoints.baseUrl}/api/activityHistory/getTodaySum?act_detail_id=$actDetailIdInt',
       );
 
       final res = await http.get(
         url,
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $idToken',
-        },
+        headers: await _authHeaders(),
       );
 
       if (res.statusCode == 200) {
         final data = jsonDecode(res.body);
 
-        // ดึง total action ของวันนี้
         final todaySum = data['todaySum'];
-        if (todaySum is num)
+        if (todaySum is num) {
           _currentAmount = todaySum.toDouble();
-        else if (todaySum is String)
+        } else if (todaySum is String) {
           _currentAmount = double.tryParse(todaySum) ?? _currentAmount;
+        }
 
-        // ดึง goal จาก response
         final g = data['goal'];
         if (g != null) {
-          if (g is num)
+          if (g is num) {
             _goalAmount = g.toDouble();
-          else if (g is String) _goalAmount = double.tryParse(g) ?? _goalAmount;
+          } else if (g is String) {
+            _goalAmount = double.tryParse(g) ?? _goalAmount;
+          }
         }
 
         if (mounted) setState(() {});
@@ -156,72 +157,139 @@ class _IncreaseactivityPageState extends State<Increaseactivity> {
     );
   }
 
+  // เพิ่มค่าตามจำนวนที่ใส่
   Future<void> _persistIncrease(double amountToAdd) async {
-  if (_isSaving) return;
-  setState(() => _isSaving = true);
+    if (_isSaving) return;
+    setState(() => _isSaving = true);
 
-  try {
-    final url = Uri.parse(
-      '${ApiEndpoints.baseUrl}/api/activityHistory/increaseCurrentValue',
-    );
+    try {
+      final url = Uri.parse(
+        '${ApiEndpoints.baseUrl}/api/activityHistory/increaseCurrentValue',
+      );
 
-    final res = await http.post(
-      url,
-      headers: await _authHeaders(),
-      body: jsonEncode({
-        'act_detail_id': widget.actDetailId, // ส่ง id ผ่าน body
-        'action': amountToAdd,
-      }),
-    );
+      final headers = await _authHeaders();
+      headers.putIfAbsent('Content-Type', () => 'application/json');
 
-    if (res.statusCode == 200) {
-      final data = jsonDecode(res.body);
-      final cv = data['current_value'] ?? data['todaySum']; // ปรับตาม backend
-      if (cv is num)
-        _currentAmount = cv.toDouble();
-      else if (cv is String)
-        _currentAmount = double.tryParse(cv) ?? _currentAmount;
-
-      final g = data['goal'];
-      if (g != null) {
-        if (g is num)
-          _goalAmount = g.toDouble();
-        else if (g is String)
-          _goalAmount = double.tryParse(g) ?? _goalAmount;
+      final int? actDetailIdInt = int.tryParse(widget.actDetailId);
+      if (actDetailIdInt == null) {
+        debugPrint('act_detail_id is not a number: ${widget.actDetailId}');
+        throw Exception('act_detail_id invalid');
       }
 
-      _hasChanged = true;
-      if (mounted) setState(() {});
-    } else {
-      debugPrint('Increase failed: ${res.statusCode} ${res.body}');
+      // กัน action ไม่ให้ NaN/negative
+      double action = amountToAdd.isFinite ? amountToAdd : 0;
+      if (action < 0) action = 0;
+
+      // กัน overshoot กับ goal (ถ้าอยากให้เพิ่มเกินได้ ให้ลบบรรทัดนี้)
+      if (_goalAmount > 0) {
+        final remain = _goalAmount - _currentAmount;
+        if (action > remain) action = remain.clamp(0, double.infinity);
+      }
+
+      final body = jsonEncode({
+        'act_detail_id': actDetailIdInt, // number
+        'action': action, // number >= 0
+      });
+
+      debugPrint('POST increaseCurrentValue body: $body');
+
+      final res = await http.post(url, headers: headers, body: body);
+
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body);
+        final cv = data['current_value'] ?? data['todaySum'];
+        if (cv is num) {
+          _currentAmount = cv.toDouble();
+        } else if (cv is String) {
+          _currentAmount = double.tryParse(cv) ?? _currentAmount;
+        }
+
+        final g = data['goal'];
+        if (g != null) {
+          if (g is num)
+            _goalAmount = g.toDouble();
+          else if (g is String) _goalAmount = double.tryParse(g) ?? _goalAmount;
+        }
+
+        _hasChanged = true;
+        if (mounted) setState(() {});
+      } else {
+        debugPrint('Increase failed: ${res.statusCode} ${res.body}');
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('เพิ่มค่าไม่สำเร็จ (${res.statusCode})')),
+          );
+        }
+      }
+    } catch (e) {
+      debugPrint('Increase error: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('เพิ่มค่าไม่สำเร็จ (${res.statusCode})')),
+          const SnackBar(content: Text('เชื่อมต่อเซิร์ฟเวอร์ไม่ได้')),
         );
       }
+    } finally {
+      if (mounted) setState(() => _isSaving = false);
     }
-  } catch (e) {
-    debugPrint('Increase error: $e');
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('เชื่อมต่อเซิร์ฟเวอร์ไม่ได้')),
-      );
-    }
-  } finally {
-    if (mounted) setState(() => _isSaving = false);
   }
-}
 
+  Future<void> _fetchLatestValue() async {
+    try {
+      final token = await FirebaseAuth.instance.currentUser?.getIdToken();
+      final url = Uri.parse(
+        '${ApiEndpoints.baseUrl}/api/activityHistory/latest?act_detail_id=${widget.actDetailId}',
+      );
+
+      final res = await http.get(url, headers: {
+        'Authorization': 'Bearer $token',
+      });
+
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body);
+        setState(() {
+          _latestValue = (data['latestAction'] ?? 0).toDouble();
+        });
+      } else {
+        print('โหลดค่าล่าสุดไม่สำเร็จ: ${res.statusCode}');
+      }
+    } catch (e) {
+      print('เกิดข้อผิดพลาดในการดึงค่าล่าสุด: $e');
+    }
+  }
+
+  // ตั้งค่า absolute (เช่นแก้ค่ารวมของวันนี้ให้เป็นตัวเลข X)
   Future<void> _persistUpdateAbsolute(double newValue) async {
     if (_isSaving) return;
+
     setState(() => _isSaving = true);
     try {
       final url = Uri.parse(
-        '${ApiEndpoints.baseUrl}/api/activityHistory/updateCurrentValue?act_detail_id=${Uri.encodeComponent(widget.actDetailId)}',
+        '${ApiEndpoints.baseUrl}/api/activityHistory/updateCurrentValue',
       );
-      final res = await http.put(url,
-          headers: await _authHeaders(),
-          body: jsonEncode({'current_value': newValue}));
+
+      final headers = await _authHeaders();
+      headers.putIfAbsent('Content-Type', () => 'application/json');
+
+      final int? actDetailIdInt = int.tryParse(widget.actDetailId);
+      if (actDetailIdInt == null) {
+        debugPrint('act_detail_id is not a number: ${widget.actDetailId}');
+        throw Exception('act_detail_id invalid');
+      }
+
+      // กันค่าติดลบ/ไม่ใช่ตัวเลข และไม่ให้เกิน goal
+      double safeValue = newValue.isFinite ? (newValue < 0 ? 0 : newValue) : 0;
+      if (_goalAmount > 0 && safeValue > _goalAmount) {
+        safeValue = _goalAmount;
+      }
+
+      final body = jsonEncode({
+        'act_detail_id': actDetailIdInt, // number
+        'action': safeValue, // number >= 0
+      });
+
+      debugPrint('PUT updateCurrentValue body: $body');
+
+      final res = await http.put(url, headers: headers, body: body);
 
       if (res.statusCode == 200) {
         final data = jsonDecode(res.body);
@@ -242,9 +310,19 @@ class _IncreaseactivityPageState extends State<Increaseactivity> {
         if (mounted) setState(() {});
       } else {
         debugPrint('Update absolute failed: ${res.statusCode} ${res.body}');
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('บันทึกไม่สำเร็จ (${res.statusCode})')),
+          );
+        }
       }
     } catch (e) {
       debugPrint('Update absolute error: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('เชื่อมต่อเซิร์ฟเวอร์ไม่ได้')),
+        );
+      }
     } finally {
       if (mounted) setState(() => _isSaving = false);
     }
@@ -294,9 +372,14 @@ class _IncreaseactivityPageState extends State<Increaseactivity> {
     final TextEditingController editCtl =
         TextEditingController(text: _fmt(_currentAmount));
 
+    await _fetchLatestValue(); // ✅ โหลดค่าล่าสุดก่อนเปิด Dialog
+
     await showDialog(
       context: context,
       builder: (ctx) {
+        // ✅ ใส่ค่าล่าสุดในช่อง TextField
+        editCtl.text = _fmt(_latestValue ?? 0);
+
         return AlertDialog(
           shape:
               RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -364,8 +447,15 @@ class _IncreaseactivityPageState extends State<Increaseactivity> {
                   return;
                 }
 
-                Navigator.pop(ctx);
-                await _persistUpdateAbsolute(newVal);
+                setState(() {
+                  _currentAmount = newVal; // อัพเดตทันทีในหน้า
+                  _hasChanged = true;
+                });
+
+                Navigator.pop(ctx); // ปิด Dialog
+
+                // ส่งไป backend แบบ async ไม่ต้องรอผลเพื่อให้ UI รีเฟรชทันที
+                _persistUpdateAbsolute(newVal);
 
                 if (_goalAmount > 0 && _currentAmount >= _goalAmount) {
                   _showGoalReachedDialog();
