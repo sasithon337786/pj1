@@ -14,11 +14,13 @@ class ExpectationScreen extends StatefulWidget {
   final int actId;
   final String label;
   final String actPic;
+  // final String actDetailId;
   const ExpectationScreen({
     super.key,
     required this.actId,
     required this.label,
     required this.actPic,
+    // required this.actDetailId,
   });
 
   @override

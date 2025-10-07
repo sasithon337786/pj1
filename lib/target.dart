@@ -55,8 +55,7 @@ Future<List<Map<String, dynamic>>> fetchActivitiesWithStatus() async {
 
       // ✅ เติมสถานะ expectation ให้แต่ละ activity (ใช้ id ที่รองรับได้ทั้ง act_id/act_detail_id)
       for (var act in activities) {
-        final finalActId =
-            _toInt(act['act_id'] ?? act['act_detail_id'], fallback: 0);
+        final finalActId = _toInt(act['act_id'], fallback: 0);
         if (finalActId <= 0) {
           act['hasExpectation'] = false;
           act['user_exp'] = '';
@@ -153,13 +152,14 @@ class _TargetpageScreenState extends State<Targetpage> {
                     // ✅ map ให้รองรับได้ทั้ง act_id/act_detail_id และ act_pic/icon_path
                     final normalized = snapshot.data!
                         .map((raw) {
-                          final id = _toInt(
-                              raw['act_id'] ?? raw['act_detail_id'],
-                              fallback: 0);
-                          if (id <= 0)
-                            return null; // ตัดทิ้งรายการที่ไม่มี id ที่ใช้ได้
+                          final actId = _toInt(raw['act_id'], fallback: 0);
+                          final actDetailId =
+                              _toInt(raw['act_detail_id'], fallback: 0);
+                          if (actId <= 0) return null;
+
                           return {
-                            'id': id,
+                            'act_id': actId,
+                            'act_detail_id': actDetailId,
                             'name': _toString(raw['act_name'],
                                 fallback: 'Unknown Activity'),
                             'pic':
@@ -211,7 +211,8 @@ class _TargetpageScreenState extends State<Targetpage> {
                                 for (var act in normalized)
                                   TaskCard(
                                     label: act['name'] as String,
-                                    actId: act['id'] as int,
+                                    actId: act['act_id'] as int,
+                                    actDetailId: act['act_detail_id'] as int,
                                     actPic: act['pic'] as String,
                                   ),
                               ],
@@ -302,19 +303,23 @@ class _TargetpageScreenState extends State<Targetpage> {
 
 class TaskCard extends StatelessWidget {
   final String label;
-  final int actId;
+  final int actId; // act_id จริงจาก backend
+  final int actDetailId; // act_detail_id จาก backend
   final String actPic;
 
   const TaskCard({
     super.key,
     required this.label,
     required this.actId,
+    required this.actDetailId,
     required this.actPic,
   });
 
   Future<void> _handleTap(BuildContext context) async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
+
+    debugPrint('Tapped TaskCard act_id: $actId, act_detail_id: $actDetailId');
 
     final idToken = await user.getIdToken(true);
     final headers = {
@@ -323,6 +328,7 @@ class TaskCard extends StatelessWidget {
     };
 
     try {
+      // ส่ง act_id ไป backend สำหรับเช็ค expectation
       final expUrl = Uri.parse('${ApiEndpoints.baseUrl}/api/expuser/check');
       final expResp = await http.post(
         expUrl,
@@ -335,21 +341,32 @@ class TaskCard extends StatelessWidget {
         final exists = data['exists'] == true;
 
         if (exists) {
+          debugPrint(
+              '(ExpectationResultScreen)Tapped TaskCard act_id: $actId, act_detail_id: $actDetailId');
+
           Navigator.push(
             context,
             MaterialPageRoute(
               builder: (context) => ExpectationResultScreen(
                 actId: actId,
+                actDetailId: actDetailId, // ✅ ส่งเพิ่ม
                 expectationText: data['user_exp'] ?? '',
               ),
             ),
           );
         } else {
+          debugPrint(
+              '(ExpectationScreen)Tapped TaskCard act_id: $actId, act_detail_id: $actDetailId');
+
           Navigator.push(
             context,
             MaterialPageRoute(
-              builder: (context) =>
-                  ExpectationScreen(actId: actId, label: label, actPic: actPic),
+              builder: (context) => ExpectationScreen(
+                actId: actId,
+                // ✅ ถ้าหน้านี้ต้องใช้ตอน create expectation
+                label: label,
+                actPic: actPic,
+              ),
             ),
           );
         }
