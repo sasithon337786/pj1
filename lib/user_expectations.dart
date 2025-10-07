@@ -13,12 +13,14 @@ import 'package:pj1/target.dart';
 class ExpectationResultScreen extends StatefulWidget {
   final int actId;
   final String expectationText;
+  final int actDetailId;
   // ถ้าไม่ใช้ percentTarget ให้ลบออก
 
   const ExpectationResultScreen({
     super.key,
     required this.actId,
     required this.expectationText,
+    required this.actDetailId,
   });
 
   @override
@@ -35,8 +37,9 @@ class _ExpectationResultScreenState extends State<ExpectationResultScreen> {
   @override
   void initState() {
     super.initState();
-    fetchExpectation();
-    fetchPercent();
+    // ✅ ใช้ค่าที่ส่งมาทันที
+    expectationController.text = widget.expectationText;
+    fetchPercent(widget.actDetailId);
   }
 
   Future<void> fetchExpectation() async {
@@ -75,35 +78,31 @@ class _ExpectationResultScreenState extends State<ExpectationResultScreen> {
   }
 
   // ฟังก์ชันดึง percent จาก API
-  Future<void> fetchPercent() async {
+  Future<void> fetchPercent(int actDetailId) async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
 
-    try {
-      final idToken = await user.getIdToken(true);
-      final url = Uri.parse(
-        '${ApiEndpoints.baseUrl}/api/activityHistory/increaseCurrentValue?act_detail_id=${widget.actId}',
-      );
+    final idToken = await user.getIdToken(true);
+    final url = Uri.parse(
+        '${ApiEndpoints.baseUrl}/api/activityHistory/getTodaySum?act_detail_id=$actDetailId');
 
-      final response = await http.put(
-        url,
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $idToken',
-        },
-        body: jsonEncode({'action': 0}), // ส่ง 0 เพื่อเรียกดู percent ล่าสุด
-      );
+    final response = await http.get(
+      url,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $idToken',
+      },
+    );
 
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        setState(() {
-          _percent = (data['percent'] != null) ? data['percent'].toDouble() : 0;
-        });
-      } else {
-        debugPrint('Failed to fetch percent: ${response.body}');
-      }
-    } catch (e) {
-      debugPrint('fetchPercent error: $e');
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+      double percent = (data['percent'] ?? 0).toDouble();
+      setState(() {
+        _percent = percent; // ✅ อัปเดตตัวแปร
+      });
+      print('Percent: $percent');
+    } else {
+      print('Failed to fetch percent: ${response.body}');
     }
   }
 

@@ -69,33 +69,49 @@ class _CountdownPageState extends State<CountdownPage> {
     super.dispose();
   }
 
-  // ---------- REST ----------
-  // ดึงข้อมูล activity_detail ล่าสุด
+
   Future<void> _fetchDetail(String actDetailId) async {
     setState(() => _loading = true);
+
     try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) return;
+      debugPrint('fetch detail for actDetailId=$actDetailId');
+      final idToken = await user.getIdToken(true);
       final url = Uri.parse(
-        '${ApiEndpoints.baseUrl}/api/activityDetail/getActivityDetailById?act_detail_id=${Uri.encodeComponent(widget.actDetailId)}',
+        '${ApiEndpoints.baseUrl}/api/activityHistory/getTodaySum?uid=${user.uid}&act_detail_id=$actDetailId',
       );
-      final res = await http.get(url, headers: await _authHeaders());
+
+      final res = await http.get(
+        url,
+        headers: {
+          'Content-Type': 'application/json; charset=UTF-8',
+          'Authorization': 'Bearer $idToken',
+        },
+      );
 
       if (res.statusCode == 200) {
         final data = jsonDecode(res.body);
 
-        // อัปเดต goal
+        // ดึง total action ของวันนี้
+        final todaySum = data['todaySum'];
+        if (todaySum is num)
+          _serverCurrent = todaySum.toDouble();
+        else if (todaySum is String)
+          _serverCurrent = double.tryParse(todaySum) ?? _serverCurrent;
+
+        // ดึง goal จาก response
         final g = data['goal'];
-        if (g is num)
-          _goalAmount = g.toDouble();
-        else if (g is String) _goalAmount = double.tryParse(g) ?? _goalAmount;
+        if (g != null) {
+          if (g is num)
+            _goalAmount = g.toDouble();
+          else if (g is String) _goalAmount = double.tryParse(g) ?? _goalAmount;
+        }
 
-        // อัปเดต current_value
-        final cv = data['current_value'];
-        if (cv is num)
-          _serverCurrent = cv.toDouble();
-        else if (cv is String)
-          _serverCurrent = double.tryParse(cv) ?? _serverCurrent;
-
+        // คำนวณ Duration target
         _target = _durationFromUnit(widget.unit, _goalAmount);
+
+        if (mounted) setState(() {});
       } else if (res.statusCode == 401 || res.statusCode == 403) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -129,13 +145,16 @@ class _CountdownPageState extends State<CountdownPage> {
 
     try {
       final url = Uri.parse(
-        '${ApiEndpoints.baseUrl}/api/activityDetail/increaseCurrentValue?act_detail_id=${Uri.encodeComponent(widget.actDetailId)}',
+        '${ApiEndpoints.baseUrl}/api/activityHistory/increaseCurrentValue',
       );
 
       final res = await http.post(
         url,
         headers: await _authHeaders(),
-        body: jsonEncode({'amount': amountToAdd}),
+        body: jsonEncode({
+          'act_detail_id': widget.actDetailId,
+          'action': amountToAdd,
+        }),
       );
 
       if (res.statusCode == 200) {
@@ -162,19 +181,6 @@ class _CountdownPageState extends State<CountdownPage> {
             const SnackBar(content: Text('บันทึกเวลาสำเร็จ')),
           );
         }
-      } else if (res.statusCode == 404) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('ไม่พบรายการกิจกรรม')),
-          );
-        }
-      } else if (res.statusCode == 401 || res.statusCode == 403) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-                content: Text('สิทธิ์ไม่ถูกต้อง กรุณาเข้าสู่ระบบใหม่')),
-          );
-        }
       } else {
         debugPrint('increase failed: ${res.statusCode} ${res.body}');
         if (mounted) {
@@ -194,6 +200,7 @@ class _CountdownPageState extends State<CountdownPage> {
       if (mounted) setState(() => _saving = false);
     }
   }
+
   // ---------------------------
 
   Duration _durationFromUnit(String unitRaw, double goalVal) {

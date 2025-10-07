@@ -18,31 +18,72 @@ class Graphpage extends StatefulWidget {
 }
 
 Future<List<Map<String, dynamic>>> fetchActivities() async {
-  final user = FirebaseAuth.instance.currentUser;
-  if (user == null) return [];
   try {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return [];
+
     final idToken = await user.getIdToken(true);
     final headers = {
       'Content-Type': 'application/json; charset=UTF-8',
       'Authorization': 'Bearer $idToken',
     };
+
+    // ดึง activities ของผู้ใช้
     final url = Uri.parse(
       '${ApiEndpoints.baseUrl}/api/activityDetail/getMyActivityDetails?uid=${user.uid}',
     );
-    final res = await http.get(url, headers: headers);
-    if (res.statusCode == 200) {
-      final data = json.decode(res.body);
-      if (data is List) {
-        // [{ act_id, act_name, act_pic, ... }]
-        return List<Map<String, dynamic>>.from(data);
+
+    final response = await http.get(url, headers: headers);
+
+    if (response.statusCode == 200) {
+      final activities =
+          List<Map<String, dynamic>>.from(json.decode(response.body));
+
+      // เติมสถานะ expectation ให้แต่ละ activity
+      for (var act in activities) {
+        final finalActId = _toInt(act['act_id'], fallback: 0);
+        if (finalActId <= 0) {
+          act['hasExpectation'] = false;
+          act['user_exp'] = '';
+          continue;
+        }
+
+        final expUrl = Uri.parse('${ApiEndpoints.baseUrl}/api/expuser/check');
+        final expResp = await http.post(
+          expUrl,
+          headers: headers,
+          body: jsonEncode({"act_id": finalActId, "uid": user.uid}),
+        );
+
+        if (expResp.statusCode == 200) {
+          final data = jsonDecode(expResp.body);
+          act['hasExpectation'] = data['exists'] == true;
+          act['user_exp'] = data['user_exp'] ?? '';
+        } else {
+          act['hasExpectation'] = false;
+          act['user_exp'] = '';
+        }
       }
+
+      return activities;
     } else {
-      debugPrint('fetchActivities failed: ${res.statusCode} ${res.body}');
+      debugPrint(
+          'fetchActivities failed: ${response.statusCode} ${response.body}');
+      return [];
     }
   } catch (e) {
     debugPrint('fetchActivities error: $e');
+    return [];
   }
-  return [];
+}
+
+// ตัวช่วยแปลงค่าเป็น int
+int _toInt(dynamic value, {int fallback = 0}) {
+  if (value == null) return fallback;
+  if (value is int) return value;
+  if (value is String) return int.tryParse(value) ?? fallback;
+  if (value is double) return value.toInt();
+  return fallback;
 }
 
 class _GraphpageState extends State<Graphpage> {
@@ -137,6 +178,9 @@ class _GraphpageState extends State<Graphpage> {
                                 actId: (act['act_id'] as num).toInt(),
                                 actName: (act['act_name'] ?? '').toString(),
                                 actPic: (act['act_pic'] ?? '').toString(),
+                                expectationText: act['user_exp'] ?? '',
+                                actDetailId:
+                                    (act['act_detail_id'] as num?)?.toInt(),
                               ),
                           ],
                         ),
@@ -213,12 +257,16 @@ class TaskCard extends StatelessWidget {
   final int actId;
   final String actName;
   final String actPic;
+  final String? expectationText;
+  final int? actDetailId;
 
   const TaskCard({
     super.key,
     required this.actId,
     required this.actName,
     required this.actPic,
+    this.expectationText,
+    this.actDetailId,
   });
 
   @override
@@ -256,13 +304,23 @@ class TaskCard extends StatelessWidget {
                   color: const Color(0xFFC98993), fontSize: 14)),
         ),
         onTap: () {
+          // เพิ่ม debug print เพื่อตรวจสอบค่าที่ส่ง
+          debugPrint('TaskCard tapped:');
+          debugPrint('actId: $actId');
+          debugPrint('actName: $actName');
+          debugPrint('actPic: $actPic');
+          debugPrint('expectationText: $expectationText');
+          debugPrint('actDetailId: $actDetailId');
+
           Navigator.push(
             context,
             MaterialPageRoute(
               builder: (_) => UserGraphBarScreen(
-                actId: actId,
-                actName: actName,
-                actPic: actPic,
+                actId: actId, // int
+                actName: actName, // String
+                actPic: actPic, // String
+                expectationText: expectationText, // String
+                actDetailId: actDetailId, // int
               ),
             ),
           );

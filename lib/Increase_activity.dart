@@ -157,45 +157,60 @@ class _IncreaseactivityPageState extends State<Increaseactivity> {
   }
 
   Future<void> _persistIncrease(double amountToAdd) async {
-    if (_isSaving) return;
-    setState(() => _isSaving = true);
-    try {
-      final url = Uri.parse(
-        '${ApiEndpoints.baseUrl}/api/activityHistory/increaseCurrentValue?act_detail_id=${Uri.encodeComponent(widget.actDetailId)}',
-      );
+  if (_isSaving) return;
+  setState(() => _isSaving = true);
 
-      final res = await http.post(
-        url,
-        headers: await _authHeaders(),
-        body: jsonEncode({'action': amountToAdd}),
-      );
+  try {
+    final url = Uri.parse(
+      '${ApiEndpoints.baseUrl}/api/activityHistory/increaseCurrentValue',
+    );
 
-      if (res.statusCode == 200) {
-        final data = jsonDecode(res.body);
-        final cv = data['current_value'];
-        if (cv is num)
-          _currentAmount = cv.toDouble();
-        else if (cv is String)
-          _currentAmount = double.tryParse(cv) ?? _currentAmount;
+    final res = await http.post(
+      url,
+      headers: await _authHeaders(),
+      body: jsonEncode({
+        'act_detail_id': widget.actDetailId, // ส่ง id ผ่าน body
+        'action': amountToAdd,
+      }),
+    );
 
-        final g = data['goal'];
-        if (g != null) {
-          if (g is num)
-            _goalAmount = g.toDouble();
-          else if (g is String) _goalAmount = double.tryParse(g) ?? _goalAmount;
-        }
+    if (res.statusCode == 200) {
+      final data = jsonDecode(res.body);
+      final cv = data['current_value'] ?? data['todaySum']; // ปรับตาม backend
+      if (cv is num)
+        _currentAmount = cv.toDouble();
+      else if (cv is String)
+        _currentAmount = double.tryParse(cv) ?? _currentAmount;
 
-        _hasChanged = true;
-        if (mounted) setState(() {});
-      } else {
-        debugPrint('Increase failed: ${res.statusCode} ${res.body}');
+      final g = data['goal'];
+      if (g != null) {
+        if (g is num)
+          _goalAmount = g.toDouble();
+        else if (g is String)
+          _goalAmount = double.tryParse(g) ?? _goalAmount;
       }
-    } catch (e) {
-      debugPrint('Increase error: $e');
-    } finally {
-      if (mounted) setState(() => _isSaving = false);
+
+      _hasChanged = true;
+      if (mounted) setState(() {});
+    } else {
+      debugPrint('Increase failed: ${res.statusCode} ${res.body}');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('เพิ่มค่าไม่สำเร็จ (${res.statusCode})')),
+        );
+      }
     }
+  } catch (e) {
+    debugPrint('Increase error: $e');
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('เชื่อมต่อเซิร์ฟเวอร์ไม่ได้')),
+      );
+    }
+  } finally {
+    if (mounted) setState(() => _isSaving = false);
   }
+}
 
   Future<void> _persistUpdateAbsolute(double newValue) async {
     if (_isSaving) return;
