@@ -256,22 +256,34 @@ class _AllGraphScreenState extends State<AllGraphScreen> {
                     width: double.infinity,
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFE6D2CD),
+                      color: const Color(0xFFFFF6F3), // สีชมพูอ่อนน่ารัก
                       borderRadius: BorderRadius.circular(16),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.brown.shade200.withOpacity(0.3),
+                          offset: const Offset(0, 4),
+                          blurRadius: 8,
+                        ),
+                      ],
                     ),
                     child: Text(
                       isLoadingPercent
-                          ? 'กำลังโหลดเปอร์เซ็นต์...'
+                          ? 'กำลังโหลดเปอร์เซ็นต์... ⏳'
                           : _percent != null
-                              ? 'เปอร์เซ็นต์ล่าสุด: ${_percent!.toStringAsFixed(1)}%'
-                              : 'ยังไม่มีข้อมูลเปอร์เซ็นต์',
+                              ? 'คุณทำได้ ${_percent!.toStringAsFixed(1)}% 🎯\n'
+                                  'สุดยอดมาก ๆ เลยค่ะ!'
+                                  'วันนี้คุณทำได้ดีแล้วนะ แต่วันพรุ่งนี้ก็อย่าลืมสู้ต่อไป\n'
+                                  'เชื่อในตัวเอง และก้าวไปให้ถึงเป้าหมายที่ตั้งไว้\n'
+                                  'คุณเก่งมากจริง ๆ สู้ ๆ นะคะ🎉💖 '
+                              : 'ยังไม่มีข้อมูลเปอร์เซ็นต์ 😢',
                       style: GoogleFonts.kanit(
                         fontSize: 16,
                         color: const Color(0xFF564843),
+                        fontWeight: FontWeight.w500,
                       ),
                       textAlign: TextAlign.center,
                     ),
-                  ),
+                  )
                 ],
               ),
             ),
@@ -313,6 +325,7 @@ class _AllGraphScreenState extends State<AllGraphScreen> {
   // ---------------- Widgets กราฟ ----------------
 
   /// กราฟ Month: 30 วันล่าสุด (Line chart)
+  /// กราฟ Month: 30 วันล่าสุด (Line chart)
   Widget _buildMonthLineChart() {
     if (_monthDates.isEmpty || _monthPercents.isEmpty) {
       return const SizedBox(
@@ -321,7 +334,6 @@ class _AllGraphScreenState extends State<AllGraphScreen> {
       );
     }
 
-    // สร้าง FlSpot สำหรับแต่ละวัน
     final spots = List.generate(
       _monthPercents.length,
       (i) => FlSpot(i.toDouble(), _monthPercents[i]),
@@ -345,16 +357,14 @@ class _AllGraphScreenState extends State<AllGraphScreen> {
             bottomTitles: AxisTitles(
               sideTitles: SideTitles(
                 showTitles: true,
-                interval: (_monthDates.length / 6)
-                    .clamp(1, 10)
-                    .toDouble(), // แสดง label ประมาณ 6 จุด
+                interval: (_monthDates.length / 6).clamp(1, 10).toDouble(),
                 getTitlesWidget: (value, meta) {
                   final i = value.toInt();
                   if (i < 0 || i >= _monthDates.length)
                     return const SizedBox.shrink();
                   final d = _monthDates[i];
                   return Transform.rotate(
-                    angle: -0.6, // หมุน label เล็กน้อย
+                    angle: -0.6,
                     child: Text(
                       '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}',
                       style: GoogleFonts.kanit(fontSize: 11),
@@ -374,10 +384,29 @@ class _AllGraphScreenState extends State<AllGraphScreen> {
               isCurved: true,
               color: const Color(0xFF5A3E42),
               barWidth: 3,
-              dotData: FlDotData(show: true),
+              dotData: FlDotData(
+                show: true,
+                getDotPainter: (spot, percent, barData, index) =>
+                    FlDotCirclePainter(
+                  radius: 4,
+                  color: Colors.pink.shade400,
+                  strokeWidth: 0,
+                ),
+              ),
+              belowBarData: BarAreaData(
+                show: true,
+                gradient: LinearGradient(
+                  colors: [
+                    Colors.pink.shade100.withOpacity(0.4),
+                    Colors.transparent
+                  ],
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                ),
+              ),
             ),
           ],
-          gridData: FlGridData(show: true),
+          gridData: FlGridData(show: true, drawVerticalLine: false),
           borderData: FlBorderData(
             show: true,
             border: const Border(
@@ -392,7 +421,7 @@ class _AllGraphScreenState extends State<AllGraphScreen> {
     );
   }
 
-  /// กราฟ Year: ค่าเฉลี่ยรายเดือนของ 12 เดือนล่าสุด (Bar chart)
+  /// กราฟ Year: ค่าเฉลี่ยรายเดือนของ 12 เดือนล่าสุด (Line chart)
   Widget _buildYearLineChart() {
     if (_yearLabels.isEmpty || _yearAverages.isEmpty) {
       return const SizedBox(
@@ -448,10 +477,29 @@ class _AllGraphScreenState extends State<AllGraphScreen> {
               isCurved: true,
               color: const Color(0xFF5A3E42),
               barWidth: 2,
-              dotData: FlDotData(show: false),
+              dotData: FlDotData(
+                show: true,
+                getDotPainter: (spot, percent, barData, index) =>
+                    FlDotCirclePainter(
+                  radius: 4,
+                  color: Colors.pink.shade400,
+                  strokeWidth: 0,
+                ),
+              ),
+              belowBarData: BarAreaData(
+                show: true,
+                gradient: LinearGradient(
+                  colors: [
+                    Colors.pink.shade100.withOpacity(0.3),
+                    Colors.transparent
+                  ],
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                ),
+              ),
             ),
           ],
-          gridData: FlGridData(show: true),
+          gridData: FlGridData(show: true, drawVerticalLine: false),
           borderData: FlBorderData(
             show: true,
             border: const Border(
