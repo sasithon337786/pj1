@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:http/http.dart' as http;
 
 import 'package:pj1/constant/api_endpoint.dart';
+import 'package:pj1/graph_all.dart';
 import 'package:pj1/mains.dart';
 import 'package:pj1/target.dart';
 import 'package:pj1/account.dart';
@@ -170,8 +171,40 @@ class _GraphpageState extends State<Graphpage> {
                                     fontWeight: FontWeight.w600,
                                   ),
                                 ),
+                                const Spacer(),
+                                // ปุ่มใหม่
+                                TextButton.icon(
+                                  style: TextButton.styleFrom(
+                                    backgroundColor: const Color(0xFFE6D2CD),
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 12, vertical: 8),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                  ),
+                                  onPressed: () {
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                          builder: (_) =>
+                                              const AllGraphScreen()),
+                                    );
+                                  },
+                                  icon: const Icon(Icons.auto_graph,
+                                      size: 18, color: Color(0xFFC98993)),
+                                  label: Text(
+                                    'แสดงกราฟผลรวม',
+                                    style: GoogleFonts.kanit(
+                                      fontSize: 14,
+                                      color: const Color(0xFFC98993),
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ),
                               ],
                             ),
+                            const SizedBox(height: 16),
+                            // ----------------------------------
                             const SizedBox(height: 16),
                             for (final act in activities)
                               TaskCard(
