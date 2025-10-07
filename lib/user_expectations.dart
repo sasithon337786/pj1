@@ -304,6 +304,103 @@ class _ExpectationResultScreenState extends State<ExpectationResultScreen> {
     );
   }
 
+  Future<void> _saveExpectation(String text) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
+    try {
+      final idToken = await user.getIdToken(true);
+      final url = Uri.parse(
+        '${ApiEndpoints.baseUrl}/api/expuser/updateexpectation',
+      );
+
+      final res = await http.put(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $idToken',
+        },
+        body: jsonEncode({
+          'act_id': widget.actId,
+          'user_exp': text,
+        }),
+      );
+
+      if (res.statusCode == 200) {
+        setState(() {
+          expectationController.text = text;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('บันทึกความคาดหวังแล้ว')),
+        );
+      } else {
+        debugPrint('saveExpectation ${res.statusCode}: ${res.body}');
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('บันทึกไม่สำเร็จ (${res.statusCode})')),
+        );
+      }
+    } catch (e) {
+      debugPrint('saveExpectation error: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('เชื่อมต่อเซิร์ฟเวอร์ไม่ได้')),
+      );
+    }
+  }
+
+  Future<void> _openEditExpectationDialog() async {
+    final ctl = TextEditingController(text: expectationController.text);
+    await showDialog(
+      context: context,
+      builder: (ctx) {
+        return AlertDialog(
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          backgroundColor: const Color(0xFFEFEAE3),
+          title: Text('แก้ไขความคาดหวัง',
+              style: GoogleFonts.kanit(color: const Color(0xFF564843))),
+          content: TextField(
+            controller: ctl,
+            maxLines: 4,
+            style: GoogleFonts.kanit(),
+            decoration: InputDecoration(
+              hintText: 'พิมพ์ความคาดหวังของคุณ...',
+              hintStyle: GoogleFonts.kanit(color: Colors.black45),
+              filled: true,
+              fillColor: const Color(0xFFE6D2CD),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide.none,
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: Text('ยกเลิก',
+                  style: GoogleFonts.kanit(color: const Color(0xFFC98993))),
+            ),
+            TextButton(
+              onPressed: () async {
+                final text = ctl.text.trim();
+                if (text.isEmpty) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                        content: Text('กรุณากรอกข้อความความคาดหวัง')),
+                  );
+                  return;
+                }
+                Navigator.pop(ctx);
+                await _saveExpectation(text);
+              },
+              child: Text('บันทึก',
+                  style: GoogleFonts.kanit(color: const Color(0xFF564843))),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   Widget _buildExpectationCard(TextStyle textTheme) {
     return Container(
       padding: const EdgeInsets.all(20),
@@ -363,6 +460,13 @@ class _ExpectationResultScreenState extends State<ExpectationResultScreen> {
                             fontWeight: FontWeight.w500,
                           ),
                         ),
+                ),
+                const SizedBox(width: 8),
+                IconButton(
+                  onPressed: _isLoading ? null : _openEditExpectationDialog,
+                  icon: const Icon(Icons.edit,
+                      size: 20, color: Color(0xFFC98993)),
+                  tooltip: 'แก้ไขความคาดหวัง',
                 ),
               ],
             ),
