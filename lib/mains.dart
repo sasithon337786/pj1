@@ -202,6 +202,8 @@ class _HomePageState extends State<HomePage> {
         );
         return;
       }
+      debugPrint('Deleting activity id: $actDetailId');
+
 
       final idToken = await user.getIdToken(true);
 
