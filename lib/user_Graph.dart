@@ -230,24 +230,38 @@ class _UserGraphBarScreenState extends State<UserGraphBarScreen> {
                   const SizedBox(height: 16),
 
                   // ข้อความสรุป
+                  // ข้อความสรุป (ปรับ UI ให้สวยขึ้น)
                   Container(
                     width: double.infinity,
-                    padding: const EdgeInsets.all(16),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 20, vertical: 20),
+                    margin: const EdgeInsets.only(top: 16),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFEAD9D4),
-                      borderRadius: BorderRadius.circular(16),
+                      color: const Color(0xFFFFF6F3), // สี background อ่อน ๆ
+                      borderRadius: BorderRadius.circular(20),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.brown.shade200.withOpacity(0.3),
+                          offset: const Offset(0, 4),
+                          blurRadius: 8,
+                        ),
+                      ],
                     ),
                     child: Text(
                       isLoadingPercent
                           ? 'กำลังโหลดเปอร์เซ็นต์...'
                           : _percent != null
-                              ? 'คุณทำได้ ${_percent!.toStringAsFixed(1)}% จากเป้าหมายที่ตั้งไว้เก่งมากๆแล้วนะคะ🎯🏆ในวันต่อๆไปก็สู้ๆนะคะ Do your best!🌟🙌❤️'
+                              ? 'คุณทำได้ ${_percent!.toStringAsFixed(1)}% จากเป้าหมาย 🎯\nเก่งมากๆ แล้วนะคะ! ในวันต่อๆ ไปก็สู้ๆ นะคะ \nDo your best!💪🌟🙌❤️'
                               : 'ยังไม่มีข้อมูลเปอร์เซ็นต์',
                       style: GoogleFonts.kanit(
-                          fontSize: 16, color: const Color(0xFF564843)),
+                        fontSize: 16,
+                        color: const Color(0xFF5A3E42),
+                        height: 1.5, // เพิ่มระยะบรรทัดให้อ่านง่าย
+                        fontWeight: FontWeight.w500,
+                      ),
                       textAlign: TextAlign.center,
                     ),
-                  ),
+                  )
                 ],
               ),
             ),
