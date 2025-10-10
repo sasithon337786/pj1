@@ -90,7 +90,13 @@ class _EditCategoryDialogState extends State<EditCategoryDialog> {
     final uid = FirebaseAuth.instance.currentUser?.uid;
     String categoryName = categoryController.text.trim();
     int? categoryId = widget.category.id;
-
+    final idToken = await FirebaseAuth.instance.currentUser?.getIdToken();
+    if (idToken == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('ไม่พบผู้ใช้ กรุณาเข้าสู่ระบบใหม่')),
+      );
+      return;
+    }
     if (categoryId == null) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -158,13 +164,17 @@ class _EditCategoryDialogState extends State<EditCategoryDialog> {
 
       // 🌐 เลือก API URL ตาม role
       final Uri url = role == 'admin'
-          ? Uri.parse('${ApiEndpoints.baseUrl}/api/adminCate/updateDefaultCategory')
+          ? Uri.parse(
+              '${ApiEndpoints.baseUrl}/api/category/updateDefaultCategory')
           : Uri.parse('${ApiEndpoints.baseUrl}/api/category/updateCategory');
 
       // 🛰️ ส่งคำขอไปยัง backend
       final response = await http.put(
         url,
-        headers: {'Content-Type': 'application/json'},
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $idToken', // 🔹 ส่ง token
+        },
         body: jsonEncode({
           'uid': uid,
           'cate_id': categoryId,
