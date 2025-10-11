@@ -519,7 +519,7 @@ class _ExpectationResultScreenState extends State<ExpectationResultScreen> {
                 : 'กำลังคำนวณผลลัพธ์...',
             textAlign: TextAlign.center,
             style: GoogleFonts.kanit(
-              fontSize: 17,
+              fontSize: 16,
               color: const Color(0xFF5B4436),
               fontWeight: FontWeight.w500,
             ),
