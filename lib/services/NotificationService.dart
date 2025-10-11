@@ -52,7 +52,7 @@ class NotificationService {
             ),
           ),
           androidScheduleMode:
-              AndroidScheduleMode.exactAllowWhileIdle, // ✅ ต้องใส่
+              AndroidScheduleMode.exactAllowWhileIdle,
         );
       }
     }
