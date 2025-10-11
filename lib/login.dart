@@ -10,6 +10,7 @@ import 'package:pj1/mains.dart';
 import 'package:pj1/registration_screen.dart';
 import 'package:http/http.dart' as http;
 import 'package:pj1/constant/api_endpoint.dart';
+import 'package:pj1/services/NotificationService.dart';
 import 'package:pj1/services/auth_service.dart';
 import 'package:slider_captcha/slider_captcha.dart';
 import 'package:pj1/constant/api_endpoint.dart';
@@ -134,7 +135,8 @@ class _LoginScreenState extends State<LoginScreen> {
     try {
       final data = await _authService.signInWithGoogle();
       final role = data.role; // ✅ ใช้ object property แทน []
-
+      final idToken = data.token;
+      await NotificationService.scheduleReminders(idToken);
       _showSnackBar('Google sign-in successful!',
           backgroundColor: Colors.green);
 
@@ -183,6 +185,9 @@ class _LoginScreenState extends State<LoginScreen> {
       );
 
       final role = data.role; // ✅ ใช้ object property แทน []
+      final idToken = data.token;
+
+      await NotificationService.scheduleReminders(idToken);
 
       _showSnackBar('Login successful!', backgroundColor: Colors.green);
 
