@@ -3,14 +3,14 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:pj1/login.dart';
 import 'package:pj1/screens/login_screen.dart';
-import 'package:pj1/services/NotificationService.dart';
+// import 'package:pj1/services/NotificationService.dart';
 import 'package:pj1/widgets/loading_screen.dart';
 import 'package:pj1/widgets/role_based_redirector.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp();
-  await NotificationService.init();
+  // await NotificationService.init();
   runApp(const MyApp());
 }
 

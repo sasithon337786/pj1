@@ -13,8 +13,8 @@ class UserGraphBarScreen extends StatefulWidget {
   final int actId;
   final String actName;
   final String actPic;
-  final String? expectationText; // optional
-  final int? actDetailId; // optional
+  final String? expectationText;
+  final int? actDetailId;
 
   const UserGraphBarScreen({
     super.key,
@@ -31,21 +31,21 @@ class UserGraphBarScreen extends StatefulWidget {
 
 class _UserGraphBarScreenState extends State<UserGraphBarScreen> {
   int _selectedIndex = 2;
-  double? _percent;
+  double? _percent; // แท่งล่าสุด (วันนี้ตาม local)
   bool isLoadingPercent = true;
   final TextEditingController expectationController = TextEditingController();
 
-  // -------------------- ข้อมูลกราฟ --------------------
-  List<String> _dateList = []; // YYYY-MM-DD
-  List<double> _percentList = []; // แต่ละวัน
+  // raw จาก API (debug)
+  List<String> _dateList = []; // "YYYY-MM-DD" หรือ ISO
+  // ชุดสำหรับวาดกราฟ (7 วันล่าสุดแบบต่อเนื่อง)
+  List<double> _percentList = []; // ยาว 7
+  List<String> _barLabels = []; // ยาว 7 รูปแบบ dd/MM
 
   @override
   void initState() {
     super.initState();
     expectationController.text = widget.expectationText ?? '';
-
     if (widget.actDetailId != null) {
-      debugPrint('Calling fetchPercent for actDetailId: ${widget.actDetailId}');
       fetchPercent(widget.actDetailId!);
     } else {
       isLoadingPercent = false;
@@ -56,13 +56,12 @@ class _UserGraphBarScreenState extends State<UserGraphBarScreen> {
   Future<void> fetchPercent(int actDetailId) async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
-    setState(() {
-      isLoadingPercent = true;
-    });
+    setState(() => isLoadingPercent = true);
 
     final idToken = await user.getIdToken(true);
     final url = Uri.parse(
-        '${ApiEndpoints.baseUrl}/api/activityHistory/dailyPercent?act_detail_id=$actDetailId');
+      '${ApiEndpoints.baseUrl}/api/activityHistory/dailyPercent?act_detail_id=$actDetailId',
+    );
 
     try {
       final response = await http.get(
@@ -73,30 +72,35 @@ class _UserGraphBarScreenState extends State<UserGraphBarScreen> {
         },
       );
 
+      if (!mounted) return;
+
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-
         if (data is List && data.isNotEmpty) {
-          setState(() {
-            _dateList = data.map<String>((e) => e['date'].toString()).toList();
-            _percentList = data.map<double>((e) {
-              final val = e['percent'];
-              if (val == null) return 0.0;
-              if (val is num) return val.toDouble();
-              if (val is String) return double.tryParse(val) ?? 0.0;
-              return 0.0;
-            }).toList();
-            _percent = _percentList.isNotEmpty ? _percentList.last : 0;
-            isLoadingPercent = false;
-          });
+          debugPrint('Sample row: ${data.first}');
 
-          debugPrint('Fetched dates: $_dateList');
-          debugPrint('Fetched percents: $_percentList');
-          debugPrint('Latest percent: $_percent');
+          final dates = data.map<String>((e) => e['date'].toString()).toList();
+          final percents = data.map<double>((e) {
+            final v = e['percent'];
+            if (v == null) return 0.0;
+            if (v is num) return v.toDouble();
+            if (v is String) return double.tryParse(v) ?? 0.0;
+            return 0.0;
+          }).toList();
+
+          _dateList = dates;
+          _buildLast7DaysSeries(dates, percents);
+
+          setState(() => isLoadingPercent = false);
+
+          debugPrint('Bar labels (7d): $_barLabels');
+          debugPrint('Percents (7d): $_percentList');
+          debugPrint('Latest percent (today): $_percent');
         } else {
           setState(() {
             _dateList = [];
             _percentList = [];
+            _barLabels = [];
             _percent = null;
             isLoadingPercent = false;
           });
@@ -105,11 +109,104 @@ class _UserGraphBarScreenState extends State<UserGraphBarScreen> {
       } else {
         debugPrint('Failed to fetch percent: ${response.body}');
         setState(() => isLoadingPercent = false);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+                content: Text('ดึงข้อมูลไม่สำเร็จ (${response.statusCode})')),
+          );
+        }
       }
     } catch (e) {
       debugPrint('Error fetchPercent: $e');
       setState(() => isLoadingPercent = false);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('เกิดข้อผิดพลาดในการเชื่อมต่อ')),
+        );
+      }
     }
+  }
+
+  /// สร้างข้อมูล 7 วันล่าสุดแบบต่อเนื่อง:
+  /// - รองรับทั้ง "YYYY-MM-DD" และ ISO "YYYY-MM-DDTHH:mm:ssZ"
+  /// - ถ้าเป็น ISO ให้ parse แล้ว .toLocal() เพื่อได้ “วันที่ตามเครื่อง”
+  void _buildLast7DaysSeries(List<String> apiDates, List<double> apiPercents) {
+    String _toLocalYmdKey(String s) {
+      final t = s.trim();
+      if (t.isEmpty) return '';
+
+      // เป็นรูปแบบ ISO (มี 'T')
+      if (t.contains('T')) {
+        try {
+          final dt = DateTime.parse(t).toLocal(); // UTC -> Local
+          final y = dt.year.toString().padLeft(4, '0');
+          final m = dt.month.toString().padLeft(2, '0');
+          final d = dt.day.toString().padLeft(2, '0');
+          return '$y-$m-$d';
+        } catch (_) {
+          // ถ้า parse ไม่ได้ ค่อย fallback ด้านล่าง
+        }
+      }
+
+      // เป็น 'YYYY-MM-DD' เดิม
+      final base = t.length >= 10 ? t.substring(0, 10) : t;
+      final parts = base.split('-');
+      if (parts.length == 3 &&
+          int.tryParse(parts[0]) != null &&
+          int.tryParse(parts[1]) != null &&
+          int.tryParse(parts[2]) != null) {
+        final y = parts[0].padLeft(4, '0');
+        final m = parts[1].padLeft(2, '0');
+        final d = parts[2].padLeft(2, '0');
+        return '$y-$m-$d';
+      }
+      return '';
+    }
+
+    // 1) map (YYYY-MM-DD local) -> percent (เอาค่าสุดท้ายของวันนั้น)
+    final Map<String, double> day2pct = {};
+    for (var i = 0; i < apiDates.length; i++) {
+      final key = _toLocalYmdKey(apiDates[i]);
+      if (key.isEmpty) continue;
+      day2pct[key] = apiPercents[i].clamp(0.0, 100.0);
+    }
+
+    if (day2pct.isEmpty) {
+      _barLabels = [];
+      _percentList = [];
+      _percent = null;
+      return;
+    }
+
+    // 2) เอาวันล่าสุด (ตาม local)
+    final allKeys = day2pct.keys.toList()..sort(); // YYYY-MM-DD sortable
+    final anchorKey = allKeys.last;
+
+    // 3) สร้างช่วง 7 วัน: anchor-6 ... anchor
+    DateTime _ymdToDate(String ymd) {
+      final p = ymd.split('-');
+      return DateTime(int.parse(p[0]), int.parse(p[1]), int.parse(p[2]));
+    }
+
+    final anchorDate = _ymdToDate(anchorKey);
+    final days =
+        List.generate(7, (i) => anchorDate.subtract(Duration(days: 6 - i)));
+
+    // 4) ทำ labels (dd/MM) และค่า (ไม่มี = 0)
+    final labels = <String>[];
+    final vals = <double>[];
+    for (final d in days) {
+      final key = '${d.year.toString().padLeft(4, '0')}-'
+          '${d.month.toString().padLeft(2, '0')}-'
+          '${d.day.toString().padLeft(2, '0')}';
+
+      labels.add('${key.substring(8, 10)}/${key.substring(5, 7)}');
+      vals.add((day2pct[key] ?? 0.0).clamp(0.0, 100.0));
+    }
+
+    _barLabels = labels;
+    _percentList = vals;
+    _percent = _percentList.isNotEmpty ? _percentList.last : null;
   }
 
   void _onItemTapped(int index) {
@@ -180,7 +277,7 @@ class _UserGraphBarScreenState extends State<UserGraphBarScreen> {
             ),
             const SizedBox(height: 16),
 
-            // Card ข้อมูลกิจกรรม
+            // Card ข้อมูลกิจกรรม + กราฟ
             Container(
               margin: const EdgeInsets.all(16),
               padding: const EdgeInsets.all(16),
@@ -191,7 +288,6 @@ class _UserGraphBarScreenState extends State<UserGraphBarScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // รูป + ชื่อกิจกรรม
                   Row(
                     children: [
                       ClipRRect(
@@ -223,21 +319,17 @@ class _UserGraphBarScreenState extends State<UserGraphBarScreen> {
                   ),
 
                   const SizedBox(height: 26),
-
-                  // กราฟเฉพาะ Week
                   _buildBarChart(),
-
                   const SizedBox(height: 16),
 
-                  // ข้อความสรุป
-                  // ข้อความสรุป (ปรับ UI ให้สวยขึ้น)
+                  // Summary
                   Container(
                     width: double.infinity,
                     padding: const EdgeInsets.symmetric(
                         horizontal: 20, vertical: 20),
                     margin: const EdgeInsets.only(top: 16),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFFFF6F3), // สี background อ่อน ๆ
+                      color: const Color(0xFFFFF6F3),
                       borderRadius: BorderRadius.circular(20),
                       boxShadow: [
                         BoxShadow(
@@ -256,12 +348,12 @@ class _UserGraphBarScreenState extends State<UserGraphBarScreen> {
                       style: GoogleFonts.kanit(
                         fontSize: 16,
                         color: const Color(0xFF5A3E42),
-                        height: 1.5, // เพิ่มระยะบรรทัดให้อ่านง่าย
+                        height: 1.5,
                         fontWeight: FontWeight.w500,
                       ),
                       textAlign: TextAlign.center,
                     ),
-                  )
+                  ),
                 ],
               ),
             ),
@@ -279,20 +371,22 @@ class _UserGraphBarScreenState extends State<UserGraphBarScreen> {
         onTap: _onItemTapped,
         items: [
           BottomNavigationBarItem(
-              icon: Image.asset('assets/icons/add.png', width: 24, height: 24),
-              label: 'Add'),
+            icon: Image.asset('assets/icons/add.png', width: 24, height: 24),
+            label: 'Add',
+          ),
           BottomNavigationBarItem(
-              icon: Image.asset('assets/icons/wishlist-heart.png',
-                  width: 24, height: 24),
-              label: 'Target'),
+            icon: Image.asset('assets/icons/wishlist-heart.png',
+                width: 24, height: 24),
+            label: 'Target',
+          ),
           BottomNavigationBarItem(
-              icon:
-                  Image.asset('assets/icons/stats.png', width: 24, height: 24),
-              label: 'Graph'),
+            icon: Image.asset('assets/icons/stats.png', width: 24, height: 24),
+            label: 'Graph',
+          ),
           BottomNavigationBarItem(
-              icon:
-                  Image.asset('assets/icons/accout.png', width: 24, height: 24),
-              label: 'Account'),
+            icon: Image.asset('assets/icons/accout.png', width: 24, height: 24),
+            label: 'Account',
+          ),
         ],
       ),
     );
@@ -300,7 +394,14 @@ class _UserGraphBarScreenState extends State<UserGraphBarScreen> {
 
   // ---------------- Widgets กราฟ ----------------
   Widget _buildBarChart() {
-    if (_dateList.isEmpty || _percentList.isEmpty) {
+    if (isLoadingPercent) {
+      return const SizedBox(
+        height: 250,
+        child: Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    if (_percentList.isEmpty || _barLabels.isEmpty) {
       return const SizedBox(
         height: 250,
         child: Center(child: Text('ยังไม่มีข้อมูลกราฟ')),
@@ -337,6 +438,7 @@ class _UserGraphBarScreenState extends State<UserGraphBarScreen> {
               BarChartData(
                 alignment: BarChartAlignment.spaceAround,
                 maxY: 100,
+                minY: 0,
                 gridData: FlGridData(
                   show: true,
                   drawHorizontalLine: true,
@@ -354,42 +456,40 @@ class _UserGraphBarScreenState extends State<UserGraphBarScreen> {
                       getTitlesWidget: (value, _) => Text(
                         '${value.toInt()}%',
                         style: GoogleFonts.kanit(
-                          fontSize: 12,
-                          color: Colors.brown.shade700,
-                        ),
+                            fontSize: 12, color: Colors.brown.shade700),
                       ),
                     ),
                   ),
                   bottomTitles: AxisTitles(
                     sideTitles: SideTitles(
                       showTitles: true,
+                      interval: 1, // แสดงเฉพาะตำแหน่งจำนวนเต็ม 0..6
                       getTitlesWidget: (value, _) {
+                        if (value % 1 != 0) return const SizedBox.shrink();
                         final index = value.toInt();
-                        if (index < 0 || index >= _dateList.length)
+                        if (index < 0 || index >= _barLabels.length) {
                           return const SizedBox.shrink();
-                        final parsedDate = DateTime.tryParse(_dateList[index]);
-                        final label =
-                            "${parsedDate?.day.toString().padLeft(2, '0')}/${parsedDate?.month.toString().padLeft(2, '0')}";
+                        }
                         return Text(
-                          label,
+                          _barLabels[index],
                           style: GoogleFonts.kanit(
-                            fontSize: 11,
-                            color: Colors.brown.shade700,
-                          ),
+                              fontSize: 11, color: Colors.brown.shade700),
                         );
                       },
                     ),
                   ),
                   topTitles: const AxisTitles(
-                      sideTitles: SideTitles(showTitles: false)),
+                    sideTitles: SideTitles(showTitles: false),
+                  ),
                   rightTitles: const AxisTitles(
-                      sideTitles: SideTitles(showTitles: false)),
+                    sideTitles: SideTitles(showTitles: false),
+                  ),
                 ),
                 borderData: FlBorderData(show: false),
                 barGroups: [
                   for (int i = 0; i < _percentList.length; i++)
                     BarChartGroupData(
-                      x: i,
+                      x: i, // index 0..6
                       barRods: [
                         BarChartRodData(
                           toY: _percentList[i],
