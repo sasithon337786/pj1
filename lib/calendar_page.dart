@@ -22,7 +22,7 @@ class _CalendarPageState extends State<CalendarPage> {
   DateTime focusedDay = DateTime.now();
   DateTime? selectedDay;
 
-  // เก็บผลรวมแต่ละวัน
+  // เก็บผลรวมแต่ละวัน (ใช้ DateTime local 00:00 เป็นคีย์เสมอ)
   final Set<DateTime> _successDays = {};
   final Set<DateTime> _failedDays = {};
   final Map<DateTime, double> _dailyOverallPercent = {};
@@ -36,7 +36,38 @@ class _CalendarPageState extends State<CalendarPage> {
     _loadCalendarData();
   }
 
+  // สร้างคีย์วันแบบ local 00:00 (ไม่ติด timezone/เวลา)
   DateTime _dateOnly(DateTime d) => DateTime(d.year, d.month, d.day);
+
+  // แปลงสตริงวันที่จาก API เป็น "วันที่ตามเครื่อง" แล้วตัดเวลาเหลือ 00:00
+  // รองรับทั้ง 'YYYY-MM-DD' และ ISO 'YYYY-MM-DDTHH:mm:ssZ'
+  DateTime? _parseApiDateToLocalDay(String s) {
+    final t = s.trim();
+    if (t.isEmpty) return null;
+
+    if (t.contains('T')) {
+      // ISO → parse → toLocal() → ตัดเป็นคีย์วัน local
+      try {
+        final dt = DateTime.parse(t).toLocal();
+        return _dateOnly(dt);
+      } catch (_) {
+        // ตกไปเคสธรรมดาด้านล่าง
+      }
+    }
+
+    // 'YYYY-MM-DD'
+    final base = t.length >= 10 ? t.substring(0, 10) : t;
+    final parts = base.split('-');
+    if (parts.length == 3) {
+      final y = int.tryParse(parts[0]);
+      final m = int.tryParse(parts[1]);
+      final d = int.tryParse(parts[2]);
+      if (y != null && m != null && d != null) {
+        return DateTime(y, m, d);
+      }
+    }
+    return null;
+  }
 
   Future<void> _loadCalendarData() async {
     setState(() => _loading = true);
@@ -82,7 +113,7 @@ class _CalendarPageState extends State<CalendarPage> {
         return;
       }
 
-      // 2) ดึง dailyPercent ของทุก activity
+      // 2) ดึง dailyPercent ของทุก activity (ขนาน)
       final futures = actDetailIds.map((id) async {
         final url = Uri.parse(
             '${ApiEndpoints.baseUrl}/api/activityHistory/dailyPercent?act_detail_id=$id');
@@ -98,31 +129,30 @@ class _CalendarPageState extends State<CalendarPage> {
 
       final results = await Future.wait(futures);
 
-      // 3) รวมเป็นเปอร์เซ็นต์เฉลี่ยต่อวัน (ง่ายๆ)
+      // 3) รวมเป็นเปอร์เซ็นต์เฉลี่ยต่อวัน (key คือวัน local 00:00)
       final Map<DateTime, List<double>> perDayPercents = {};
       for (final list in results) {
         for (final e in list) {
           final dateStr = (e['date'] ?? '').toString();
           if (dateStr.isEmpty) continue;
 
-          double p = 0.0;
+          // ✅ แปลงเป็นวัน local (แก้ปัญหา ...Z ช้า 1 วัน)
+          final dayKey = _parseApiDateToLocalDay(dateStr);
+          if (dayKey == null) continue;
+
+          double pct = 0.0;
           final raw = e['percent'];
           if (raw is num) {
-            p = raw.toDouble();
+            pct = raw.toDouble();
           } else if (raw is String) {
-            p = double.tryParse(raw) ?? 0.0;
+            pct = double.tryParse(raw) ?? 0.0;
           } else {
             continue;
           }
 
-          DateTime d;
-          try {
-            d = _dateOnly(DateTime.parse(dateStr));
-          } catch (_) {
-            continue;
-          }
-
-          perDayPercents.putIfAbsent(d, () => []).add(p);
+          perDayPercents
+              .putIfAbsent(dayKey, () => [])
+              .add(pct.clamp(0.0, 100.0));
         }
       }
 
@@ -304,7 +334,7 @@ class _CalendarPageState extends State<CalendarPage> {
                   });
                 },
                 onPageChanged: (newFocused) {
-                  focusedDay = newFocused;
+                  focusedDay = newFocused; // ไม่จำเป็นต้อง setState ตาม docs
                 },
                 calendarStyle: CalendarStyle(
                   defaultTextStyle: GoogleFonts.kanit(color: Colors.black87),
@@ -330,12 +360,17 @@ class _CalendarPageState extends State<CalendarPage> {
                 ),
                 calendarBuilders: CalendarBuilders(
                   defaultBuilder: (context, day, _) {
-                    Color? fill;
                     final d = _dateOnly(day);
-                    final isSuccess = _successDays.any((x) => isSameDay(x, d));
-                    final isFailed = _failedDays.any((x) => isSameDay(x, d));
-                    if (isSuccess) fill = Colors.green.shade400;
-                    if (isFailed) fill = Colors.red.shade400;
+                    final pct = _dailyOverallPercent[d];
+
+                    // ระบายสีเฉพาะวันที่มีข้อมูล (ตามเงื่อนไข >50% / ≤50%)
+                    Color? fill;
+                    if (pct != null) {
+                      fill = (pct > 50.0)
+                          ? Colors.green.shade400
+                          : Colors.red.shade400;
+                    }
+
                     if (fill == null) return null;
 
                     return Container(
@@ -354,7 +389,7 @@ class _CalendarPageState extends State<CalendarPage> {
               ),
             ),
 
-            // ---------- Encouragement box (ใต้ปฏิทิน) ----------
+            // ---------- Encouragement box ----------
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: Container(
@@ -363,8 +398,7 @@ class _CalendarPageState extends State<CalendarPage> {
                     const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
                 margin: const EdgeInsets.only(top: 16),
                 decoration: BoxDecoration(
-                  color:
-                      const Color(0xFFFFF6F3), // พื้นหลังอ่อน ๆ โทนเดียวกับแอป
+                  color: const Color(0xFFFFF6F3),
                   borderRadius: BorderRadius.circular(20),
                   boxShadow: [
                     BoxShadow(

@@ -48,6 +48,5 @@ dependencies {
     // ✅ เพิ่ม dependency สำหรับ core desugaring
     coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:2.1.4'
 }
-
 // *** เพิ่มบรรทัดนี้เข้ามาข้างล่างสุดของไฟล์นี้เลยนะคะ ***
 apply plugin: 'com.google.gms.google-services'

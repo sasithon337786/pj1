@@ -63,10 +63,12 @@ class _AllGraphScreenState extends State<AllGraphScreen> {
         final body = json.decode(response.body);
         final List data = body['data'];
 
-        _dates = data.map<DateTime>((e) => DateTime.parse(e['date'])).toList();
-        _percents = data
-            .map<double>((e) => (e['overall_percent'] as num).toDouble())
-            .toList();
+        _dates = data.map<DateTime>((e) {
+          final s = e['date'] as String; // "YYYY-MM-DD"
+          final p = s.split('-');
+          return DateTime(
+              int.parse(p[0]), int.parse(p[1]), int.parse(p[2])); // local date
+        }).toList();
 
         // เตรียมข้อมูลสำหรับ Month / Year
         _buildMonthSeries();
