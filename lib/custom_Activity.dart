@@ -74,11 +74,29 @@ class _CreateActivityScreenState extends State<CreateActivityScreen> {
     }
   }
 
-
   Future<void> _loadCategories() async {
     try {
-      final response = await http.get(Uri.parse(
-          '${ApiEndpoints.baseUrl}/api/category/getCategory?uid=${FirebaseAuth.instance.currentUser?.uid}'));
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) {
+        print('User not logged in');
+        return;
+      }
+
+      // ดึง Firebase ID Token
+      final idToken = await user.getIdToken();
+
+      final uri = Uri.parse(
+        '${ApiEndpoints.baseUrl}/api/category/getCategory?uid=${user.uid}',
+      );
+
+      // ส่ง token ใน header
+      final response = await http.get(
+        uri,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $idToken',
+        },
+      );
 
       if (response.statusCode == 200) {
         final List<dynamic> data = jsonDecode(response.body);
@@ -139,82 +157,82 @@ class _CreateActivityScreenState extends State<CreateActivityScreen> {
   }
 
   Future _createActivity() async {
-  final uid = FirebaseAuth.instance.currentUser?.uid;
-  String activityName = activityNameController.text.trim();
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    String activityName = activityNameController.text.trim();
 
-  if (activityName.isEmpty) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('กรุณาใส่ชื่อกิจกรรม')),
-    );
-    return;
-  }
-
-  if (selectedImage == null) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('กรุณาเลือกรูปภาพ')),
-    );
-    return;
-  }
-
-  if (_selectedCategoryId == null) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('กรุณาเลือกหมวดหมู่')),
-    );
-    return;
-  }
-
-  if (uid == null) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('กรุณาเข้าสู่ระบบ')),
-    );
-    return;
-  }
-
-  setState(() => isLoading = true);
-
-  try {
-    // อัปโหลดรูปไป Firebase
-    final imageUrl = await _uploadActivityImage(uid, selectedImage!);
-    if (imageUrl == null) throw Exception('Upload image failed');
-
-    // เตรียม body ส่ง server
-    final postUrl = '${ApiEndpoints.baseUrl}/api/activity/createAct';
-    final bodyData = {
-      'uid': uid,                     // ส่ง uid เสมอ
-      'cate_id': _selectedCategoryId, // หมวดหมู่
-      'act_name': activityName,       // ชื่อกิจกรรม
-      'act_pic': imageUrl,            // URL รูปจาก Firebase
-    };
-
-    final response = await http.post(
-      Uri.parse(postUrl),
-      headers: {'Content-Type': 'application/json'},
-      body: jsonEncode(bodyData),
-    );
-
-    if (response.statusCode == 200) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('เพิ่มกิจกรรมสำเร็จ')),
-        );
-        Navigator.pop(context, true);
-      }
-    } else {
-      final message = jsonDecode(response.body)['message'] ?? 'บันทึกกิจกรรมล้มเหลว';
+    if (activityName.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(message)),
+        const SnackBar(content: Text('กรุณาใส่ชื่อกิจกรรม')),
       );
+      return;
     }
-  } catch (e) {
-    print('Error creating activity: $e');
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('เกิดข้อผิดพลาด กรุณาลองใหม่อีกครั้ง')),
-    );
-  } finally {
-    setState(() => isLoading = false);
-  }
-}
 
+    if (selectedImage == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('กรุณาเลือกรูปภาพ')),
+      );
+      return;
+    }
+
+    if (_selectedCategoryId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('กรุณาเลือกหมวดหมู่')),
+      );
+      return;
+    }
+
+    if (uid == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('กรุณาเข้าสู่ระบบ')),
+      );
+      return;
+    }
+
+    setState(() => isLoading = true);
+
+    try {
+      // อัปโหลดรูปไป Firebase
+      final imageUrl = await _uploadActivityImage(uid, selectedImage!);
+      if (imageUrl == null) throw Exception('Upload image failed');
+
+      // เตรียม body ส่ง server
+      final postUrl = '${ApiEndpoints.baseUrl}/api/activity/createAct';
+      final bodyData = {
+        'uid': uid, // ส่ง uid เสมอ
+        'cate_id': _selectedCategoryId, // หมวดหมู่
+        'act_name': activityName, // ชื่อกิจกรรม
+        'act_pic': imageUrl, // URL รูปจาก Firebase
+      };
+
+      final response = await http.post(
+        Uri.parse(postUrl),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode(bodyData),
+      );
+
+      if (response.statusCode == 200) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('เพิ่มกิจกรรมสำเร็จ')),
+          );
+          Navigator.pop(context, true);
+        }
+      } else {
+        final message =
+            jsonDecode(response.body)['message'] ?? 'บันทึกกิจกรรมล้มเหลว';
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(message)),
+        );
+      }
+    } catch (e) {
+      print('Error creating activity: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('เกิดข้อผิดพลาด กรุณาลองใหม่อีกครั้ง')),
+      );
+    } finally {
+      setState(() => isLoading = false);
+    }
+  }
 
   void _onItemTapped(int index) {
     setState(() {
