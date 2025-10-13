@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:http/http.dart' as http; // (ใช้ถ้าต้องเรียก backend เพิ่ม)
@@ -140,10 +141,8 @@ class _LoginScreenState extends State<LoginScreen> {
     setState(() => _isGoogleLoading = true);
     try {
       final data = await _authService.signInWithGoogle();
-      final role = data.role; // object property
+      final role = data.role;
       final idToken = data.token;
-
-      // ถ้ามีแจ้งเตือน: await NotificationService.scheduleReminders(idToken);
 
       _showSnack('Google sign-in สำเร็จ!', backgroundColor: Colors.green);
       if (role == 'admin') {
@@ -153,9 +152,16 @@ class _LoginScreenState extends State<LoginScreen> {
         Navigator.pushReplacement(
             context, MaterialPageRoute(builder: (_) => HomePage()));
       }
+    } on PlatformException catch (e) {
+      // ✅ แสดง error แบบละเอียด
+      print('PlatformException code: ${e.code}');
+      print('PlatformException message: ${e.message}');
+      print('PlatformException details: ${e.details}');
+      _showSnack('Platform Error: ${e.code} - ${e.message}');
     } on FirebaseAuthException catch (e) {
       _showSnack(_thaiMessageFromAuthCode(e.code, e.message));
     } catch (e) {
+      print('Unknown error: $e');
       _showSnack('Google login ล้มเหลว: $e');
     } finally {
       if (mounted) setState(() => _isGoogleLoading = false);

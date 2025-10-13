@@ -31,7 +31,7 @@ Future<List<Map<String, dynamic>>> fetchActivities() async {
 
     // ดึง activities ของผู้ใช้
     final url = Uri.parse(
-      '${ApiEndpoints.baseUrl}/api/activityDetail/getMyActivityDetails?uid=${user.uid}',
+      '${ApiEndpoints.baseUrl}/api/activityDetail/getHistory',
     );
 
     final response = await http.get(url, headers: headers);

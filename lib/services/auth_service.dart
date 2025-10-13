@@ -54,7 +54,7 @@ class AuthService {
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({'idToken': idToken}),
       );
-    
+
       if (response.statusCode == 200) {
         return AuthResponse.fromJson(jsonDecode(response.body));
       } else {
@@ -78,7 +78,6 @@ class AuthService {
       }
 
       final googleAuth = await googleUser.authentication;
-
       final credential = GoogleAuthProvider.credential(
         accessToken: googleAuth.accessToken,
         idToken: googleAuth.idToken,
@@ -103,15 +102,23 @@ class AuthService {
           'photoURL': user.photoURL,
         }),
       );
+
+      // ✅ เพิ่ม logging
+      print('Response Status: ${response.statusCode}');
+      print('Response Body: ${response.body}');
+
       if (response.statusCode == 200) {
         if (response.body.isEmpty) {
           throw Exception('Server returned empty response');
         }
+
         final responseJson = jsonDecode(response.body);
-        if (responseJson == null) {
-          throw Exception('Server returned null response');
-        }
+
+        // ✅ เช็คว่ามี field ที่ต้องการหรือไม่
         print('Response JSON: $responseJson');
+        print('Has uid: ${responseJson.containsKey("uid")}');
+        print('Has role: ${responseJson.containsKey("role")}');
+        print('Has token: ${responseJson.containsKey("token")}');
 
         return AuthResponse.fromJson(responseJson);
       } else {

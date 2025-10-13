@@ -8,6 +8,7 @@ import 'package:pj1/mains.dart';
 import 'package:pj1/target.dart';
 import 'package:pj1/constant/api_endpoint.dart';
 import 'package:fl_chart/fl_chart.dart';
+import 'package:pj1/widgets/weekly_bar_chart.dart';
 
 class UserGraphBarScreen extends StatefulWidget {
   final int actId;
@@ -59,6 +60,7 @@ class _UserGraphBarScreenState extends State<UserGraphBarScreen> {
     setState(() => isLoadingPercent = true);
 
     final idToken = await user.getIdToken(true);
+    print(idToken);
     final url = Uri.parse(
       '${ApiEndpoints.baseUrl}/api/activityHistory/dailyPercent?act_detail_id=$actDetailId',
     );
@@ -319,7 +321,11 @@ class _UserGraphBarScreenState extends State<UserGraphBarScreen> {
                   ),
 
                   const SizedBox(height: 26),
-                  _buildBarChart(),
+                  WeeklyBarChart(
+                    isLoading: isLoadingPercent,
+                    percentList: _percentList,
+                    barLabels: _barLabels,
+                  ),
                   const SizedBox(height: 16),
 
                   // Summary
@@ -393,122 +399,5 @@ class _UserGraphBarScreenState extends State<UserGraphBarScreen> {
   }
 
   // ---------------- Widgets กราฟ ----------------
-  Widget _buildBarChart() {
-    if (isLoadingPercent) {
-      return const SizedBox(
-        height: 250,
-        child: Center(child: CircularProgressIndicator()),
-      );
-    }
 
-    if (_percentList.isEmpty || _barLabels.isEmpty) {
-      return const SizedBox(
-        height: 250,
-        child: Center(child: Text('ยังไม่มีข้อมูลกราฟ')),
-      );
-    }
-
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: const Color(0xFFFDF9F6),
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.brown.shade200.withOpacity(0.3),
-            offset: const Offset(0, 4),
-            blurRadius: 8,
-          ),
-        ],
-      ),
-      child: Column(
-        children: [
-          Text(
-            'สรุปผลรายสัปดาห์',
-            style: GoogleFonts.kanit(
-              fontSize: 18,
-              fontWeight: FontWeight.w600,
-              color: const Color(0xFF5A3E42),
-            ),
-          ),
-          const SizedBox(height: 16),
-          SizedBox(
-            height: 250,
-            child: BarChart(
-              BarChartData(
-                alignment: BarChartAlignment.spaceAround,
-                maxY: 100,
-                minY: 0,
-                gridData: FlGridData(
-                  show: true,
-                  drawHorizontalLine: true,
-                  horizontalInterval: 25,
-                  getDrawingHorizontalLine: (value) => FlLine(
-                    color: Colors.brown.shade100,
-                    strokeWidth: 1,
-                  ),
-                ),
-                titlesData: FlTitlesData(
-                  leftTitles: AxisTitles(
-                    sideTitles: SideTitles(
-                      showTitles: true,
-                      reservedSize: 32,
-                      getTitlesWidget: (value, _) => Text(
-                        '${value.toInt()}%',
-                        style: GoogleFonts.kanit(
-                            fontSize: 12, color: Colors.brown.shade700),
-                      ),
-                    ),
-                  ),
-                  bottomTitles: AxisTitles(
-                    sideTitles: SideTitles(
-                      showTitles: true,
-                      interval: 1, // แสดงเฉพาะตำแหน่งจำนวนเต็ม 0..6
-                      getTitlesWidget: (value, _) {
-                        if (value % 1 != 0) return const SizedBox.shrink();
-                        final index = value.toInt();
-                        if (index < 0 || index >= _barLabels.length) {
-                          return const SizedBox.shrink();
-                        }
-                        return Text(
-                          _barLabels[index],
-                          style: GoogleFonts.kanit(
-                              fontSize: 11, color: Colors.brown.shade700),
-                        );
-                      },
-                    ),
-                  ),
-                  topTitles: const AxisTitles(
-                    sideTitles: SideTitles(showTitles: false),
-                  ),
-                  rightTitles: const AxisTitles(
-                    sideTitles: SideTitles(showTitles: false),
-                  ),
-                ),
-                borderData: FlBorderData(show: false),
-                barGroups: [
-                  for (int i = 0; i < _percentList.length; i++)
-                    BarChartGroupData(
-                      x: i, // index 0..6
-                      barRods: [
-                        BarChartRodData(
-                          toY: _percentList[i],
-                          width: 18,
-                          borderRadius: BorderRadius.circular(6),
-                          gradient: const LinearGradient(
-                            colors: [Color(0xFFD4A5A5), Color(0xFF8C6E63)],
-                            begin: Alignment.topCenter,
-                            end: Alignment.bottomCenter,
-                          ),
-                        ),
-                      ],
-                    ),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 }
