@@ -34,6 +34,8 @@ class _Endpoints {
   static String editSelf() => '$base/api/users/edit';
   static String suspendUser(String uid) => '$base/api/admin/users/$uid/suspend';
   static String deleteUser(String uid) => '$base/api/admin/users/$uid';
+  static String changeStatus() => '$base/api/users/changeStatus';
+
 }
 
 /// ===== helper ปลอดภัยกับ null =====
@@ -124,6 +126,271 @@ class _UserInfoScreenState extends State<UserInfoScreen> {
     final status = _or(_user.status, 'active').toLowerCase();
     final birthdayStr = _formatBirthday(_user.birthday);
     final statusStyle = _statusStyle(status);
+    void _openChangeStatusDialog(BuildContext context) {
+      String selectedStatus = _user.status ?? 'active';
+      final reasonCtrl = TextEditingController();
+      final formKey = GlobalKey<FormState>();
+
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (ctx) {
+          bool saving = false;
+
+          return StatefulBuilder(
+            builder: (ctx, setDState) {
+              Future<void> _submitStatusChange() async {
+                if (!formKey.currentState!.validate()) return;
+
+                // Don't allow changing to the same status
+                if (selectedStatus == _user.status) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                        content: Text('สถานะเดิมอยู่แล้ว',
+                            style: GoogleFonts.kanit())),
+                  );
+                  return;
+                }
+
+                setDState(() => saving = true);
+
+                try {
+                  final idToken =
+                      await FirebaseAuth.instance.currentUser!.getIdToken(true);
+
+                  final payload = {
+                    'uid': _user.uid,
+                    'status': selectedStatus,
+                    'reason': reasonCtrl.text.trim().isEmpty
+                        ? 'ไม่มีเหตุผล'
+                        : reasonCtrl.text.trim(),
+                  };
+
+                  final resp = await http.put(
+                    Uri.parse(_Endpoints.changeStatus()),
+                    headers: {
+                      'Authorization': 'Bearer $idToken',
+                      'Content-Type': 'application/json',
+                    },
+                    body: jsonEncode(payload),
+                  );
+
+                  if (resp.statusCode >= 200 && resp.statusCode < 300) {
+                    if (!mounted) return;
+
+                    // Update local user model
+                    setState(() {
+                      _user = UserModel(
+                        uid: _user.uid,
+                        email: _user.email,
+                        username: _user.username,
+                        role: _user.role,
+                        status: selectedStatus,
+                        photoUrl: _user.photoUrl,
+                        birthday: _user.birthday,
+                      );
+                    });
+
+                    Navigator.pop(ctx);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('เปลี่ยนสถานะเรียบร้อยแล้ว',
+                            style: GoogleFonts.kanit()),
+                        backgroundColor: Colors.green,
+                      ),
+                    );
+                  } else {
+                    final Map<String, dynamic> body =
+                        (resp.body.isNotEmpty) ? jsonDecode(resp.body) : {};
+                    final msg = body['message']?.toString() ??
+                        'เปลี่ยนสถานะไม่สำเร็จ (HTTP ${resp.statusCode})';
+
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(msg, style: GoogleFonts.kanit()),
+                          backgroundColor: Colors.red,
+                        ),
+                      );
+                    }
+                  }
+                } catch (e) {
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('เกิดข้อผิดพลาด: $e',
+                            style: GoogleFonts.kanit()),
+                        backgroundColor: Colors.red,
+                      ),
+                    );
+                  }
+                } finally {
+                  setDState(() => saving = false);
+                }
+              }
+
+              return AlertDialog(
+                backgroundColor: _card,
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(18)),
+                titlePadding: const EdgeInsets.fromLTRB(20, 18, 20, 0),
+                contentPadding: const EdgeInsets.fromLTRB(20, 10, 20, 8),
+                actionsPadding: const EdgeInsets.fromLTRB(20, 0, 20, 14),
+                title: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'เปลี่ยนสถานะผู้ใช้',
+                      style: GoogleFonts.kanit(
+                        color: _appBar,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 20,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Container(height: 2, color: _appBar.withOpacity(0.5)),
+                  ],
+                ),
+                content: Form(
+                  key: formKey,
+                  child: SingleChildScrollView(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'สถานะปัจจุบัน: ${_user.status}',
+                          style: GoogleFonts.kanit(
+                            fontSize: 14,
+                            color: Colors.grey.shade700,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+
+                        // Status dropdown
+                        DropdownButtonFormField<String>(
+                          value: selectedStatus,
+                          decoration: InputDecoration(
+                            labelText: 'เลือกสถานะใหม่',
+                            labelStyle: GoogleFonts.kanit(),
+                            filled: true,
+                            fillColor: _pill.withOpacity(0.6),
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 14,
+                              vertical: 12,
+                            ),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(14),
+                              borderSide: BorderSide.none,
+                            ),
+                          ),
+                          style: GoogleFonts.kanit(color: Colors.black87),
+                          dropdownColor: _card,
+                          items: [
+                            DropdownMenuItem(
+                              value: 'active',
+                              child: Row(
+                                children: [
+                                  Icon(Icons.check_circle,
+                                      color: Colors.green, size: 20),
+                                  const SizedBox(width: 8),
+                                  Text('Active', style: GoogleFonts.kanit()),
+                                ],
+                              ),
+                            ),
+                            DropdownMenuItem(
+                              value: 'suspended',
+                              child: Row(
+                                children: [
+                                  Icon(Icons.pause_circle_filled,
+                                      color: Colors.orange, size: 20),
+                                  const SizedBox(width: 8),
+                                  Text('Suspended', style: GoogleFonts.kanit()),
+                                ],
+                              ),
+                            ),
+                            DropdownMenuItem(
+                              value: 'deleted',
+                              child: Row(
+                                children: [
+                                  Icon(Icons.cancel,
+                                      color: Colors.red, size: 20),
+                                  const SizedBox(width: 8),
+                                  Text('Deleted', style: GoogleFonts.kanit()),
+                                ],
+                              ),
+                            ),
+                          ],
+                          onChanged: (value) {
+                            if (value != null) {
+                              setDState(() => selectedStatus = value);
+                            }
+                          },
+                        ),
+                        const SizedBox(height: 12),
+
+                        // Reason text field
+                        TextFormField(
+                          controller: reasonCtrl,
+                          maxLines: 3,
+                          style: GoogleFonts.kanit(),
+                          decoration: InputDecoration(
+                            hintText: 'เหตุผลในการเปลี่ยนสถานะ (ไม่บังคับ)',
+                            hintStyle: GoogleFonts.kanit(color: Colors.black38),
+                            filled: true,
+                            fillColor: _pill.withOpacity(0.6),
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 14,
+                              vertical: 12,
+                            ),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(14),
+                              borderSide: BorderSide.none,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: saving ? null : () => Navigator.pop(ctx),
+                    child: Text('ยกเลิก',
+                        style: GoogleFonts.kanit(color: _accent)),
+                  ),
+                  SizedBox(
+                    height: 44,
+                    child: ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: _appBar,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      onPressed: saving ? null : _submitStatusChange,
+                      child: saving
+                          ? const SizedBox(
+                              width: 22,
+                              height: 22,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              ),
+                            )
+                          : Text(
+                              'ยืนยัน',
+                              style: GoogleFonts.kanit(color: Colors.white),
+                            ),
+                    ),
+                  ),
+                ],
+              );
+            },
+          );
+        },
+      );
+    }
 
     return Scaffold(
       backgroundColor: _bg,
@@ -282,9 +549,10 @@ class _UserInfoScreenState extends State<UserInfoScreen> {
                           borderRadius: BorderRadius.circular(24),
                           boxShadow: const [
                             BoxShadow(
-                                color: Colors.black12,
-                                blurRadius: 10,
-                                offset: Offset(0, 6)),
+                              color: Colors.black12,
+                              blurRadius: 10,
+                              offset: Offset(0, 6),
+                            ),
                           ],
                         ),
                         child: Column(
@@ -292,6 +560,19 @@ class _UserInfoScreenState extends State<UserInfoScreen> {
                           children: [
                             _sectionTitle('การจัดการบัญชี'),
                             const SizedBox(height: 12),
+
+                            // ✅ NEW: Change Status Button
+                            _actionButton(
+                              icon: Icons.swap_horiz_rounded,
+                              label: 'เปลี่ยนสถานะผู้ใช้',
+                              bg: const Color(0xFF6A4C93), // Purple color
+                              onTap: _busy
+                                  ? null
+                                  : () => _openChangeStatusDialog(context),
+                            ),
+                            const SizedBox(height: 10),
+
+                            // Existing buttons
                             _actionButton(
                               icon: Icons.edit_rounded,
                               label: 'แก้ไขข้อมูลผู้ใช้',
@@ -300,23 +581,7 @@ class _UserInfoScreenState extends State<UserInfoScreen> {
                                   _busy ? null : () => _openEditDialog(context),
                             ),
                             const SizedBox(height: 10),
-                            _actionButton(
-                              icon: Icons.pause_circle_filled_rounded,
-                              label: 'ระงับบัญชีผู้ใช้',
-                              bg: Colors.orange.shade600,
-                              onTap: _busy
-                                  ? null
-                                  : () => _confirmAndSuspend(context),
-                            ),
-                            const SizedBox(height: 10),
-                            _actionButton(
-                              icon: Icons.delete_forever_rounded,
-                              label: 'ลบบัญชีผู้ใช้',
-                              bg: Colors.red.shade700,
-                              onTap: _busy
-                                  ? null
-                                  : () => _confirmAndDelete(context),
-                            ),
+                            
                           ],
                         ),
                       ),
@@ -343,7 +608,8 @@ class _UserInfoScreenState extends State<UserInfoScreen> {
   // ================== Edit Dialog | ใช้เส้น /api/users/edit ==================
   void _openEditDialog(BuildContext context) {
     final nameCtrl = TextEditingController(text: _or(_user.username, ''));
-    final emailCtrl = TextEditingController(text: _or(_user.email, ''));
+    final emailCtrl =
+        TextEditingController(text: _or(_user.email, '')); // ✅ เก็บไว้แสดงเฉยๆ
     final bdayCtrl = TextEditingController(
       text: _user.birthday != null
           ? DateFormat('dd/MM/yyyy').format(_user.birthday!)
@@ -355,18 +621,21 @@ class _UserInfoScreenState extends State<UserInfoScreen> {
     String? _required(String? v) =>
         (v == null || v.trim().isEmpty) ? 'กรุณากรอกข้อมูล' : null;
 
-    String? _email(String? v) {
-      if (v == null || v.trim().isEmpty) return 'กรุณากรอกอีเมล';
-      final ok = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(v.trim());
-      return ok ? null : 'อีเมลไม่ถูกต้อง';
-    }
+    // ❌ ลบ validator email ออก เพราะไม่ได้ใช้แล้ว
+    // String? _email(String? v) { ... }
 
-    InputDecoration _dec(String hint, {Widget? suffix}) {
+    InputDecoration _dec(String hint, {Widget? suffix, bool disabled = false}) {
       return InputDecoration(
         hintText: hint,
-        hintStyle: GoogleFonts.kanit(color: Colors.black38),
+        hintStyle: GoogleFonts.kanit(
+          color: disabled
+              ? Colors.black26
+              : Colors.black38, // ✅ สีจางลงถ้า disabled
+        ),
         filled: true,
-        fillColor: _pill.withOpacity(0.6),
+        fillColor: disabled
+            ? Colors.grey.shade300 // ✅ พื้นหลังสีเทาถ้า disabled
+            : _pill.withOpacity(0.6),
         contentPadding:
             const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         border: OutlineInputBorder(
@@ -412,9 +681,10 @@ class _UserInfoScreenState extends State<UserInfoScreen> {
                 final idToken =
                     await FirebaseAuth.instance.currentUser!.getIdToken(true);
 
+                // ✅ ไม่ส่ง email ไปเลย
                 final payload = {
                   'username': nameCtrl.text.trim(),
-                  'email': emailCtrl.text.trim(),
+                  // 'email': emailCtrl.text.trim(), // ❌ ลบบรรทัดนี้
                   'birthday': bdayCtrl.text.trim().isEmpty
                       ? null
                       : DateFormat('yyyy-MM-dd').format(
@@ -436,7 +706,8 @@ class _UserInfoScreenState extends State<UserInfoScreen> {
                   setState(() {
                     _user = UserModel(
                       uid: _or(_user.uid, ''),
-                      email: _or(emailCtrl.text, _or(_user.email, '')),
+                      email:
+                          _or(_user.email, ''), // ✅ email ไม่เปลี่ยน ใช้ค่าเดิม
                       username: _or(nameCtrl.text, _or(_user.username, '')),
                       role: _or(_user.role, 'user'),
                       status: _or(_user.status, 'active'),
@@ -505,6 +776,7 @@ class _UserInfoScreenState extends State<UserInfoScreen> {
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
+                      // ✅ ฟิลด์ username (แก้ไขได้)
                       TextFormField(
                         controller: nameCtrl,
                         validator: _required,
@@ -513,20 +785,29 @@ class _UserInfoScreenState extends State<UserInfoScreen> {
                         textInputAction: TextInputAction.next,
                       ),
                       const SizedBox(height: 10),
+
+                      // ✅ ฟิลด์ email (แสดงแต่แก้ไขไม่ได้)
                       TextFormField(
                         controller: emailCtrl,
-                        validator: _email,
-                        keyboardType: TextInputType.emailAddress,
-                        style: GoogleFonts.kanit(),
-                        decoration: _dec('อีเมล'),
-                        textInputAction: TextInputAction.next,
+                        enabled: false, // ✅ ปิดการแก้ไข
+                        style: GoogleFonts.kanit(
+                          color: Colors.black45, // ✅ สีตัวอักษรจางลง
+                        ),
+                        decoration:
+                            _dec('อีเมล (ไม่สามารถแก้ไขได้)', disabled: true)
+                                .copyWith(
+                          prefixIcon: Icon(Icons.lock,
+                              color: Colors.grey), // ✅ ไอคอนกุญแจ
+                        ),
                       ),
                       const SizedBox(height: 10),
+
+                      // ✅ ฟิลด์ birthday (แก้ไขได้)
                       TextFormField(
                         controller: bdayCtrl,
                         readOnly: true,
                         onTap: () => _pickBirthday(setDState),
-                        validator: (_) => null, // ไม่บังคับเลือกวันเกิด
+                        validator: (_) => null,
                         style: GoogleFonts.kanit(),
                         decoration: _dec('วันเกิด (วัน/เดือน/ปี)',
                             suffix: const Icon(Icons.calendar_today)),
@@ -954,13 +1235,6 @@ class _MainAdminState extends State<MainAdmin> {
     if (_adminAccessToken == null) {
       print(
           'Error: Admin Access Token not found. Please ensure Admin is logged in.');
-      // ScaffoldMessenger.of(context).showSnackBar(
-      //   SnackBar(
-      //     content: Text('กรุณาเข้าสู่ระบบในฐานะ Admin ก่อน'),
-      //     backgroundColor: Colors.orange,
-      //   ),
-      // );
-      // คุณอาจต้องการนำทางผู้ใช้กลับไปหน้า Login ที่นี่ด้วย
     }
   }
 
