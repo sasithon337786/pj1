@@ -532,11 +532,10 @@ class _AccountPageState extends State<AccountPage> {
     String? type;
     bool sending = false;
 
-    // ✅ เพิ่ม "ยกเลิกระงับบัญชี" สำหรับผู้ใช้ที่ถูกระงับอยู่
+    // ❌ ตัด "ยกเลิกระงับบัญชี"
     final Map<String, String> typeToStatus = {
       'ลบบัญชี': 'deleted',
       'ระงับบัญชี': 'suspended',
-      'ยกเลิกระงับบัญชี': 'active', // ✅ เพิ่มตัวเลือกนี้
     };
 
     showDialog(
@@ -564,7 +563,6 @@ class _AccountPageState extends State<AccountPage> {
 
                 final resp = await http.post(
                   Uri.parse('${ApiEndpoints.baseUrl}/api/users/mystatus'),
-//                                    ^^^^^^^^^^^^^^ ต้องตรงกับ backend,
                   headers: {
                     'Authorization': 'Bearer $idToken',
                     'Content-Type': 'application/json',
@@ -578,11 +576,11 @@ class _AccountPageState extends State<AccountPage> {
                 );
 
                 if (resp.statusCode == 200) {
-                  await _loadUserProfile(); // โหลดข้อมูลใหม่
+                  await _loadUserProfile();
                   if (!mounted) return;
 
                   if (status == 'deleted') {
-                    // ✅ ลบบัญชีสำเร็จ -> ออกจากระบบ
+                    // ถ้า backend ยังไม่รองรับ deleted ตรงนี้จะไม่มีวันเข้ามา
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(
                         content: Text('ลบบัญชีสำเร็จ กำลังออกจากระบบ...'),
@@ -599,13 +597,11 @@ class _AccountPageState extends State<AccountPage> {
                     return;
                   }
 
-                  // ✅ สถานะอื่น ๆ (suspended หรือ active)
+                  // suspended
                   Navigator.pop(ctx);
-                  final statusText =
-                      status == 'suspended' ? 'ระงับบัญชี' : 'เปิดใช้งาน';
                   ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text('$statusTextสำเร็จ'),
+                    const SnackBar(
+                      content: Text('ระงับบัญชีสำเร็จ'),
                       backgroundColor: Colors.green,
                     ),
                   );
@@ -627,9 +623,8 @@ class _AccountPageState extends State<AccountPage> {
                 if (mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
-                      content: Text('เกิดข้อผิดพลาด: $e'),
-                      backgroundColor: Colors.red,
-                    ),
+                        content: Text('เกิดข้อผิดพลาด: $e'),
+                        backgroundColor: Colors.red),
                   );
                 }
               } finally {
@@ -647,19 +642,15 @@ class _AccountPageState extends State<AccountPage> {
               title: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    'จัดการบัญชี',
-                    style: GoogleFonts.kanit(
-                      fontSize: 20,
-                      color: _appBar,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
+                  Text('จัดการบัญชี',
+                      style: GoogleFonts.kanit(
+                          fontSize: 20,
+                          color: _appBar,
+                          fontWeight: FontWeight.w700)),
                   Container(
-                    height: 2,
-                    margin: const EdgeInsets.only(top: 6),
-                    color: _appBar.withOpacity(0.5),
-                  ),
+                      height: 2,
+                      margin: const EdgeInsets.only(top: 6),
+                      color: _appBar.withOpacity(0.5)),
                 ],
               ),
               content: Form(
@@ -668,7 +659,6 @@ class _AccountPageState extends State<AccountPage> {
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    // ✅ Dropdown เลือกประเภท
                     DropdownButtonFormField<String>(
                       value: type,
                       decoration: _dialogFieldDecoration('เลือกประเภท'),
@@ -679,16 +669,11 @@ class _AccountPageState extends State<AccountPage> {
                             value: 'ลบบัญชี', child: Text('ลบบัญชี')),
                         DropdownMenuItem(
                             value: 'ระงับบัญชี', child: Text('ระงับบัญชี')),
-                        DropdownMenuItem(
-                            value: 'ยกเลิกระงับบัญชี',
-                            child: Text('ยกเลิกระงับบัญชี')),
                       ],
                       onChanged: (v) => setDState(() => type = v),
                       validator: (v) => v == null ? 'กรุณาเลือกประเภท' : null,
                     ),
                     const SizedBox(height: 12),
-
-                    // ✅ กรอกเหตุผล
                     TextFormField(
                       controller: textCtrl,
                       maxLines: 3,
@@ -718,15 +703,11 @@ class _AccountPageState extends State<AccountPage> {
                             width: 22,
                             height: 22,
                             child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: Colors.white,
-                            ),
+                                strokeWidth: 2, color: Colors.white),
                           )
-                        : Text(
-                            'ยืนยัน',
+                        : Text('ยืนยัน',
                             style: GoogleFonts.kanit(
-                                color: Colors.white, fontSize: 16),
-                          ),
+                                color: Colors.white, fontSize: 16)),
                   ),
                 ),
               ],
