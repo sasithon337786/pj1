@@ -8,7 +8,7 @@ import 'package:http/http.dart' as http; // (ใช้ถ้าต้องเ�
 import 'package:pj1/Addmin/main_Addmin.dart';
 import 'package:pj1/mains.dart';
 import 'package:pj1/registration_screen.dart';
-import 'package:pj1/services/NotificationService.dart';
+import 'package:pj1/services/notification_service.dart';
 import 'package:pj1/services/auth_service.dart';
 import 'package:slider_captcha/slider_captcha.dart';
 
@@ -143,7 +143,9 @@ class _LoginScreenState extends State<LoginScreen> {
       final data = await _authService.signInWithGoogle();
       final role = data.role;
       final idToken = data.token;
-
+      // debugPrint("🔔 เรียกข้อมูลกิจกรรมจาก backend...");
+      // await NotificationService.scheduleReminders(idToken);
+      // debugPrint("✅ เรียกการตั้งค่าแจ้งเตือนเสร็จสิ้น");
       _showSnack('Google sign-in สำเร็จ!', backgroundColor: Colors.green);
       if (role == 'admin') {
         Navigator.pushReplacement(
@@ -192,9 +194,9 @@ class _LoginScreenState extends State<LoginScreen> {
 
       final role = data.role;
       final idToken = data.token;
-
-      // ถ้ามีแจ้งเตือน: await NotificationService.scheduleReminders(idToken);
-
+      // debugPrint("🔔 เรียกข้อมูลกิจกรรมจาก backend...");
+      // await NotificationService.scheduleReminders(idToken);
+      // debugPrint("✅ เรียกการตั้งค่าแจ้งเตือนเสร็จสิ้น");
       _showSnack('เข้าสู่ระบบสำเร็จ!', backgroundColor: Colors.green);
       if (role == 'admin') {
         Navigator.pushReplacement(
