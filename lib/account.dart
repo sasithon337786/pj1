@@ -524,11 +524,20 @@ class _AccountPageState extends State<AccountPage> {
     );
   }
 
+  // =============== 👇 ส่งคำร้อง (Dialog) ===============
+// ใช้ร่วมกับ _dialogFieldDecoration() ที่หนูมีอยู่แล้ว
   void _openPetitionDialog() {
-    final _formKey = GlobalKey<FormState>();
-    final TextEditingController _textCtrl = TextEditingController();
-    String? _type;
-    bool _sending = false;
+    final formKey = GlobalKey<FormState>();
+    final TextEditingController textCtrl = TextEditingController();
+    String? type;
+    bool sending = false;
+
+    // ✅ เพิ่ม "ยกเลิกระงับบัญชี" สำหรับผู้ใช้ที่ถูกระงับอยู่
+    final Map<String, String> typeToStatus = {
+      'ลบบัญชี': 'deleted',
+      'ระงับบัญชี': 'suspended',
+      'ยกเลิกระงับบัญชี': 'active', // ✅ เพิ่มตัวเลือกนี้
+    };
 
     showDialog(
       context: context,
@@ -536,26 +545,95 @@ class _AccountPageState extends State<AccountPage> {
       builder: (ctx) {
         return StatefulBuilder(
           builder: (ctx, setDState) {
-            Future<void> _submit() async {
-              if (!_formKey.currentState!.validate()) return;
-              setDState(() => _sending = true);
+            Future<void> submit() async {
+              if (!formKey.currentState!.validate()) return;
+              if (type == null) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('กรุณาเลือกประเภทคำร้อง')),
+                );
+                return;
+              }
+
+              final status = typeToStatus[type]!;
+              setDState(() => sending = true);
 
               try {
-                // TODO: call API ส่งคำร้องจริงที่นี่
-                if (mounted) Navigator.pop(ctx);
-                if (mounted) {
+                final fbUser = FirebaseAuth.instance.currentUser;
+                if (fbUser == null) throw 'กรุณาเข้าสู่ระบบใหม่อีกครั้ง';
+                final idToken = await fbUser.getIdToken(true);
+
+                final resp = await http.post(
+                  Uri.parse('${ApiEndpoints.baseUrl}/api/users/mystatus'),
+//                                    ^^^^^^^^^^^^^^ ต้องตรงกับ backend,
+                  headers: {
+                    'Authorization': 'Bearer $idToken',
+                    'Content-Type': 'application/json',
+                  },
+                  body: jsonEncode({
+                    'status': status,
+                    'reason': textCtrl.text.trim().isEmpty
+                        ? 'ไม่ระบุเหตุผล'
+                        : textCtrl.text.trim(),
+                  }),
+                );
+
+                if (resp.statusCode == 200) {
+                  await _loadUserProfile(); // โหลดข้อมูลใหม่
+                  if (!mounted) return;
+
+                  if (status == 'deleted') {
+                    // ✅ ลบบัญชีสำเร็จ -> ออกจากระบบ
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('ลบบัญชีสำเร็จ กำลังออกจากระบบ...'),
+                        backgroundColor: Colors.green,
+                      ),
+                    );
+                    await Future.delayed(const Duration(milliseconds: 800));
+                    await FirebaseAuth.instance.signOut();
+                    Navigator.pushAndRemoveUntil(
+                      context,
+                      MaterialPageRoute(builder: (_) => const LoginScreen()),
+                      (route) => false,
+                    );
+                    return;
+                  }
+
+                  // ✅ สถานะอื่น ๆ (suspended หรือ active)
+                  Navigator.pop(ctx);
+                  final statusText =
+                      status == 'suspended' ? 'ระงับบัญชี' : 'เปิดใช้งาน';
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('ส่งคำร้องเรียบร้อย')),
+                    SnackBar(
+                      content: Text('$statusTextสำเร็จ'),
+                      backgroundColor: Colors.green,
+                    ),
                   );
+                } else {
+                  String err = 'ดำเนินการไม่สำเร็จ (HTTP ${resp.statusCode})';
+                  try {
+                    final body = jsonDecode(resp.body);
+                    if (body is Map && body['message'] != null) {
+                      err = body['message'].toString();
+                    }
+                  } catch (_) {}
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text(err), backgroundColor: Colors.red),
+                    );
+                  }
                 }
               } catch (e) {
                 if (mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('ส่งคำร้องไม่สำเร็จ: $e')),
+                    SnackBar(
+                      content: Text('เกิดข้อผิดพลาด: $e'),
+                      backgroundColor: Colors.red,
+                    ),
                   );
                 }
               } finally {
-                setDState(() => _sending = false);
+                setDState(() => sending = false);
               }
             }
 
@@ -570,38 +648,30 @@ class _AccountPageState extends State<AccountPage> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'คำร้องระงับบัญชี',
+                    'จัดการบัญชี',
                     style: GoogleFonts.kanit(
-                        fontSize: 20,
-                        color: _appBar,
-                        fontWeight: FontWeight.w700),
+                      fontSize: 20,
+                      color: _appBar,
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
                   Container(
-                      height: 2,
-                      margin: const EdgeInsets.only(top: 6),
-                      color: _appBar.withOpacity(0.5)),
+                    height: 2,
+                    margin: const EdgeInsets.only(top: 6),
+                    color: _appBar.withOpacity(0.5),
+                  ),
                 ],
               ),
               content: Form(
-                key: _formKey,
+                key: formKey,
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    TextFormField(
-                      controller: _textCtrl,
-                      maxLines: 3,
-                      decoration:
-                          _dialogFieldDecoration('Input your expectations....'),
-                      style: GoogleFonts.kanit(),
-                      validator: (v) => (v == null || v.trim().isEmpty)
-                          ? 'กรุณากรอกข้อความคำร้อง'
-                          : null,
-                    ),
-                    const SizedBox(height: 12),
+                    // ✅ Dropdown เลือกประเภท
                     DropdownButtonFormField<String>(
-                      value: _type,
-                      decoration: _dialogFieldDecoration('เลือกคำร้อง......'),
+                      value: type,
+                      decoration: _dialogFieldDecoration('เลือกประเภท'),
                       icon: Icon(Icons.arrow_drop_down, color: _appBar),
                       style: GoogleFonts.kanit(color: Colors.black87),
                       items: const [
@@ -613,16 +683,24 @@ class _AccountPageState extends State<AccountPage> {
                             value: 'ยกเลิกระงับบัญชี',
                             child: Text('ยกเลิกระงับบัญชี')),
                       ],
-                      onChanged: (v) => setDState(() => _type = v),
-                      validator: (v) =>
-                          v == null ? 'กรุณาเลือกประเภทคำร้อง' : null,
+                      onChanged: (v) => setDState(() => type = v),
+                      validator: (v) => v == null ? 'กรุณาเลือกประเภท' : null,
+                    ),
+                    const SizedBox(height: 12),
+
+                    // ✅ กรอกเหตุผล
+                    TextFormField(
+                      controller: textCtrl,
+                      maxLines: 3,
+                      decoration: _dialogFieldDecoration('เหตุผล (ไม่บังคับ)'),
+                      style: GoogleFonts.kanit(),
                     ),
                   ],
                 ),
               ),
               actions: [
                 TextButton(
-                  onPressed: () => Navigator.pop(ctx),
+                  onPressed: sending ? null : () => Navigator.pop(ctx),
                   child:
                       Text('ยกเลิก', style: GoogleFonts.kanit(color: _accent)),
                 ),
@@ -634,17 +712,21 @@ class _AccountPageState extends State<AccountPage> {
                       shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(16)),
                     ),
-                    onPressed: _sending ? null : _submit,
-                    child: _sending
+                    onPressed: sending ? null : submit,
+                    child: sending
                         ? const SizedBox(
                             width: 22,
                             height: 22,
                             child: CircularProgressIndicator(
-                                strokeWidth: 2, color: Colors.white),
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
                           )
-                        : Text('Confirm',
+                        : Text(
+                            'ยืนยัน',
                             style: GoogleFonts.kanit(
-                                color: Colors.white, fontSize: 16)),
+                                color: Colors.white, fontSize: 16),
+                          ),
                   ),
                 ),
               ],
@@ -654,6 +736,7 @@ class _AccountPageState extends State<AccountPage> {
       },
     );
   }
+
   // =================================================
 
   @override
