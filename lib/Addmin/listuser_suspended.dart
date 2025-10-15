@@ -424,29 +424,33 @@ class _ListuserSuspendedState extends State<ListuserSuspended> {
         currentIndex: _selectedIndex,
         onTap: _onItemTapped,
         selectedLabelStyle: GoogleFonts.kanit(
-            fontSize: 17, fontWeight: FontWeight.w600, color: Colors.white),
+          fontSize: 17,
+          fontWeight: FontWeight.w600,
+          color: Colors.white,
+        ),
         unselectedLabelStyle: GoogleFonts.kanit(
-            fontSize: 17, fontWeight: FontWeight.normal, color: Colors.white60),
-        items: const [
+          fontSize: 17,
+          fontWeight: FontWeight.normal,
+          color: Colors.white60,
+        ),
+        items: [
           BottomNavigationBarItem(
-            // แก้ชื่อไฟล์ให้ถูกต้องเป็น "account.png"
-            icon: ImageIcon(AssetImage('assets/icons/account.png'), size: 24),
+            icon: Image.asset('assets/icons/accout.png', width: 24, height: 24),
             label: 'User',
           ),
           BottomNavigationBarItem(
-            icon:
-                ImageIcon(AssetImage('assets/icons/deactivate.png'), size: 30),
+            icon: Image.asset('assets/icons/deactivate.png',
+                width: 30, height: 30),
             label: 'บัญชีที่ระงับ',
           ),
           BottomNavigationBarItem(
-            icon: ImageIcon(
-                AssetImage('assets/icons/social-media-management.png'),
-                size: 24),
-            label: 'Manage',
+            icon: Image.asset('assets/icons/social-media-management.png',
+                width: 24, height: 24), // เปลี่ยนไอคอน
+            label: 'Manage', // เปลี่ยนข้อความ
           ),
           BottomNavigationBarItem(
-            icon: ImageIcon(AssetImage('assets/icons/wishlist-heart.png'),
-                size: 24),
+            icon: Image.asset('assets/icons/wishlist-heart.png',
+                width: 24, height: 24),
             label: 'คำร้อง',
           ),
         ],

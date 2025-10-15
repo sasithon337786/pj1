@@ -18,7 +18,8 @@ class _ListuserDeleteAdminState extends State<ListuserDeleteAdmin> {
   // ไม่ต้องมี List<String> users แล้ว เพราะจะไม่แสดงรายชื่อแล้ว
   // final List<String> users = ['Nutty', 'แฟรงค์', 'Mozel', 'คิวคิวคิว'];
 
-  int _selectedIndex = 2; // กำหนดค่าเริ่มต้นให้เป็น index ของ 'บัญชีที่ลบ' (ซึ่งตอนนี้จะเปลี่ยนเป็น 'จัดการข้อมูลแอป')
+  int _selectedIndex =
+      2; // กำหนดค่าเริ่มต้นให้เป็น index ของ 'บัญชีที่ลบ' (ซึ่งตอนนี้จะเปลี่ยนเป็น 'จัดการข้อมูลแอป')
 
   void _onItemTapped(int index) {
     setState(() {
@@ -41,11 +42,6 @@ class _ListuserDeleteAdminState extends State<ListuserDeleteAdmin> {
         );
         break;
       case 2:
-        // เมื่อกดที่ BottomNavItem นี้ (ซึ่งเป็น index ของหน้านี้เอง)
-        // ไม่ต้อง push ซ้ำ ควรอยู่หน้านี้แล้ว
-        // หากต้องการให้แน่ใจว่าอยู่หน้านี้และไม่มีหน้าซ้อน ให้ทำดังนี้
-        // Navigator.popUntil(context, (route) => route.isFirst); // อาจจะแรงไป
-        // หรือแค่ไม่ทำอะไรเลย เพราะ user ก็อยู่หน้านี้แล้ว
         break;
       case 3:
         Navigator.pushReplacement(
@@ -103,8 +99,8 @@ class _ListuserDeleteAdminState extends State<ListuserDeleteAdmin> {
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
                 Container(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 16, vertical: 10),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                   decoration: BoxDecoration(
                     color: const Color(0xFF564843),
                     borderRadius: BorderRadius.circular(10),
@@ -138,12 +134,15 @@ class _ListuserDeleteAdminState extends State<ListuserDeleteAdmin> {
           Expanded(
             // ใช้ Column ภายใน Expanded เพื่อควบคุมการจัดเรียง
             child: Column(
-              mainAxisAlignment: MainAxisAlignment.start, // จัดเรียงให้อยู่ด้านบน
-              crossAxisAlignment: CrossAxisAlignment.center, // จัดให้อยู่ตรงกลางแนวนอน
+              mainAxisAlignment:
+                  MainAxisAlignment.start, // จัดเรียงให้อยู่ด้านบน
+              crossAxisAlignment:
+                  CrossAxisAlignment.center, // จัดให้อยู่ตรงกลางแนวนอน
               children: [
                 const SizedBox(height: 40), // เพิ่มระยะห่างจากขอบบนเล็กน้อย
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 24.0), // Padding รอบ Card
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 24.0), // Padding รอบ Card
                   child: Card(
                     color: const Color(0xFFEFEAE3), // สีพื้นหลังของ Card
                     shape: RoundedRectangleBorder(
@@ -153,7 +152,8 @@ class _ListuserDeleteAdminState extends State<ListuserDeleteAdmin> {
                     child: Padding(
                       padding: const EdgeInsets.all(24.0),
                       child: Column(
-                        mainAxisSize: MainAxisSize.min, // ทำให้ Column เล็กพอดีเนื้อหา
+                        mainAxisSize:
+                            MainAxisSize.min, // ทำให้ Column เล็กพอดีเนื้อหา
                         children: [
                           // ไอคอนหรือข้อความบ่งบอก
                           Image.asset(
@@ -175,9 +175,11 @@ class _ListuserDeleteAdminState extends State<ListuserDeleteAdmin> {
                           SizedBox(
                             width: double.infinity, // ทำให้ปุ่มกว้างเต็ม Card
                             child: ElevatedButton(
-                              onPressed: _navigateToManageAppData, // เรียกฟังก์ชันไปหน้าจัดการข้อมูล
+                              onPressed:
+                                  _navigateToManageAppData, // เรียกฟังก์ชันไปหน้าจัดการข้อมูล
                               style: ElevatedButton.styleFrom(
-                                backgroundColor: const Color(0xFFC98993), // สีปุ่ม
+                                backgroundColor:
+                                    const Color(0xFFC98993), // สีปุ่ม
                                 padding:
                                     const EdgeInsets.symmetric(vertical: 15),
                                 shape: RoundedRectangleBorder(
@@ -233,15 +235,18 @@ class _ListuserDeleteAdminState extends State<ListuserDeleteAdmin> {
             label: 'User',
           ),
           BottomNavigationBarItem(
-            icon: Image.asset('assets/icons/deactivate.png', width: 30, height: 30),
+            icon: Image.asset('assets/icons/deactivate.png',
+                width: 30, height: 30),
             label: 'บัญชีที่ระงับ',
           ),
           BottomNavigationBarItem(
-            icon: Image.asset('assets/icons/social-media-management.png', width: 24, height: 24), // เปลี่ยนไอคอน
+            icon: Image.asset('assets/icons/social-media-management.png',
+                width: 24, height: 24), // เปลี่ยนไอคอน
             label: 'Manage', // เปลี่ยนข้อความ
           ),
           BottomNavigationBarItem(
-            icon: Image.asset('assets/icons/wishlist-heart.png', width: 24, height: 24),
+            icon: Image.asset('assets/icons/wishlist-heart.png',
+                width: 24, height: 24),
             label: 'คำร้อง',
           ),
         ],
