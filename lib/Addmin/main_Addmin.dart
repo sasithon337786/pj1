@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:http/http.dart' as http;
+import 'package:pj1/Addmin/list_admin.dart';
 import 'package:pj1/Addmin/userinfo.dart';
 import 'package:pj1/constant/api_endpoint.dart';
 import 'package:pj1/login.dart';
@@ -311,8 +312,10 @@ class _MainAdminState extends State<MainAdmin> {
                                                 context,
                                                 MaterialPageRoute(
                                                   builder: (context) =>
-                                                      UserInfoScreen(
-                                                          user: user),
+                                                      ListUserInfoScreen(
+                                                    uid: user
+                                                        .uid, // ✅ ส่ง uid ไป
+                                                  ),
                                                 ),
                                               );
                                             },
