@@ -1,10 +1,12 @@
+// lib/screens/login_screen.dart
 import 'dart:convert';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:google_sign_in/google_sign_in.dart';
-import 'package:http/http.dart' as http; // (ใช้ถ้าต้องเรียก backend เพิ่ม)
+import 'package:http/http.dart' as http;
+
 import 'package:pj1/Addmin/main_Addmin.dart';
 import 'package:pj1/mains.dart';
 import 'package:pj1/registration_screen.dart';
@@ -17,6 +19,12 @@ class LoginScreen extends StatefulWidget {
 
   @override
   State<LoginScreen> createState() => _LoginScreenState();
+}
+// ===== THEME COLORS =====
+class _AppColors {
+  static const rose = Color(0xFFC98993);    // ปุ่ม/แถบหลัก
+  static const cream = Color(0xFFE6D2CD);   // กล่อง/พื้น
+  static const mocha = Color(0xFF564843);   // ข้อความเข้ม
 }
 
 class _LoginScreenState extends State<LoginScreen> {
@@ -33,6 +41,40 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _isLoading = false;
   bool _isGoogleLoading = false;
   bool _obscurePassword = true;
+
+  @override
+  void dispose() {
+    _emailController.dispose();
+    _passwordController.dispose();
+    super.dispose();
+  }
+
+  void _showSnack(String message, {Color backgroundColor = Colors.red}) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message), backgroundColor: backgroundColor),
+    );
+  }
+
+  String _thaiMessageFromAuthCode(String code, String? fallback) {
+    switch (code) {
+      case 'invalid-email':
+        return 'อีเมลไม่ถูกต้อง';
+      case 'user-not-found':
+        return 'ไม่พบบัญชีผู้ใช้นี้';
+      case 'wrong-password':
+        return 'รหัสผ่านไม่ถูกต้อง';
+      case 'invalid-credential':
+        return 'ข้อมูลรับรองไม่ถูกต้อง/หมดอายุ (ตรวจโปรเจกต์/เวลาเครื่อง/App Check)';
+      case 'user-disabled':
+        return 'บัญชีนี้ถูกปิดการใช้งาน';
+      case 'too-many-requests':
+        return 'พยายามมากเกินไป โปรดลองใหม่ภายหลัง';
+      case 'network-request-failed':
+        return 'เครือข่ายมีปัญหา ตรวจสอบการเชื่อมต่อ';
+      default:
+        return fallback?.isNotEmpty == true ? fallback! : 'ล็อกอินไม่ได้: $code';
+    }
+  }
 
   Future<bool?> _showCaptchaDialog() async {
     return await showDialog<bool>(
@@ -100,47 +142,120 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
-  @override
-  void dispose() {
-    _emailController.dispose();
-    _passwordController.dispose();
-    super.dispose();
-  }
+  Future<void> _showBlockedDialog(String status, String? _) async {
+  final st = status.toLowerCase();
+  final title = 'ไม่สามารถเข้าสู่ระบบได้';
+  final content = st == 'suspend'
+      ? 'คุณเข้าสู่ระบบไม่ได้เนื่องจากบัญชีถูกระงับการใช้งาน'
+      : st == 'deleted'
+          ? 'คุณเข้าสู่ระบบไม่ได้เนื่องจากบัญชีของคุณถูกลบ'
+          : 'คุณเข้าสู่ระบบไม่ได้ (สถานะ: $status)';
 
-  void _showSnack(String message, {Color backgroundColor = Colors.red}) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message), backgroundColor: backgroundColor),
-    );
-  }
+  // ไอคอน/สีตามสถานะ
+  final iconData = st == 'deleted' ? Icons.delete_forever_rounded : Icons.block_rounded;
 
-  String _thaiMessageFromAuthCode(String code, String? fallback) {
-    switch (code) {
-      case 'invalid-email':
-        return 'อีเมลไม่ถูกต้อง';
-      case 'user-not-found':
-        return 'ไม่พบบัญชีผู้ใช้นี้';
-      case 'wrong-password':
-        return 'รหัสผ่านไม่ถูกต้อง';
-      case 'invalid-credential':
-        return 'ข้อมูลรับรองไม่ถูกต้อง/หมดอายุ (ตรวจโปรเจกต์/เวลาเครื่อง/App Check)';
-      case 'user-disabled':
-        return 'บัญชีนี้ถูกปิดการใช้งาน';
-      case 'too-many-requests':
-        return 'พยายามมากเกินไป โปรดลองใหม่ภายหลัง';
-      case 'network-request-failed':
-        return 'เครือข่ายมีปัญหา ตรวจสอบการเชื่อมต่อ';
-      default:
-        return fallback?.isNotEmpty == true
-            ? fallback!
-            : 'ล็อกอินไม่ได้: $code';
-    }
-  }
+  if (!mounted) return;
+
+  await showGeneralDialog(
+    context: context,
+    barrierDismissible: true,
+    barrierLabel: 'blocked-dialog',
+    barrierColor: Colors.black.withOpacity(0.45),
+    transitionDuration: const Duration(milliseconds: 220),
+    pageBuilder: (_, __, ___) => const SizedBox.shrink(),
+    transitionBuilder: (ctx, anim, __, ___) {
+      final curved = CurvedAnimation(parent: anim, curve: Curves.easeOutCubic);
+      return ScaleTransition(
+        scale: Tween<double>(begin: 0.95, end: 1.0).animate(curved),
+        child: Opacity(
+          opacity: curved.value,
+          child: Center(
+            child: Material(
+              color: Colors.transparent,
+              child: Container(
+                width: MediaQuery.of(ctx).size.width * 0.82,
+                padding: const EdgeInsets.fromLTRB(20, 18, 20, 12),
+                decoration: BoxDecoration(
+                  color: _AppColors.cream,
+                  borderRadius: BorderRadius.circular(24),
+                  boxShadow: const [
+                    BoxShadow(
+                      color: Colors.black12,
+                      blurRadius: 18,
+                      offset: Offset(0, 10),
+                    )
+                  ],
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Icon badge
+                    Container(
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: _AppColors.rose.withOpacity(0.2),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(iconData, size: 34, color: _AppColors.mocha),
+                    ),
+                    const SizedBox(height: 14),
+                    Text(
+                      title,
+                      textAlign: TextAlign.center,
+                      style: GoogleFonts.kanit(
+                        fontSize: 20,
+                        fontWeight: FontWeight.w700,
+                        color: _AppColors.mocha,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      content,
+                      textAlign: TextAlign.center,
+                      style: GoogleFonts.kanit(
+                        fontSize: 16,
+                        color: _AppColors.mocha.withOpacity(0.85),
+                        height: 1.35,
+                      ),
+                    ),
+                    const SizedBox(height: 18),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        // ปุ่มปิด
+                        TextButton(
+                          onPressed: () => Navigator.of(ctx).pop(),
+                          style: TextButton.styleFrom(
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
+                            backgroundColor: _AppColors.mocha,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                          ),
+                          child: Text('ปิด', style: GoogleFonts.kanit(fontSize: 16)),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+    },
+  );
+}
 
   Future<void> _handleGoogleLogin() async {
     if (_isGoogleLoading) return;
     setState(() => _isGoogleLoading = true);
     try {
       final data = await _authService.signInWithGoogle();
+
+      // ผ่าน active แล้ว
       final role = data.role;
       final idToken = data.token;
       await NotificationService.scheduleReminders(idToken);
@@ -148,21 +263,22 @@ class _LoginScreenState extends State<LoginScreen> {
       _showSnack('Google sign-in สำเร็จ!', backgroundColor: Colors.green);
       if (role == 'admin') {
         Navigator.pushReplacement(
-            context, MaterialPageRoute(builder: (_) => const MainAdmin()));
+          context,
+          MaterialPageRoute(builder: (_) => const MainAdmin()),
+        );
       } else {
         Navigator.pushReplacement(
-            context, MaterialPageRoute(builder: (_) => HomePage()));
+          context,
+          MaterialPageRoute(builder: (_) => HomePage()),
+        );
       }
+    } on AuthBlockedException catch (e) {
+      await _showBlockedDialog(e.status, e.message);
     } on PlatformException catch (e) {
-      // ✅ แสดง error แบบละเอียด
-      print('PlatformException code: ${e.code}');
-      print('PlatformException message: ${e.message}');
-      print('PlatformException details: ${e.details}');
       _showSnack('Platform Error: ${e.code} - ${e.message}');
     } on FirebaseAuthException catch (e) {
       _showSnack(_thaiMessageFromAuthCode(e.code, e.message));
     } catch (e) {
-      print('Unknown error: $e');
       _showSnack('Google login ล้มเหลว: $e');
     } finally {
       if (mounted) setState(() => _isGoogleLoading = false);
@@ -180,9 +296,8 @@ class _LoginScreenState extends State<LoginScreen> {
     }
     if (_isLoading) return;
 
-    final email = _emailController.text.trim(); // ✅ กันช่องว่างหัวท้าย
-    final password =
-        _passwordController.text; // ไม่ trim เพื่อเคารพรหัสผ่านผู้ใช้
+    final email = _emailController.text.trim();
+    final password = _passwordController.text;
 
     setState(() => _isLoading = true);
     try {
@@ -191,6 +306,7 @@ class _LoginScreenState extends State<LoginScreen> {
         password: password,
       );
 
+      // ผ่าน active แล้ว
       final role = data.role;
       final idToken = data.token;
       await NotificationService.scheduleReminders(idToken);
@@ -198,13 +314,18 @@ class _LoginScreenState extends State<LoginScreen> {
       _showSnack('เข้าสู่ระบบสำเร็จ!', backgroundColor: Colors.green);
       if (role == 'admin') {
         Navigator.pushReplacement(
-            context, MaterialPageRoute(builder: (_) => const MainAdmin()));
+          context,
+          MaterialPageRoute(builder: (_) => const MainAdmin()),
+        );
       } else {
         Navigator.pushReplacement(
-            context, MaterialPageRoute(builder: (_) => HomePage()));
+          context,
+          MaterialPageRoute(builder: (_) => HomePage()),
+        );
       }
+    } on AuthBlockedException catch (e) {
+      await _showBlockedDialog(e.status, e.message);
     } on FirebaseAuthException catch (e) {
-      // ✅ โชว์สาเหตุจริง เช่น wrong-password, user-not-found, invalid-credential
       _showSnack(_thaiMessageFromAuthCode(e.code, e.message));
     } catch (e) {
       _showSnack('เข้าสู่ระบบล้มเหลว: $e');
@@ -277,8 +398,9 @@ class _LoginScreenState extends State<LoginScreen> {
                       validator: (value) {
                         final v = (value ?? '').trim();
                         if (v.isEmpty) return 'Please enter your email';
-                        if (!v.contains('@') || !v.contains('.'))
+                        if (!v.contains('@') || !v.contains('.')) {
                           return 'Enter a valid email address';
+                        }
                         return null;
                       },
                     ),
@@ -293,18 +415,22 @@ class _LoginScreenState extends State<LoginScreen> {
                       obscureText: _obscurePassword,
                       suffixIcon: IconButton(
                         icon: Icon(
-                            _obscurePassword
-                                ? Icons.visibility_off
-                                : Icons.visibility,
-                            color: Colors.white70),
+                          _obscurePassword
+                              ? Icons.visibility_off
+                              : Icons.visibility,
+                          color: Colors.white70,
+                        ),
                         onPressed: () => setState(
-                            () => _obscurePassword = !_obscurePassword),
+                          () => _obscurePassword = !_obscurePassword,
+                        ),
                       ),
                       validator: (value) {
-                        if (value == null || value.isEmpty)
+                        if (value == null || value.isEmpty) {
                           return 'Please enter your password';
-                        if (value.length < 6)
+                        }
+                        if (value.length < 6) {
                           return 'Password must be at least 6 characters';
+                        }
                         return null;
                       },
                     ),
@@ -316,9 +442,12 @@ class _LoginScreenState extends State<LoginScreen> {
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFFC98993),
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 15, vertical: 12),
+                          horizontal: 15,
+                          vertical: 12,
+                        ),
                         shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12)),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
                       ),
                       child: _isGoogleLoading
                           ? const CircularProgressIndicator(color: Colors.white)
@@ -328,18 +457,24 @@ class _LoginScreenState extends State<LoginScreen> {
                                 Image.asset('assets/icons/google.png',
                                     width: 24, height: 24),
                                 const SizedBox(width: 10),
-                                Text('Login with Google',
-                                    style: GoogleFonts.kanit(
-                                        color: Colors.white, fontSize: 16)),
+                                Text(
+                                  'Login with Google',
+                                  style: GoogleFonts.kanit(
+                                    color: Colors.white,
+                                    fontSize: 16,
+                                  ),
+                                ),
                               ],
                             ),
                     ),
                     const SizedBox(height: 15),
 
-                    // Captcha (I'm not a robot)
+                    // Captcha
                     Container(
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 10, vertical: 12),
+                        horizontal: 10,
+                        vertical: 12,
+                      ),
                       decoration: BoxDecoration(
                         color: Colors.white,
                         borderRadius: BorderRadius.circular(12),
@@ -349,8 +484,9 @@ class _LoginScreenState extends State<LoginScreen> {
                           IconButton(
                             onPressed: () async {
                               final ok = await _showCaptchaDialog();
-                              if (ok == true)
+                              if (ok == true) {
                                 setState(() => isRobotChecked = true);
+                              }
                             },
                             icon: Icon(
                               isRobotChecked
@@ -376,16 +512,20 @@ class _LoginScreenState extends State<LoginScreen> {
                           child: ElevatedButton(
                             onPressed: () {
                               Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                      builder: (context) =>
-                                          const RegistrationScreen()));
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) =>
+                                      const RegistrationScreen(),
+                                ),
+                              );
                             },
                             style: ElevatedButton.styleFrom(
                               backgroundColor: const Color(0xFF564843),
-                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              padding:
+                                  const EdgeInsets.symmetric(vertical: 12),
                               shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(20)),
+                                borderRadius: BorderRadius.circular(20),
+                              ),
                             ),
                             child: Text('สมัครสมาชิก',
                                 style: GoogleFonts.kanit(
@@ -398,13 +538,16 @@ class _LoginScreenState extends State<LoginScreen> {
                             onPressed: _isLoading ? null : _handleEmailLogin,
                             style: ElevatedButton.styleFrom(
                               backgroundColor: const Color(0xFF564843),
-                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              padding:
+                                  const EdgeInsets.symmetric(vertical: 12),
                               shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(20)),
+                                borderRadius: BorderRadius.circular(20),
+                              ),
                             ),
                             child: _isLoading
                                 ? const CircularProgressIndicator(
-                                    color: Colors.white)
+                                    color: Colors.white,
+                                  )
                                 : Text('เข้าสู่ระบบ',
                                     style: GoogleFonts.kanit(
                                         color: Colors.white, fontSize: 16)),

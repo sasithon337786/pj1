@@ -1,11 +1,49 @@
+// lib/services/auth_service.dart
 import 'dart:convert';
 import 'dart:io';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart';
+
 import '../constant/api_endpoint.dart';
 import '../models/auth_response.dart';
+
+/// Exception สำหรับกรณีที่สถานะผู้ใช้ไม่ใช่ 'active'
+class AuthBlockedException implements Exception {
+  final String status;   // 'suspend' | 'deleted' | อื่น ๆ
+  final String message;  // ข้อความจาก backend (ถ้ามี)
+  AuthBlockedException(this.status, this.message);
+  @override
+  String toString() => 'AuthBlockedException($status): $message';
+}
+
+// helper: โยน exception ตามสถานะ พร้อมข้อความเริ่มต้นภาษาไทย
+Never _throwBlocked(String? status, String? serverMessage) {
+  final st = (status ?? '').toLowerCase();
+  final msg = (serverMessage ?? '').trim();
+
+  if (st == 'suspend') {
+    throw AuthBlockedException(
+      st,
+      msg.isNotEmpty
+          ? msg
+          : 'คุณไม่สามารถเข้าสู่ระบบได้เนื่องจากบัญชีถูกระงับการใช้งาน',
+    );
+  }
+  if (st == 'deleted') {
+    throw AuthBlockedException(
+      st,
+      msg.isNotEmpty
+          ? msg
+          : 'คุณไม่สามารถเข้าสู่ระบบได้เนื่องจากบัญชีของคุณถูกลบ',
+    );
+  }
+  throw AuthBlockedException(
+    st,
+    msg.isNotEmpty ? msg : 'คุณไม่สามารถเข้าสู่ระบบได้ (สถานะ: $status)',
+  );
+}
 
 class AuthService {
   static final AuthService _instance = AuthService._internal();
@@ -15,7 +53,7 @@ class AuthService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final GoogleSignIn _googleSignIn = GoogleSignIn();
 
-  // Static getters for easy access
+  // Static getters
   static User? get currentUser => FirebaseAuth.instance.currentUser;
   static String? get currentUserId => FirebaseAuth.instance.currentUser?.uid;
 
@@ -33,7 +71,9 @@ class AuthService {
     };
   }
 
-  /// Sign in with email and password
+  // ------------------------------------------------------------
+  // Email/Password Sign-in
+  // ------------------------------------------------------------
   Future<AuthResponse> signInWithEmailAndPassword({
     required String email,
     required String password,
@@ -48,19 +88,29 @@ class AuthService {
       if (user == null) throw Exception('Failed to authenticate user');
 
       final idToken = await user.getIdToken(true);
-      print("ID Token before send: $idToken");
       final response = await http.post(
         Uri.parse('${ApiEndpoints.baseUrl}/api/auth/loginwithemail'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({'idToken': idToken}),
       );
 
+      final body = response.body.isNotEmpty ? jsonDecode(response.body) : {};
+
       if (response.statusCode == 200) {
-        return AuthResponse.fromJson(jsonDecode(response.body));
+        final auth = AuthResponse.fromJson(body);
+
+        // อนุญาตเฉพาะ active
+        if ((auth.status ?? '').toLowerCase() != 'active') {
+          await _auth.signOut();
+          try { await _googleSignIn.signOut(); } catch (_) {}
+          _throwBlocked(auth.status, body['message'] as String?);
+        }
+        return auth;
       } else {
-        final error =
-            jsonDecode(response.body)['message'] ?? 'Server rejected token';
-        throw Exception(error);
+        // 403/410 จะมาที่นี่
+        await _auth.signOut();
+        try { await _googleSignIn.signOut(); } catch (_) {}
+        _throwBlocked(body['status'] as String?, body['message'] as String?);
       }
     } on FirebaseAuthException catch (e) {
       throw Exception(_getFirebaseErrorMessage(e.code));
@@ -69,7 +119,9 @@ class AuthService {
     }
   }
 
-  /// Sign in with Google
+  // ------------------------------------------------------------
+  // Google Sign-in
+  // ------------------------------------------------------------
   Future<AuthResponse> signInWithGoogle() async {
     try {
       final googleUser = await _googleSignIn.signIn();
@@ -89,7 +141,7 @@ class AuthService {
         throw Exception('Failed to sign in with Google');
       }
 
-      final idToken = await user.getIdToken();
+      final idToken = await user.getIdToken(); // Firebase ID token
       final response = await http.post(
         Uri.parse('${ApiEndpoints.baseUrl}/api/auth/loginwithgoogle'),
         headers: {
@@ -103,28 +155,27 @@ class AuthService {
         }),
       );
 
-      // ✅ เพิ่ม logging
-      print('Response Status: ${response.statusCode}');
-      print('Response Body: ${response.body}');
+      final body = response.body.isNotEmpty ? jsonDecode(response.body) : {};
+
+      // Logging (ถ้าต้องการ debug)
+      // print('Response Status: ${response.statusCode}');
+      // print('Response Body: ${response.body}');
 
       if (response.statusCode == 200) {
-        if (response.body.isEmpty) {
-          throw Exception('Server returned empty response');
+        final auth = AuthResponse.fromJson(body);
+
+        // อนุญาตเฉพาะ active
+        if ((auth.status ?? '').toLowerCase() != 'active') {
+          await _auth.signOut();
+          try { await _googleSignIn.signOut(); } catch (_) {}
+          _throwBlocked(auth.status, body['message'] as String?);
         }
-
-        final responseJson = jsonDecode(response.body);
-
-        // ✅ เช็คว่ามี field ที่ต้องการหรือไม่
-        print('Response JSON: $responseJson');
-        print('Has uid: ${responseJson.containsKey("uid")}');
-        print('Has role: ${responseJson.containsKey("role")}');
-        print('Has token: ${responseJson.containsKey("token")}');
-
-        return AuthResponse.fromJson(responseJson);
+        return auth;
       } else {
-        final error =
-            jsonDecode(response.body)['message'] ?? 'Server rejected token';
-        throw Exception(error);
+        // 403/410 จะมาที่นี่
+        await _auth.signOut();
+        try { await _googleSignIn.signOut(); } catch (_) {}
+        _throwBlocked(body['status'] as String?, body['message'] as String?);
       }
     } on FirebaseAuthException catch (e) {
       throw Exception(_getFirebaseErrorMessage(e.code));
@@ -133,7 +184,9 @@ class AuthService {
     }
   }
 
-  /// Get user role from backend
+  // ------------------------------------------------------------
+  // Get user role from backend
+  // ------------------------------------------------------------
   Future<String?> getUserRole() async {
     try {
       final user = _auth.currentUser;
@@ -154,7 +207,6 @@ class AuthService {
       }
 
       if (response.statusCode == 401 || response.statusCode == 403) {
-        // await signOut();
         return null;
       }
 
@@ -164,7 +216,9 @@ class AuthService {
     }
   }
 
-  /// Register new user
+  // ------------------------------------------------------------
+  // Register new user
+  // ------------------------------------------------------------
   Future<Map<String, dynamic>> registerUser({
     required String name,
     required String email,
@@ -174,7 +228,8 @@ class AuthService {
   }) async {
     try {
       final uri = Uri.parse(
-          '${ApiEndpoints.baseUrl}/api/auth/registerwithemailpassword');
+        '${ApiEndpoints.baseUrl}/api/auth/registerwithemailpassword',
+      );
       final request = http.MultipartRequest('POST', uri);
 
       request.fields.addAll({
@@ -207,7 +262,9 @@ class AuthService {
     }
   }
 
-  /// Sign out user
+  // ------------------------------------------------------------
+  // Sign out
+  // ------------------------------------------------------------
   Future<void> signOut() async {
     try {
       await Future.wait([
@@ -215,18 +272,16 @@ class AuthService {
         _googleSignIn.signOut(),
       ]);
     } catch (e) {
-      // Handle sign out errors if needed
       rethrow;
     }
   }
 
-  /// Check if user is signed in
+  // ------------------------------------------------------------
+  // Misc
+  // ------------------------------------------------------------
   bool get isSignedIn => _auth.currentUser != null;
-
-  /// Listen to auth state changes
   Stream<User?> get authStateChanges => _auth.authStateChanges();
 
-  /// Get Firebase error message in Thai
   String _getFirebaseErrorMessage(String errorCode) {
     switch (errorCode) {
       case 'user-not-found':
