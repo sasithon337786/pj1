@@ -4,6 +4,7 @@ import 'package:pj1/account.dart';
 import 'package:pj1/constant/api_endpoint.dart';
 import 'package:pj1/grap.dart';
 import 'package:pj1/mains.dart';
+import 'package:pj1/services/notification_service.dart';
 import 'package:pj1/target.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
@@ -326,10 +327,16 @@ class _ChooseactivityPageState extends State<ChooseactivityPage> {
           'time_remind': timeRemindStrings,
         }),
       );
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) return; // user ต้องไม่ null
 
       if (response.statusCode == 201) {
         if (!mounted) return;
         _showAlertDialog('สำเร็จ', 'บันทึกข้อมูลกิจกรรมเรียบร้อยแล้ว!');
+        
+        await NotificationService.scheduleReminders(idToken!);
+
+
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(builder: (context) => const HomePage()),
