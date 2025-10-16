@@ -36,38 +36,66 @@ class _CalendarPageState extends State<CalendarPage> {
     _loadCalendarData();
   }
 
-  // สร้างคีย์วันแบบ local 00:00 (ไม่ติด timezone/เวลา)
+  // ---- Helpers --------------------------------------------------------------
+
+  // ตัดเวลาให้เหลือเฉพาะวัน (local 00:00)
   DateTime _dateOnly(DateTime d) => DateTime(d.year, d.month, d.day);
 
-  // แปลงสตริงวันที่จาก API เป็น "วันที่ตามเครื่อง" แล้วตัดเวลาเหลือ 00:00
+  // แปลงสตริงวันที่จาก API (ฟิลด์ 'date' ของ /dailyPercent) → local 00:00
   // รองรับทั้ง 'YYYY-MM-DD' และ ISO 'YYYY-MM-DDTHH:mm:ssZ'
   DateTime? _parseApiDateToLocalDay(String s) {
     final t = s.trim();
     if (t.isEmpty) return null;
 
+    // ISO
     if (t.contains('T')) {
-      // ISO → parse → toLocal() → ตัดเป็นคีย์วัน local
       try {
-        final dt = DateTime.parse(t).toLocal();
-        return _dateOnly(dt);
-      } catch (_) {
-        // ตกไปเคสธรรมดาด้านล่าง
-      }
+        return _dateOnly(DateTime.parse(t).toLocal());
+      } catch (_) {}
     }
 
     // 'YYYY-MM-DD'
-    final base = t.length >= 10 ? t.substring(0, 10) : t;
-    final parts = base.split('-');
-    if (parts.length == 3) {
-      final y = int.tryParse(parts[0]);
-      final m = int.tryParse(parts[1]);
-      final d = int.tryParse(parts[2]);
-      if (y != null && m != null && d != null) {
+    try {
+      final base = t.length >= 10 ? t.substring(0, 10) : t;
+      final parts = base.split('-');
+      if (parts.length == 3) {
+        final y = int.parse(parts[0]);
+        final m = int.parse(parts[1]);
+        final d = int.parse(parts[2]);
         return DateTime(y, m, d);
       }
-    }
+    } catch (_) {}
+
     return null;
   }
+
+  // แปลง create_at ของ activity detail → local 00:00
+  DateTime? _parseCreateAtDay(dynamic v) {
+    if (v == null) return null;
+    final s = v.toString();
+    try {
+      if (s.contains('T')) return _dateOnly(DateTime.parse(s).toLocal());
+      if (s.length >= 10) {
+        final y = int.parse(s.substring(0, 4));
+        final m = int.parse(s.substring(5, 7));
+        final d = int.parse(s.substring(8, 10));
+        return DateTime(y, m, d);
+      }
+    } catch (_) {}
+    return null;
+  }
+
+  // ไล่วันแบบรวมปลายทาง
+  Iterable<DateTime> _daysInRange(DateTime start, DateTime end) sync* {
+    var cur = _dateOnly(start);
+    final last = _dateOnly(end);
+    while (!cur.isAfter(last)) {
+      yield cur;
+      cur = cur.add(const Duration(days: 1));
+    }
+  }
+
+  // ---- Data loader ----------------------------------------------------------
 
   Future<void> _loadCalendarData() async {
     setState(() => _loading = true);
@@ -94,49 +122,60 @@ class _CalendarPageState extends State<CalendarPage> {
       }
       final List acts = jsonDecode(actsResp.body) as List;
 
-      // รวม act_detail_id
-      final List<int> actDetailIds = [];
-      for (var a in acts) {
+      // เตรียม meta ต่อ act_detail_id → { round, create_at }
+      final Map<int, ({String round, DateTime? createAt})> actMeta = {};
+      for (final a in acts) {
+        int? id;
         final v = a['act_detail_id'];
-        if (v == null) continue;
-        if (v is int) {
-          actDetailIds.add(v);
-        } else if (v is num) {
-          actDetailIds.add(v.toInt());
-        } else if (v is String) {
-          final p = int.tryParse(v);
-          if (p != null) actDetailIds.add(p);
-        }
+        if (v is int) id = v;
+        else if (v is num) id = v.toInt();
+        else if (v is String) id = int.tryParse(v);
+        if (id == null) continue;
+
+        final roundStr = (a['round'] ?? '').toString().toLowerCase(); // day|week
+        final createAtDay = _parseCreateAtDay(a['create_at']);
+        actMeta[id] = (round: roundStr, createAt: createAtDay);
       }
-      if (actDetailIds.isEmpty) {
+
+      if (actMeta.isEmpty) {
         setState(() => _loading = false);
         return;
       }
 
-      // 2) ดึง dailyPercent ของทุก activity (ขนาน)
-      final futures = actDetailIds.map((id) async {
+      // 2) ดึง dailyPercent ของทุก activity (ขนาน) พร้อมแนบ id กลับมา
+      final futures = actMeta.keys.map((id) async {
         final url = Uri.parse(
             '${ApiEndpoints.baseUrl}/api/activityHistory/dailyPercent?act_detail_id=$id');
         try {
           final resp = await http.get(url, headers: headers);
           if (resp.statusCode == 200) {
             final body = jsonDecode(resp.body);
-            if (body is List) return body;
+            if (body is List) return {'id': id, 'rows': body};
           }
         } catch (_) {}
-        return [];
+        return {'id': id, 'rows': <dynamic>[]};
       }).toList();
 
       final results = await Future.wait(futures);
 
-      // 3) รวมเป็นเปอร์เซ็นต์เฉลี่ยต่อวัน (key คือวัน local 00:00)
+      // 3) รวมเป็นเปอร์เซ็นต์เฉลี่ยต่อวัน (เติมวันว่าง=0 ตามช่วง round/created_at)
       final Map<DateTime, List<double>> perDayPercents = {};
-      for (final list in results) {
-        for (final e in list) {
+      final todayLocal = _dateOnly(DateTime.now());
+
+      for (final r in results) {
+        final int id = r['id'] as int;
+        final List rows = r['rows'] as List;
+
+        final meta = actMeta[id];
+        final roundStr = meta?.round ?? 'day';
+        final createAt = meta?.createAt != null ? _dateOnly(meta!.createAt!) : null;
+
+        // 3.1 map ของกิจกรรมนี้ → dayKey -> percent
+        final Map<DateTime, double> dayToPct = {};
+        for (final e in rows) {
           final dateStr = (e['date'] ?? '').toString();
           if (dateStr.isEmpty) continue;
 
-          // ✅ แปลงเป็นวัน local (แก้ปัญหา ...Z ช้า 1 วัน)
           final dayKey = _parseApiDateToLocalDay(dateStr);
           if (dayKey == null) continue;
 
@@ -149,31 +188,54 @@ class _CalendarPageState extends State<CalendarPage> {
           } else {
             continue;
           }
-
-          perDayPercents
-              .putIfAbsent(dayKey, () => [])
-              .add(pct.clamp(0.0, 100.0));
+          dayToPct[dayKey] = pct.clamp(0.0, 100.0);
         }
+
+        // 3.2 เติมวันว่างเป็น 0% ตามช่วง round ของกิจกรรมนั้น
+        if (createAt != null) {
+          if (roundStr == 'week') {
+            final end = _dateOnly(createAt.add(const Duration(days: 6)));
+            final endClamped = end.isAfter(todayLocal) ? todayLocal : end;
+            for (final d in _daysInRange(createAt, endClamped)) {
+              dayToPct.putIfAbsent(d, () => 0.0);
+            }
+          } else {
+            // day: เฉพาะวัน create_at
+            dayToPct.putIfAbsent(createAt, () => 0.0);
+          }
+        }
+
+        // 3.3 รวมเข้าถังเฉลี่ยรายวันทั้งหมด
+        dayToPct.forEach((day, pct) {
+          perDayPercents.putIfAbsent(day, () => []).add(pct);
+        });
       }
 
+      // 4) คำนวณเฉลี่ย/ลงสี
       _successDays.clear();
       _failedDays.clear();
       _dailyOverallPercent.clear();
 
       perDayPercents.forEach((day, list) {
         if (list.isEmpty) return;
-        final avg = list.reduce((a, b) => a + b) / list.length;
+        final sum = list.fold<double>(0.0, (a, b) => a + b);
+        double avg = sum / list.length;
+        if (avg.isNaN) return;
+        avg = avg.clamp(0.0, 100.0);
+
         _dailyOverallPercent[day] = avg;
         if (avg > 50.0) {
-          _successDays.add(day);
+          _successDays.add(day); // เขียว
         } else {
-          _failedDays.add(day);
+          _failedDays.add(day); // แดง
         }
       });
     } finally {
       if (mounted) setState(() => _loading = false);
     }
   }
+
+  // ---- UI -------------------------------------------------------------------
 
   void _onItemTapped(int index) {
     setState(() {
@@ -182,20 +244,16 @@ class _CalendarPageState extends State<CalendarPage> {
 
     switch (index) {
       case 0:
-        Navigator.push(
-            context, MaterialPageRoute(builder: (_) => const HomePage()));
+        Navigator.push(context, MaterialPageRoute(builder: (_) => const HomePage()));
         break;
       case 1:
-        Navigator.push(
-            context, MaterialPageRoute(builder: (_) => const Targetpage()));
+        Navigator.push(context, MaterialPageRoute(builder: (_) => const Targetpage()));
         break;
       case 2:
-        Navigator.push(
-            context, MaterialPageRoute(builder: (_) => const Graphpage()));
+        Navigator.push(context, MaterialPageRoute(builder: (_) => const Graphpage()));
         break;
       case 3:
-        Navigator.push(
-            context, MaterialPageRoute(builder: (_) => const AccountPage()));
+        Navigator.push(context, MaterialPageRoute(builder: (_) => const AccountPage()));
         break;
     }
   }
@@ -252,8 +310,7 @@ class _CalendarPageState extends State<CalendarPage> {
                         const Icon(Icons.arrow_back, color: Colors.white),
                         const SizedBox(width: 6),
                         Text('ย้อนกลับ',
-                            style: GoogleFonts.kanit(
-                                color: Colors.white, fontSize: 16)),
+                            style: GoogleFonts.kanit(color: Colors.white, fontSize: 16)),
                       ],
                     ),
                   ),
@@ -294,21 +351,16 @@ class _CalendarPageState extends State<CalendarPage> {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 _legendDot(Colors.green.shade400),
-                Text('  > 50%  ',
-                    style: GoogleFonts.kanit(color: Colors.white)),
+                Text('  > 50%  ', style: GoogleFonts.kanit(color: Colors.white)),
                 _legendDot(Colors.red.shade400),
-                Text('  ≤ 50%  ',
-                    style: GoogleFonts.kanit(color: Colors.white)),
+                Text('  ≤ 50%  ', style: GoogleFonts.kanit(color: Colors.white)),
                 if (_loading) ...[
                   const SizedBox(width: 8),
                   const SizedBox(
-                    width: 14,
-                    height: 14,
-                    child: CircularProgressIndicator(
-                        strokeWidth: 2, color: Colors.white),
+                    width: 14, height: 14,
+                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                   ),
-                  Text(' กำลังโหลด...',
-                      style: GoogleFonts.kanit(color: Colors.white)),
+                  Text(' กำลังโหลด...', style: GoogleFonts.kanit(color: Colors.white)),
                 ],
               ],
             ),
@@ -334,7 +386,7 @@ class _CalendarPageState extends State<CalendarPage> {
                   });
                 },
                 onPageChanged: (newFocused) {
-                  focusedDay = newFocused; // ไม่จำเป็นต้อง setState ตาม docs
+                  focusedDay = newFocused; // ตาม docs ไม่จำเป็นต้อง setState
                 },
                 calendarStyle: CalendarStyle(
                   defaultTextStyle: GoogleFonts.kanit(color: Colors.black87),
@@ -349,12 +401,10 @@ class _CalendarPageState extends State<CalendarPage> {
                   ),
                 ),
                 headerStyle: HeaderStyle(
-                  titleTextFormatter: (date, locale) =>
-                      DateFormat('MMM yyyy').format(date),
+                  titleTextFormatter: (date, locale) => DateFormat('MMM yyyy').format(date),
                   formatButtonVisible: false,
                   titleCentered: true,
-                  titleTextStyle:
-                      GoogleFonts.kanit(fontSize: 18, color: Colors.black87),
+                  titleTextStyle: GoogleFonts.kanit(fontSize: 18, color: Colors.black87),
                   leftChevronIcon: const Icon(Icons.chevron_left),
                   rightChevronIcon: const Icon(Icons.chevron_right),
                 ),
@@ -363,20 +413,16 @@ class _CalendarPageState extends State<CalendarPage> {
                     final d = _dateOnly(day);
                     final pct = _dailyOverallPercent[d];
 
-                    // ระบายสีเฉพาะวันที่มีข้อมูล (ตามเงื่อนไข >50% / ≤50%)
+                    // ระบายสีเฉพาะวันที่มีข้อมูล
                     Color? fill;
                     if (pct != null) {
-                      fill = (pct > 50.0)
-                          ? Colors.green.shade400
-                          : Colors.red.shade400;
+                      fill = (pct > 50.0) ? Colors.green.shade400 : Colors.red.shade400;
                     }
-
                     if (fill == null) return null;
 
                     return Container(
                       margin: const EdgeInsets.all(6),
-                      decoration:
-                          BoxDecoration(color: fill, shape: BoxShape.circle),
+                      decoration: BoxDecoration(color: fill, shape: BoxShape.circle),
                       child: Center(
                         child: Text(
                           '${day.day}',
@@ -394,8 +440,7 @@ class _CalendarPageState extends State<CalendarPage> {
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: Container(
                 width: double.infinity,
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
                 margin: const EdgeInsets.only(top: 16),
                 decoration: BoxDecoration(
                   color: const Color(0xFFFFF6F3),
@@ -411,11 +456,11 @@ class _CalendarPageState extends State<CalendarPage> {
                 child: Text(
                   (dayPercent != null)
                       ? 'คุณทำได้ ${dayPercent.toStringAsFixed(1)}% จากเป้าหมาย 🎯\n'
-                          'เก่งมากๆ แล้วนะคะ! ในวันต่อๆ ไปก็สู้ๆ นะคะ \n'
-                          'Do your best!💪🌟🙌❤️'
+                        'เก่งมากๆ แล้วนะคะ! ในวันต่อๆ ไปก็สู้ๆ นะคะ \n'
+                        'Do your best!💪🌟🙌❤️'
                       : 'ยังไม่มีข้อมูลเปอร์เซ็นต์\n'
-                          'เก่งมากๆ แล้วนะคะ! ในวันต่อๆ ไปก็สู้ๆ นะคะ \n'
-                          'Do your best!💪🌟🙌❤️',
+                        'เก่งมากๆ แล้วนะคะ! ในวันต่อๆ ไปก็สู้ๆ นะคะ \n'
+                        'Do your best!💪🌟🙌❤️',
                   style: GoogleFonts.kanit(
                     fontSize: 16,
                     color: const Color(0xFF5A3E42),
@@ -446,8 +491,7 @@ class _CalendarPageState extends State<CalendarPage> {
             label: 'Add',
           ),
           BottomNavigationBarItem(
-            icon: Image.asset('assets/icons/wishlist-heart.png',
-                width: 24, height: 24),
+            icon: Image.asset('assets/icons/wishlist-heart.png', width: 24, height: 24),
             label: 'Target',
           ),
           BottomNavigationBarItem(
