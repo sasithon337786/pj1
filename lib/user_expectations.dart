@@ -135,40 +135,6 @@ class _ExpectationResultScreenState extends State<ExpectationResultScreen> {
     }
   }
 
-  void _onItemTapped(int index) {
-    setState(() {
-      _selectedIndex = index;
-    });
-
-    // ใช้ pushReplacement เพื่อลดการซ้อนของ route
-    switch (index) {
-      case 0:
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (_) => const HomePage()),
-        );
-        break;
-      case 1:
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (_) => const Targetpage()),
-        );
-        break;
-      case 2:
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (_) => const Graphpage()),
-        );
-        break;
-      case 3:
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (_) => const AccountPage()),
-        );
-        break;
-    }
-  }
-
   @override
   void dispose() {
     expectationController.dispose();
@@ -218,35 +184,6 @@ class _ExpectationResultScreenState extends State<ExpectationResultScreen> {
           ],
         ),
       ),
-      bottomNavigationBar: BottomNavigationBar(
-        backgroundColor: const Color(0xFFE6D2CD),
-        selectedItemColor: Colors.white,
-        unselectedItemColor: Colors.white70,
-        selectedFontSize: 17,
-        unselectedFontSize: 17,
-        type: BottomNavigationBarType.fixed,
-        currentIndex: _selectedIndex,
-        onTap: _onItemTapped,
-        items: [
-          BottomNavigationBarItem(
-            icon: Image.asset('assets/icons/add.png', width: 24, height: 24),
-            label: 'Add',
-          ),
-          BottomNavigationBarItem(
-            icon: Image.asset('assets/icons/wishlist-heart.png',
-                width: 24, height: 24),
-            label: 'Target',
-          ),
-          BottomNavigationBarItem(
-            icon: Image.asset('assets/icons/stats.png', width: 24, height: 24),
-            label: 'Graph',
-          ),
-          BottomNavigationBarItem(
-            icon: Image.asset('assets/icons/accout.png', width: 24, height: 24),
-            label: 'Account',
-          ),
-        ],
-      ),
     );
   }
 
@@ -280,10 +217,7 @@ class _ExpectationResultScreenState extends State<ExpectationResultScreen> {
           left: 16,
           child: GestureDetector(
             onTap: () {
-              Navigator.pushReplacement(
-                context,
-                MaterialPageRoute(builder: (_) => const HomePage()),
-              );
+              Navigator.of(context).maybePop();
             },
             child: Row(
               children: [
@@ -291,15 +225,12 @@ class _ExpectationResultScreenState extends State<ExpectationResultScreen> {
                 const SizedBox(width: 6),
                 Text(
                   'ย้อนกลับ',
-                  style: textTheme.copyWith(
-                    color: Colors.white,
-                    fontSize: 16,
-                  ),
+                  style: GoogleFonts.kanit(color: Colors.white, fontSize: 16),
                 ),
               ],
             ),
           ),
-        ),
+        )
       ],
     );
   }

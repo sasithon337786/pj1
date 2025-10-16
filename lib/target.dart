@@ -95,6 +95,8 @@ class _TargetpageScreenState extends State<Targetpage> {
   int _selectedIndex = 1; // ตั้งค่าเริ่มต้นที่ Target page
 
   void _onItemTapped(int index) {
+    if (_selectedIndex == index) return; // ✅ กดซ้ำหน้าเดิม ไม่ต้องทำอะไร
+
     setState(() {
       _selectedIndex = index;
     });
@@ -102,24 +104,18 @@ class _TargetpageScreenState extends State<Targetpage> {
     switch (index) {
       case 0:
         Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (context) => const HomePage()),
-        );
+            context, MaterialPageRoute(builder: (_) => const HomePage()));
         break;
       case 1:
-        // อยู่หน้าเดียวกัน
+        // อยู่หน้าเดียวกัน ไม่ต้องทำอะไร
         break;
       case 2:
         Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (context) => const Graphpage()),
-        );
+            context, MaterialPageRoute(builder: (_) => const Graphpage()));
         break;
       case 3:
         Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (context) => const AccountPage()),
-        );
+            context, MaterialPageRoute(builder: (_) => const AccountPage()));
         break;
     }
   }
@@ -235,34 +231,6 @@ class _TargetpageScreenState extends State<Targetpage> {
                 width: 80,
                 height: 80,
                 fit: BoxFit.cover,
-              ),
-            ),
-          ),
-          Positioned(
-            top: MediaQuery.of(context).padding.top + 16,
-            left: 16,
-            child: GestureDetector(
-              onTap: () {
-                Navigator.pushReplacement(
-                  context,
-                  MaterialPageRoute(builder: (context) => const HomePage()),
-                );
-              },
-              child: Row(
-                children: [
-                  const Icon(
-                    Icons.arrow_back,
-                    color: Colors.white,
-                  ),
-                  const SizedBox(width: 6),
-                  Text(
-                    'ย้อนกลับ',
-                    style: GoogleFonts.kanit(
-                      color: Colors.white,
-                      fontSize: 16,
-                    ),
-                  ),
-                ],
               ),
             ),
           ),
