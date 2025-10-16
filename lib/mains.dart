@@ -13,6 +13,7 @@ import 'package:pj1/calendar_page.dart';
 import 'package:pj1/constant/api_endpoint.dart';
 import 'package:pj1/grap.dart';
 import 'package:pj1/mains.dart';
+import 'package:pj1/services/notification_service.dart';
 import 'package:pj1/set_time.dart';
 import 'package:pj1/target.dart';
 
@@ -203,7 +204,6 @@ class _HomePageState extends State<HomePage> {
         return;
       }
       debugPrint('Deleting activity id: $actDetailId');
-
 
       final idToken = await user.getIdToken(true);
 

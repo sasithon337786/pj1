@@ -5,13 +5,19 @@ import 'package:pj1/login.dart';
 import 'package:pj1/services/notification_service.dart';
 import 'package:pj1/widgets/loading_screen.dart';
 import 'package:pj1/widgets/role_based_redirector.dart';
+import 'package:timezone/data/latest.dart' as tz;
+import 'package:timezone/timezone.dart' as tz;
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp();
 
-  // ✅ ต้อง init NotificationService ก่อน runApp()
-  await NotificationService.init();
+  // ทำ timezone ที่นี่ครั้งเดียว
+  tz.initializeTimeZones();
+  tz.setLocalLocation(tz.getLocation('Asia/Bangkok'));
+
+  await NotificationService
+      .init(); // init plugin + ขอ permission + สร้าง channel
 
   runApp(const MyApp());
 }

@@ -143,9 +143,8 @@ class _LoginScreenState extends State<LoginScreen> {
       final data = await _authService.signInWithGoogle();
       final role = data.role;
       final idToken = data.token;
-      // debugPrint("🔔 เรียกข้อมูลกิจกรรมจาก backend...");
-      // await NotificationService.scheduleReminders(idToken);
-      // debugPrint("✅ เรียกการตั้งค่าแจ้งเตือนเสร็จสิ้น");
+      await NotificationService.scheduleReminders(idToken);
+
       _showSnack('Google sign-in สำเร็จ!', backgroundColor: Colors.green);
       if (role == 'admin') {
         Navigator.pushReplacement(
@@ -194,9 +193,8 @@ class _LoginScreenState extends State<LoginScreen> {
 
       final role = data.role;
       final idToken = data.token;
-      // debugPrint("🔔 เรียกข้อมูลกิจกรรมจาก backend...");
-      // await NotificationService.scheduleReminders(idToken);
-      // debugPrint("✅ เรียกการตั้งค่าแจ้งเตือนเสร็จสิ้น");
+      await NotificationService.scheduleReminders(idToken);
+
       _showSnack('เข้าสู่ระบบสำเร็จ!', backgroundColor: Colors.green);
       if (role == 'admin') {
         Navigator.pushReplacement(
