@@ -243,32 +243,6 @@ class _DeteiluserSuspendedState extends State<DeteiluserSuspended> {
                     ],
 
                     const SizedBox(height: 30),
-                    // Center(
-                    //   child: ElevatedButton.icon(
-                    //     onPressed: () {
-                    //       Navigator.push(
-                    //         context,
-                    //         MaterialPageRoute(
-                    //           builder: (_) =>
-                    //               const ListUserInfoScreen(), // ไม่ต้องส่งอะไร
-                    //         ),
-                    //       );
-                    //     },
-                    //     style: ElevatedButton.styleFrom(
-                    //       backgroundColor: secondaryColor,
-                    //       foregroundColor: lightTextColor,
-                    //       padding: const EdgeInsets.symmetric(
-                    //           horizontal: 20, vertical: 10),
-                    //       shape: RoundedRectangleBorder(
-                    //         borderRadius: BorderRadius.circular(20),
-                    //       ),
-                    //       textStyle: GoogleFonts.kanit(fontSize: 16),
-                    //     ),
-                    //     icon: Image.asset('assets/icons/account.png',
-                    //         width: 24, height: 24),
-                    //     label: const Text('ข้อมูลผู้ใช้'),
-                    //   ),
-                    // ),
                   ],
                 ),
               ),

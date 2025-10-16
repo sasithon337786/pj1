@@ -397,7 +397,7 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
                   child: Column(
                     children: [
                       // ปุ่มจัดการหมวดหมู่
-                      const SizedBox(height: 40),
+                      const SizedBox(height: 25),
                       if (userRole == 'admin')
                         Align(
                           alignment: Alignment.topRight,
@@ -433,7 +433,7 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
                             ),
                           ),
                         ),
-                      const SizedBox(height: 35),
+                      const SizedBox(height: 20),
                       // แสดงหมวดหมู่
                       Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -528,31 +528,6 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
             ),
           ),
           // ปุ่มย้อนกลับ
-          Positioned(
-            top: MediaQuery.of(context).padding.top + 16,
-            left: 16,
-            child: GestureDetector(
-              onTap: () {
-                Navigator.pushReplacement(
-                  context,
-                  MaterialPageRoute(builder: (context) => const HomePage()),
-                );
-              },
-              child: Row(
-                children: [
-                  const Icon(Icons.arrow_back, color: Colors.white),
-                  const SizedBox(width: 6),
-                  Text(
-                    'ย้อนกลับ',
-                    style: GoogleFonts.kanit(
-                      color: Colors.white,
-                      fontSize: 16,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
         ],
       ),
       bottomNavigationBar: BottomNavigationBar(
