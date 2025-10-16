@@ -1,3 +1,4 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:pj1/account.dart';
@@ -5,9 +6,22 @@ import 'package:pj1/grap.dart';
 import 'package:pj1/mains.dart';
 import 'package:pj1/target.dart';
 import 'package:pj1/user_expectations.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
+import 'package:pj1/constant/api_endpoint.dart';
 
 class ExpectationScreen extends StatefulWidget {
-  const ExpectationScreen({super.key});
+  final int actId;
+  final String label;
+  final String actPic;
+  // final String actDetailId;
+  const ExpectationScreen({
+    super.key,
+    required this.actId,
+    required this.label,
+    required this.actPic,
+    // required this.actDetailId,
+  });
 
   @override
   State<ExpectationScreen> createState() => _ExpectationScreenState();
@@ -54,6 +68,61 @@ class _ExpectationScreenState extends State<ExpectationScreen> {
           MaterialPageRoute(builder: (context) => const AccountPage()),
         );
         break;
+    }
+  }
+
+  Future<void> _submitExpectation() async {
+    final String expectationValue = expectationController.text;
+    // final String percentageValue = percentageController.text;
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
+    final uid = user.uid;
+
+    if (expectationValue.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('กรุณากรอกข้อมูลให้ครบถ้วน')),
+      );
+      return;
+    }
+
+    try {
+      final idToken = await user.getIdToken(true);
+      final url = Uri.parse('${ApiEndpoints.baseUrl}/api/expuser/createexp');
+
+      final response = await http.post(
+        url,
+        headers: {
+          'Content-Type': 'application/json; charset=UTF-8',
+          'Authorization': 'Bearer $idToken', // 🔑 เพิ่ม token
+        },
+        body: jsonEncode({
+          "act_id": widget.actId,
+          "uid": uid,
+          "user_exp": expectationValue,
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('บันทึกความคาดหวังเรียบร้อย')),
+        );
+
+        // ไปหน้า Targetpage
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => const Targetpage()),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('เกิดข้อผิดพลาด: ${response.body}')),
+        );
+      }
+    } catch (error) {
+      debugPrint('Error: $error');
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('เชื่อมต่อไม่ได้')),
+      );
     }
   }
 
@@ -146,7 +215,37 @@ class _ExpectationScreenState extends State<ExpectationScreen> {
                           ),
                         ],
                       ),
-                      const SizedBox(height: 10),
+                      const SizedBox(height: 22),
+                      Row(
+                        children: [
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(8),
+                            child: Image.network(
+                              widget.actPic, // ใช้ widget.actPic
+                              width: 50,
+                              height: 50,
+                              fit: BoxFit.cover,
+                              errorBuilder: (context, error, stackTrace) =>
+                                  const Icon(Icons.image_not_supported,
+                                      size: 50),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              widget.label, // ใช้ widget.label
+                              style: GoogleFonts.kanit(
+                                fontSize: 16,
+                                color: const Color(0xFF5B4436),
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+
+                      const SizedBox(height: 17),
+                      //add name pic
                       TextField(
                         controller: expectationController,
                         style: GoogleFonts.kanit(color: Colors.black),
@@ -165,64 +264,13 @@ class _ExpectationScreenState extends State<ExpectationScreen> {
                           ),
                         ),
                       ),
-                      const SizedBox(height: 30),
-                      Row(
-                        children: [
-                          Image.asset(
-                            'assets/icons/persent.png',
-                            width: 24,
-                            height: 24,
-                          ),
-                          const SizedBox(width: 8),
-                          Text(
-                            'เปอร์เซ็นต์ความคาดหวังของคุณ',
-                            style: GoogleFonts.kanit(
-                              fontSize: 15,
-                              color: const Color(0xFF5B4436),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 10),
-                      TextField(
-                        controller: percentageController,
-                        keyboardType: TextInputType.number,
-                        style: GoogleFonts.kanit(color: Colors.black),
-                        decoration: InputDecoration(
-                          hintText: 'ใส่เปอร์เซ็นต์ความคาดหวังของคุณ....',
-                          hintStyle: GoogleFonts.kanit(
-                            color: const Color(0xFFDEB3B3),
-                          ),
-                          filled: true,
-                          fillColor: const Color(0xFFE8C9C9),
-                          contentPadding: const EdgeInsets.symmetric(
-                              vertical: 15, horizontal: 20),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            borderSide: BorderSide.none,
-                          ),
-                        ),
-                      ),
+
                       const SizedBox(height: 20),
                       Center(
                         child: SizedBox(
                           width: 120,
                           child: ElevatedButton(
-                            onPressed: () {
-                              String expectationValue =
-                                  expectationController.text;
-                              String percentageValue =
-                                  percentageController.text;
-                              print('Expectations: $expectationValue');
-                              print('Percentage: $percentageValue');
-
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                    builder: (context) =>
-                                        ExpectationResultScreen()),
-                              );
-                            },
+                            onPressed: _submitExpectation,
                             style: ElevatedButton.styleFrom(
                               backgroundColor: const Color(0xFF564843),
                               shape: RoundedRectangleBorder(
