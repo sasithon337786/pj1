@@ -307,17 +307,22 @@ class _MainAdminState extends State<MainAdmin> {
                                             ],
                                           ),
                                           ElevatedButton(
-                                            onPressed: () {
-                                              Navigator.push(
+                                            onPressed: () async {
+                                              final result =
+                                                  await Navigator.push(
                                                 context,
                                                 MaterialPageRoute(
                                                   builder: (context) =>
                                                       ListUserInfoScreen(
-                                                    uid: user
-                                                        .uid, // ✅ ส่ง uid ไป
+                                                    uid: user.uid, // ส่ง uid ไป
                                                   ),
                                                 ),
                                               );
+
+                                              // ถ้า result เป็น true (หรือเงื่อนไขใดๆ) ให้ refresh users
+                                              if (result == true) {
+                                                _fetchUsers();
+                                              }
                                             },
                                             style: ElevatedButton.styleFrom(
                                               backgroundColor:
@@ -339,7 +344,7 @@ class _MainAdminState extends State<MainAdmin> {
                                               'รายละเอียด',
                                               style: GoogleFonts.kanit(
                                                 fontSize: 15,
-                                                color: Colors.white,
+                                                color: const Color(0xFF564843),
                                               ),
                                             ),
                                           ),
