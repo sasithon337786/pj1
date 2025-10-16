@@ -211,26 +211,6 @@ class _UserGraphBarScreenState extends State<UserGraphBarScreen> {
     _percent = _percentList.isNotEmpty ? _percentList.last : null;
   }
 
-  void _onItemTapped(int index) {
-    setState(() => _selectedIndex = index);
-    switch (index) {
-      case 0:
-        Navigator.pushReplacement(
-            context, MaterialPageRoute(builder: (_) => const HomePage()));
-        break;
-      case 1:
-        Navigator.pushReplacement(
-            context, MaterialPageRoute(builder: (_) => const Targetpage()));
-        break;
-      case 2:
-        break;
-      case 3:
-        Navigator.pushReplacement(
-            context, MaterialPageRoute(builder: (_) => const AccountPage()));
-        break;
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -366,38 +346,8 @@ class _UserGraphBarScreenState extends State<UserGraphBarScreen> {
           ],
         ),
       ),
-      bottomNavigationBar: BottomNavigationBar(
-        backgroundColor: const Color(0xFFE6D2CD),
-        selectedItemColor: Colors.white,
-        unselectedItemColor: Colors.white60,
-        selectedFontSize: 17,
-        unselectedFontSize: 17,
-        type: BottomNavigationBarType.fixed,
-        currentIndex: _selectedIndex,
-        onTap: _onItemTapped,
-        items: [
-          BottomNavigationBarItem(
-            icon: Image.asset('assets/icons/add.png', width: 24, height: 24),
-            label: 'Add',
-          ),
-          BottomNavigationBarItem(
-            icon: Image.asset('assets/icons/wishlist-heart.png',
-                width: 24, height: 24),
-            label: 'Target',
-          ),
-          BottomNavigationBarItem(
-            icon: Image.asset('assets/icons/stats.png', width: 24, height: 24),
-            label: 'Graph',
-          ),
-          BottomNavigationBarItem(
-            icon: Image.asset('assets/icons/accout.png', width: 24, height: 24),
-            label: 'Account',
-          ),
-        ],
-      ),
     );
   }
 
   // ---------------- Widgets กราฟ ----------------
-
 }

@@ -233,26 +233,6 @@ class _GraphpageState extends State<Graphpage> {
                   width: 80, height: 80, fit: BoxFit.cover),
             ),
           ),
-          // ปุ่มย้อนกลับ
-          Positioned(
-            top: MediaQuery.of(context).padding.top + 16,
-            left: 16,
-            child: GestureDetector(
-              onTap: () {
-                Navigator.pushReplacement(context,
-                    MaterialPageRoute(builder: (_) => const HomePage()));
-              },
-              child: Row(
-                children: [
-                  const Icon(Icons.arrow_back, color: Colors.white),
-                  const SizedBox(width: 6),
-                  Text('ย้อนกลับ',
-                      style:
-                          GoogleFonts.kanit(color: Colors.white, fontSize: 16)),
-                ],
-              ),
-            ),
-          ),
         ],
       ),
       bottomNavigationBar: BottomNavigationBar(

@@ -127,12 +127,15 @@ class _CalendarPageState extends State<CalendarPage> {
       for (final a in acts) {
         int? id;
         final v = a['act_detail_id'];
-        if (v is int) id = v;
-        else if (v is num) id = v.toInt();
+        if (v is int)
+          id = v;
+        else if (v is num)
+          id = v.toInt();
         else if (v is String) id = int.tryParse(v);
         if (id == null) continue;
 
-        final roundStr = (a['round'] ?? '').toString().toLowerCase(); // day|week
+        final roundStr =
+            (a['round'] ?? '').toString().toLowerCase(); // day|week
         final createAtDay = _parseCreateAtDay(a['create_at']);
         actMeta[id] = (round: roundStr, createAt: createAtDay);
       }
@@ -168,7 +171,8 @@ class _CalendarPageState extends State<CalendarPage> {
 
         final meta = actMeta[id];
         final roundStr = meta?.round ?? 'day';
-        final createAt = meta?.createAt != null ? _dateOnly(meta!.createAt!) : null;
+        final createAt =
+            meta?.createAt != null ? _dateOnly(meta!.createAt!) : null;
 
         // 3.1 map ของกิจกรรมนี้ → dayKey -> percent
         final Map<DateTime, double> dayToPct = {};
@@ -237,27 +241,6 @@ class _CalendarPageState extends State<CalendarPage> {
 
   // ---- UI -------------------------------------------------------------------
 
-  void _onItemTapped(int index) {
-    setState(() {
-      _selectedIndex = index;
-    });
-
-    switch (index) {
-      case 0:
-        Navigator.push(context, MaterialPageRoute(builder: (_) => const HomePage()));
-        break;
-      case 1:
-        Navigator.push(context, MaterialPageRoute(builder: (_) => const Targetpage()));
-        break;
-      case 2:
-        Navigator.push(context, MaterialPageRoute(builder: (_) => const Graphpage()));
-        break;
-      case 3:
-        Navigator.push(context, MaterialPageRoute(builder: (_) => const AccountPage()));
-        break;
-    }
-  }
-
   Widget _legendDot(Color c) => Container(
         width: 12,
         height: 12,
@@ -310,7 +293,8 @@ class _CalendarPageState extends State<CalendarPage> {
                         const Icon(Icons.arrow_back, color: Colors.white),
                         const SizedBox(width: 6),
                         Text('ย้อนกลับ',
-                            style: GoogleFonts.kanit(color: Colors.white, fontSize: 16)),
+                            style: GoogleFonts.kanit(
+                                color: Colors.white, fontSize: 16)),
                       ],
                     ),
                   ),
@@ -351,16 +335,21 @@ class _CalendarPageState extends State<CalendarPage> {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 _legendDot(Colors.green.shade400),
-                Text('  > 50%  ', style: GoogleFonts.kanit(color: Colors.white)),
+                Text('  > 50%  ',
+                    style: GoogleFonts.kanit(color: Colors.white)),
                 _legendDot(Colors.red.shade400),
-                Text('  ≤ 50%  ', style: GoogleFonts.kanit(color: Colors.white)),
+                Text('  ≤ 50%  ',
+                    style: GoogleFonts.kanit(color: Colors.white)),
                 if (_loading) ...[
                   const SizedBox(width: 8),
                   const SizedBox(
-                    width: 14, height: 14,
-                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                    width: 14,
+                    height: 14,
+                    child: CircularProgressIndicator(
+                        strokeWidth: 2, color: Colors.white),
                   ),
-                  Text(' กำลังโหลด...', style: GoogleFonts.kanit(color: Colors.white)),
+                  Text(' กำลังโหลด...',
+                      style: GoogleFonts.kanit(color: Colors.white)),
                 ],
               ],
             ),
@@ -401,10 +390,12 @@ class _CalendarPageState extends State<CalendarPage> {
                   ),
                 ),
                 headerStyle: HeaderStyle(
-                  titleTextFormatter: (date, locale) => DateFormat('MMM yyyy').format(date),
+                  titleTextFormatter: (date, locale) =>
+                      DateFormat('MMM yyyy').format(date),
                   formatButtonVisible: false,
                   titleCentered: true,
-                  titleTextStyle: GoogleFonts.kanit(fontSize: 18, color: Colors.black87),
+                  titleTextStyle:
+                      GoogleFonts.kanit(fontSize: 18, color: Colors.black87),
                   leftChevronIcon: const Icon(Icons.chevron_left),
                   rightChevronIcon: const Icon(Icons.chevron_right),
                 ),
@@ -416,13 +407,16 @@ class _CalendarPageState extends State<CalendarPage> {
                     // ระบายสีเฉพาะวันที่มีข้อมูล
                     Color? fill;
                     if (pct != null) {
-                      fill = (pct > 50.0) ? Colors.green.shade400 : Colors.red.shade400;
+                      fill = (pct > 50.0)
+                          ? Colors.green.shade400
+                          : Colors.red.shade400;
                     }
                     if (fill == null) return null;
 
                     return Container(
                       margin: const EdgeInsets.all(6),
-                      decoration: BoxDecoration(color: fill, shape: BoxShape.circle),
+                      decoration:
+                          BoxDecoration(color: fill, shape: BoxShape.circle),
                       child: Center(
                         child: Text(
                           '${day.day}',
@@ -440,7 +434,8 @@ class _CalendarPageState extends State<CalendarPage> {
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: Container(
                 width: double.infinity,
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
                 margin: const EdgeInsets.only(top: 16),
                 decoration: BoxDecoration(
                   color: const Color(0xFFFFF6F3),
@@ -456,11 +451,11 @@ class _CalendarPageState extends State<CalendarPage> {
                 child: Text(
                   (dayPercent != null)
                       ? 'คุณทำได้ ${dayPercent.toStringAsFixed(1)}% จากเป้าหมาย 🎯\n'
-                        'เก่งมากๆ แล้วนะคะ! ในวันต่อๆ ไปก็สู้ๆ นะคะ \n'
-                        'Do your best!💪🌟🙌❤️'
+                          'เก่งมากๆ แล้วนะคะ! ในวันต่อๆ ไปก็สู้ๆ นะคะ \n'
+                          'Do your best!💪🌟🙌❤️'
                       : 'ยังไม่มีข้อมูลเปอร์เซ็นต์\n'
-                        'เก่งมากๆ แล้วนะคะ! ในวันต่อๆ ไปก็สู้ๆ นะคะ \n'
-                        'Do your best!💪🌟🙌❤️',
+                          'เก่งมากๆ แล้วนะคะ! ในวันต่อๆ ไปก็สู้ๆ นะคะ \n'
+                          'Do your best!💪🌟🙌❤️',
                   style: GoogleFonts.kanit(
                     fontSize: 16,
                     color: const Color(0xFF5A3E42),
@@ -475,34 +470,6 @@ class _CalendarPageState extends State<CalendarPage> {
             const SizedBox(height: 24),
           ],
         ),
-      ),
-      bottomNavigationBar: BottomNavigationBar(
-        backgroundColor: const Color(0xFFE6D2CD),
-        selectedItemColor: Colors.white,
-        unselectedItemColor: Colors.white60,
-        selectedFontSize: 17,
-        unselectedFontSize: 17,
-        type: BottomNavigationBarType.fixed,
-        currentIndex: _selectedIndex,
-        onTap: _onItemTapped,
-        items: [
-          BottomNavigationBarItem(
-            icon: Image.asset('assets/icons/add.png', width: 24, height: 24),
-            label: 'Add',
-          ),
-          BottomNavigationBarItem(
-            icon: Image.asset('assets/icons/wishlist-heart.png', width: 24, height: 24),
-            label: 'Target',
-          ),
-          BottomNavigationBarItem(
-            icon: Image.asset('assets/icons/stats.png', width: 24, height: 24),
-            label: 'Graph',
-          ),
-          BottomNavigationBarItem(
-            icon: Image.asset('assets/icons/accout.png', width: 24, height: 24),
-            label: 'Account',
-          ),
-        ],
       ),
     );
   }

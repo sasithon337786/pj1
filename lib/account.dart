@@ -768,8 +768,8 @@ class _AccountPageState extends State<AccountPage> {
     });
     switch (index) {
       case 0:
-        Navigator.pushReplacement(context,
-            MaterialPageRoute(builder: (context) => const MainHomeScreen()));
+        Navigator.pushReplacement(
+            context, MaterialPageRoute(builder: (context) => const HomePage()));
         break;
       case 1:
         Navigator.pushReplacement(context,
@@ -1032,27 +1032,6 @@ class _AccountPageState extends State<AccountPage> {
             child: ClipOval(
               child: Image.asset('assets/images/logo.png',
                   width: 100, height: 100, fit: BoxFit.cover),
-            ),
-          ),
-
-          // ปุ่มย้อนกลับ
-          Positioned(
-            top: MediaQuery.of(context).padding.top + 16,
-            left: 16,
-            child: GestureDetector(
-              onTap: () {
-                Navigator.pushReplacement(context,
-                    MaterialPageRoute(builder: (context) => const HomePage()));
-              },
-              child: Row(
-                children: [
-                  const Icon(Icons.arrow_back, color: Colors.white),
-                  const SizedBox(width: 6),
-                  Text('ย้อนกลับ',
-                      style:
-                          GoogleFonts.kanit(color: Colors.white, fontSize: 16)),
-                ],
-              ),
             ),
           ),
         ],
