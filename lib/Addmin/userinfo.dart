@@ -81,22 +81,22 @@ class _UserInfoScreenState extends State<UserInfoScreen> {
           ),
         ),
         // ปุ่มย้อนกลับซ้ายบน
-        Positioned(
-          top: topPad + 16,
-          left: 16,
-          child: GestureDetector(
-            onTap: () => Navigator.pop(context),
-            child: Row(
-              children: [
-                const Icon(Icons.arrow_back, color: Colors.white),
-                const SizedBox(width: 6),
-                Text('ย้อนกลับ',
-                    style:
-                        GoogleFonts.kanit(color: Colors.white, fontSize: 16)),
-              ],
+          Positioned(
+            top: topPad + 16,
+            left: 16,
+            child: GestureDetector(
+              onTap: () => Navigator.pop(context, true),
+              child: Row(
+                children: [
+                  const Icon(Icons.arrow_back, color: Colors.white),
+                  const SizedBox(width: 6),
+                  Text('ย้อนกลับ',
+                      style:
+                          GoogleFonts.kanit(color: Colors.white, fontSize: 16)),
+                ],
+              ),
             ),
           ),
-        ),
       ],
     );
   }
@@ -604,7 +604,7 @@ class _UserInfoScreenState extends State<UserInfoScreen> {
                 final idToken =
                     await FirebaseAuth.instance.currentUser!.getIdToken(true);
 
-                // ✅ ไม่ส่ง email
+                // payload ไม่ส่ง email
                 final payload = {
                   'username': nameCtrl.text.trim(),
                   'birthday': bdayCtrl.text.trim().isEmpty
@@ -614,8 +614,13 @@ class _UserInfoScreenState extends State<UserInfoScreen> {
                         ),
                 };
 
+                // เปลี่ยน URL เป็น route ของ admin และส่ง uid ของผู้ใช้ที่จะแก้ไข
+                final uri = Uri.parse(
+                  '${ApiEndpoints.baseUrl}/api/users/admineditusers/${_user.uid}',
+                );
+
                 final resp = await http.put(
-                  Uri.parse(_Endpoints.editSelf()),
+                  uri,
                   headers: {
                     'Authorization': 'Bearer $idToken',
                     'Content-Type': 'application/json',
@@ -628,7 +633,7 @@ class _UserInfoScreenState extends State<UserInfoScreen> {
                   setState(() {
                     _user = UserModel(
                       uid: _or(_user.uid, ''),
-                      email: _or(_user.email, ''), // ใช้ค่าเดิม
+                      email: _or(_user.email, ''),
                       username: _or(nameCtrl.text, _or(_user.username, '')),
                       role: _or(_user.role, 'user'),
                       status: _or(_user.status, 'active'),

@@ -167,27 +167,31 @@ class _ListUserInfoScreenState extends State<ListUserInfoScreen> {
     }
   }
 
-  void _onItemTapped(int index) {
-    setState(() => _selectedIndex = index);
-    switch (index) {
-      case 0:
-        Navigator.push(
-            context, MaterialPageRoute(builder: (_) => const MainAdmin()));
-        break;
-      case 1:
-        Navigator.push(context,
-            MaterialPageRoute(builder: (_) => const ListuserSuspended()));
-        break;
-      case 2:
-        Navigator.push(context,
-            MaterialPageRoute(builder: (_) => const ListuserDeleteAdmin()));
-        break;
-      case 3:
-        Navigator.push(context,
-            MaterialPageRoute(builder: (_) => const ListuserPetition()));
-        break;
-    }
+  void _onItemTapped(int index) async {
+  setState(() => _selectedIndex = index);
+  Widget page;
+  switch (index) {
+    case 0:
+      page = const MainAdmin();
+      break;
+    case 1:
+      page = const ListuserSuspended();
+      break;
+    case 2:
+      page = const ListuserDeleteAdmin();
+      break;
+    case 3:
+      page = const ListuserPetition();
+      break;
+    default:
+      return;
   }
+
+  await Navigator.push(context, MaterialPageRoute(builder: (_) => page));
+  if (!mounted) return;
+  _loadLatest(); // กลับมาหน้านี้แล้วรีเฟรชเสมอ
+}
+
 
   @override
   Widget build(BuildContext context) {
@@ -229,7 +233,7 @@ class _ListUserInfoScreenState extends State<ListUserInfoScreen> {
                 top: MediaQuery.of(context).padding.top + 16,
                 left: 16,
                 child: GestureDetector(
-                  onTap: () => Navigator.pop(context),
+                  onTap: () => Navigator.pop(context,true),
                   child: Row(
                     children: [
                       const Icon(Icons.arrow_back, color: Colors.white),
@@ -345,15 +349,20 @@ class _ListUserInfoScreenState extends State<ListUserInfoScreen> {
                 ElevatedButton.icon(
                   onPressed: (_detailUser == null)
                       ? null
-                      : () {
-                          Navigator.push(
+                      : () async {
+                          final result = await Navigator.push(
                             context,
                             MaterialPageRoute(
                               builder: (_) => UserInfoScreen(
-                                user: _detailUser!, // ✅ ส่งโมเดลทั้งก้อน
+                                user: _detailUser!,
                               ),
                             ),
                           );
+
+                          // ถ้า result เป็น true ให้รีเฟรช
+                          if (result == true) {
+                            _loadLatest();
+                          }
                         },
                   icon: const Icon(Icons.account_circle),
                   label: Text('ข้อมูลผู้ใช้',
