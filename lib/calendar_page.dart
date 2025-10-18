@@ -374,7 +374,7 @@ class _CalendarPageState extends State<CalendarPage> {
                       ? 'คุณทำได้ ${dayPercent.toStringAsFixed(1)}% จากเป้าหมาย 🎯\n'
                           'เก่งมากๆ แล้วนะคะ! ในวันต่อๆ ไปก็สู้ๆ นะคะ \n'
                           'Do your best!💪🌟🙌❤️'
-                      : 'ยังไม่มีข้อมูลเปอร์เซ็นต์\n'
+                      : 'ยังไม่มีข้อมูลการทำกิจกรรมในวันนี้ค่ะ\n'
                           'เก่งมากๆ แล้วนะคะ! ในวันต่อๆ ไปก็สู้ๆ นะคะ \n'
                           'Do your best!💪🌟🙌❤️',
                   style: GoogleFonts.kanit(
