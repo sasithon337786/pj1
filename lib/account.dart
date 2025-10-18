@@ -1,10 +1,11 @@
+// lib/screens/account_page.dart
 import 'dart:convert';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
-import 'package:pj1/add.dart';
+
 import 'package:pj1/constant/api_endpoint.dart';
 import 'package:pj1/grap.dart';
 import 'package:pj1/login.dart';
@@ -13,6 +14,7 @@ import 'package:pj1/models/userModel.dart';
 import 'package:pj1/screens/login_screen.dart';
 import 'package:pj1/services/auth_service.dart';
 import 'package:pj1/target.dart';
+import 'package:pj1/add.dart';
 
 class AccountPage extends StatefulWidget {
   const AccountPage({super.key});
@@ -25,17 +27,23 @@ class _AccountPageState extends State<AccountPage> {
   UserModel? user;
   bool isLoading = true;
 
-  // === สีตามสไตล์แอปของหนู ===
-  final Color _bg = const Color(0xFFC98993); // พื้นหลังเพจ
-  final Color _appBar = const Color(0xFF564843); // ส่วนหัวเข้ม
-  final Color _card = const Color(0xFFEFEAE3); // สีการ์ด
-  final Color _pill = const Color(0xFFE6D2CD); // แคปซูล/ปุ่มอ่อน
-  final Color _accent = const Color(0xFFC98993); // ไฮไลต์หลัก
+  // Theme
+  final Color _bg = const Color(0xFFC98993);
+  final Color _appBar = const Color(0xFF564843);
+  final Color _card = const Color(0xFFEFEAE3);
+  final Color _pill = const Color(0xFFE6D2CD);
+  final Color _accent = const Color(0xFFC98993);
 
-  // สถานะปุ่มออกจากระบบ
   bool _isLoggingOut = false;
 
-  // -------------------- LOGOUT --------------------
+  // ====== Helpers ======
+  // บีบ DateTime ให้เป็น date-only (ตัดผลกระทบ timezone/เวลาออก)
+  DateTime _toDateOnly(DateTime dt) {
+    final local = dt.toLocal();
+    return DateTime(local.year, local.month, local.day);
+  }
+
+  // ---------- Logout ----------
   Future<void> _confirmAndLogout() async {
     final confirm = await showDialog<bool>(
       context: context,
@@ -45,15 +53,11 @@ class _AccountPageState extends State<AccountPage> {
           shape:
               RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           backgroundColor: _card,
-          title: Text(
-            'ยืนยันการออกจากระบบ',
-            style:
-                GoogleFonts.kanit(color: _appBar, fontWeight: FontWeight.w600),
-          ),
-          content: Text(
-            'แน่ใจหรือไม่ว่าจะออกจากระบบตอนนี้?',
-            style: GoogleFonts.kanit(color: Colors.black87),
-          ),
+          title: Text('ยืนยันการออกจากระบบ',
+              style: GoogleFonts.kanit(
+                  color: _appBar, fontWeight: FontWeight.w600)),
+          content: Text('แน่ใจหรือไม่ว่าจะออกจากระบบตอนนี้?',
+              style: GoogleFonts.kanit(color: Colors.black87)),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context, false),
@@ -150,24 +154,120 @@ class _AccountPageState extends State<AccountPage> {
     );
   }
 
-  // -------------------- EDIT PROFILE + CHANGE PASSWORD --------------------
+  // ---------- Dialog: เตือนต้องใส่เหตุผล ----------
+  Future<void> _showReasonRequiredDialog() async {
+    await showGeneralDialog(
+      context: context,
+      barrierDismissible: true,
+      barrierLabel: 'reason-required',
+      barrierColor: Colors.black.withOpacity(0.45),
+      transitionDuration: const Duration(milliseconds: 220),
+      pageBuilder: (_, __, ___) => const SizedBox.shrink(),
+      transitionBuilder: (dialogCtx, anim, __, ___) {
+        final curved =
+            CurvedAnimation(parent: anim, curve: Curves.easeOutCubic);
+        return ScaleTransition(
+          scale: Tween<double>(begin: 0.95, end: 1.0).animate(curved),
+          child: Opacity(
+            opacity: curved.value,
+            child: Center(
+              child: Material(
+                color: Colors.transparent,
+                child: Container(
+                  width: (MediaQuery.of(dialogCtx).size.width * 0.82)
+                      .clamp(260.0, 460.0),
+                  padding: const EdgeInsets.fromLTRB(20, 18, 20, 12),
+                  decoration: BoxDecoration(
+                    color: _card,
+                    borderRadius: BorderRadius.circular(20),
+                    boxShadow: const [
+                      BoxShadow(
+                          color: Colors.black12,
+                          blurRadius: 18,
+                          offset: Offset(0, 10))
+                    ],
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(14),
+                        decoration: BoxDecoration(
+                            color: _accent.withOpacity(0.20),
+                            shape: BoxShape.circle),
+                        child:
+                            Icon(Icons.info_rounded, size: 34, color: _appBar),
+                      ),
+                      const SizedBox(height: 14),
+                      Text('กรุณาใส่เหตุผล',
+                          textAlign: TextAlign.center,
+                          style: GoogleFonts.kanit(
+                              fontSize: 20,
+                              fontWeight: FontWeight.w700,
+                              color: _appBar)),
+                      const SizedBox(height: 8),
+                      Text('คุณต้องใส่เหตุผลในการส่งคำร้องด้วยค่ะ',
+                          textAlign: TextAlign.center,
+                          style: GoogleFonts.kanit(
+                              fontSize: 16,
+                              color: _appBar.withOpacity(0.85),
+                              height: 1.35,
+                              fontWeight: FontWeight.w500)),
+                      const SizedBox(height: 18),
+                      TextButton(
+                        onPressed: () =>
+                            Navigator.maybeOf(dialogCtx, rootNavigator: true)
+                                ?.pop(),
+                        style: TextButton.styleFrom(
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 24, vertical: 10),
+                          backgroundColor: _appBar,
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16)),
+                          textStyle: GoogleFonts.kanit(
+                              fontSize: 16, fontWeight: FontWeight.w600),
+                        ),
+                        child: Text('ปิด',
+                            style: GoogleFonts.kanit(
+                                color: Colors.white,
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600)),
+                      ),
+                      const SizedBox(height: 6),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  // ---------- Edit Profile + Change Password ----------
   void _openEditProfileDialog() {
-    // ค่าเริ่มต้นจาก user ปัจจุบัน
+    // ตรวจ provider: แก้รหัสผ่านได้เฉพาะ email/password
+    final fbUser = FirebaseAuth.instance.currentUser;
+    final bool canChangePassword =
+        fbUser?.providerData.any((p) => p.providerId == 'password') ?? false;
+
+    // ฟิลด์โปรไฟล์
     final nameCtrl = TextEditingController(text: user?.username ?? '');
     final emailCtrl = TextEditingController(text: user?.email ?? '');
     final bdayCtrl = TextEditingController(
       text: user?.birthday != null
-          ? DateFormat('dd/MM/yyyy').format(user!.birthday!)
+          ? DateFormat('dd/MM/yyyy').format(_toDateOnly(user!.birthday!))
           : '',
     );
 
-    // ====== เพิ่มสำหรับรหัสผ่าน ======
+    // ฟิลด์รหัสผ่าน (ใช้เฉพาะเมื่อ canChangePassword)
     final currentPassCtrl = TextEditingController();
     final newPassCtrl = TextEditingController();
     final confirmPassCtrl = TextEditingController();
     bool changePassword = false;
     bool ob1 = true, ob2 = true, ob3 = true;
-
     final formKey = GlobalKey<FormState>();
 
     String? _required(String? v) =>
@@ -180,15 +280,14 @@ class _AccountPageState extends State<AccountPage> {
     }
 
     String? _newPassValidator(String? v) {
-      if (!changePassword) return null;
+      if (!changePassword || !canChangePassword) return null;
       if (v == null || v.isEmpty) return 'กรุณากรอกรหัสผ่านใหม่';
       if (v.length < 8) return 'รหัสผ่านใหม่ต้องยาวอย่างน้อย 8 ตัวอักษร';
-      // เพิ่มกฎอื่นได้ตามต้องการ
       return null;
     }
 
     String? _confirmPassValidator(String? v) {
-      if (!changePassword) return null;
+      if (!changePassword || !canChangePassword) return null;
       if (v == null || v.isEmpty) return 'กรุณายืนยันรหัสผ่านใหม่';
       if (v != newPassCtrl.text) return 'รหัสผ่านใหม่กับการยืนยันไม่ตรงกัน';
       return null;
@@ -196,8 +295,9 @@ class _AccountPageState extends State<AccountPage> {
 
     Future<void> _pickBirthday(StateSetter setDState) async {
       final now = DateTime.now();
-      final initial =
-          user?.birthday ?? DateTime(now.year - 18, now.month, now.day);
+      final initial = user?.birthday != null
+          ? _toDateOnly(user!.birthday!)
+          : DateTime(now.year - 18, now.month, now.day);
       final picked = await showDatePicker(
         context: context,
         initialDate: initial,
@@ -208,7 +308,9 @@ class _AccountPageState extends State<AccountPage> {
         confirmText: 'ยืนยัน',
       );
       if (picked != null) {
-        bdayCtrl.text = DateFormat('dd/MM/yyyy').format(picked);
+        // บีบเป็น date-only อีกชั้นให้ชัวร์
+        final only = _toDateOnly(picked);
+        bdayCtrl.text = DateFormat('dd/MM/yyyy').format(only);
         setDState(() {});
       }
     }
@@ -241,9 +343,16 @@ class _AccountPageState extends State<AccountPage> {
               setDState(() => saving = true);
 
               try {
-                // ====== 1) อัปเดตโปรไฟล์ใน backend ======
+                // 1) อัปเดตโปรไฟล์ที่ backend (ส่งวันเกิดเป็น yyyy-MM-dd)
                 final idToken =
                     await FirebaseAuth.instance.currentUser!.getIdToken();
+                final String? birthdayPayload = bdayCtrl.text.trim().isEmpty
+                    ? null
+                    : DateFormat('yyyy-MM-dd').format(
+                        DateFormat('dd/MM/yyyy')
+                            .parseStrict(bdayCtrl.text.trim()),
+                      );
+
                 final resp = await http.put(
                   Uri.parse('${ApiEndpoints.baseUrl}/api/users/edit'),
                   headers: {
@@ -253,12 +362,7 @@ class _AccountPageState extends State<AccountPage> {
                   body: jsonEncode({
                     'username': nameCtrl.text.trim(),
                     'email': emailCtrl.text.trim(),
-                    'birthday': bdayCtrl.text.trim().isEmpty
-                        ? null
-                        : DateFormat('yyyy-MM-dd').format(
-                            DateFormat('dd/MM/yyyy')
-                                .parse(bdayCtrl.text.trim()),
-                          ),
+                    'birthday': birthdayPayload,
                   }),
                 );
 
@@ -277,61 +381,47 @@ class _AccountPageState extends State<AccountPage> {
                   return;
                 }
 
-                // ====== 2) ถ้าเลือก "เปลี่ยนรหัสผ่าน" ให้จัดการที่ Firebase Auth ======
-                if (changePassword) {
+                // 2) เปลี่ยนรหัสผ่าน (เฉพาะ email/password เท่านั้น และติ๊กสวิตช์)
+                if (canChangePassword && changePassword) {
                   final fbUser = FirebaseAuth.instance.currentUser;
                   if (fbUser == null) throw 'ไม่พบผู้ใช้ปัจจุบัน';
 
-                  // เช็คว่าบัญชีนี้เป็น email/password มั้ย
-                  final isEmailPassword = fbUser.providerData
-                      .any((p) => p.providerId == 'password');
-                  if (!isEmailPassword) {
+                  final emailForAuth = emailCtrl.text.trim().isNotEmpty
+                      ? emailCtrl.text.trim()
+                      : (fbUser.email ?? '');
+
+                  final cred = EmailAuthProvider.credential(
+                    email: emailForAuth,
+                    password: currentPassCtrl.text,
+                  );
+
+                  try {
+                    await fbUser.reauthenticateWithCredential(cred);
+                    await fbUser.updatePassword(newPassCtrl.text);
                     if (mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-                        content: Text(
-                            'บัญชีนี้ไม่ได้เข้าสู่ระบบด้วยอีเมล/รหัสผ่าน จึงไม่สามารถตั้งรหัสผ่านจากที่นี่ได้'),
-                      ));
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                            content: Text('เปลี่ยนรหัสผ่านเรียบร้อย')),
+                      );
                     }
-                  } else {
-                    final emailForAuth = emailCtrl.text.trim().isNotEmpty
-                        ? emailCtrl.text.trim()
-                        : (fbUser.email ?? '');
-
-                    final cred = EmailAuthProvider.credential(
-                      email: emailForAuth,
-                      password: currentPassCtrl.text,
-                    );
-
-                    try {
-                      await fbUser.reauthenticateWithCredential(cred);
-                      await fbUser.updatePassword(newPassCtrl.text);
-                      if (mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                              content: Text('เปลี่ยนรหัสผ่านเรียบร้อย')),
-                        );
-                      }
-                    } on FirebaseAuthException catch (e) {
-                      String msg = 'เปลี่ยนรหัสผ่านไม่สำเร็จ: ${e.code}';
-                      if (e.code == 'wrong-password') {
-                        msg = 'รหัสผ่านเดิมไม่ถูกต้อง';
-                      } else if (e.code == 'requires-recent-login') {
-                        msg = 'กรุณาล็อกอินใหม่อีกครั้งเพื่อความปลอดภัย';
-                      } else if (e.code == 'weak-password') {
-                        msg = 'รหัสผ่านใหม่อ่อนเกินไป';
-                      }
-                      if (mounted) {
-                        ScaffoldMessenger.of(context)
-                            .showSnackBar(SnackBar(content: Text(msg)));
-                      }
-                      // เปลี่ยนรหัสผ่านล้มเหลว: โปรไฟล์ด้านบนอาจอัปเดตสำเร็จแล้ว
+                  } on FirebaseAuthException catch (e) {
+                    String msg = 'เปลี่ยนรหัสผ่านไม่สำเร็จ: ${e.code}';
+                    if (e.code == 'wrong-password') {
+                      msg = 'รหัสผ่านเดิมไม่ถูกต้อง';
+                    } else if (e.code == 'requires-recent-login') {
+                      msg = 'กรุณาล็อกอินใหม่อีกครั้งเพื่อความปลอดภัย';
+                    } else if (e.code == 'weak-password') {
+                      msg = 'รหัสผ่านใหม่อ่อนเกินไป';
+                    }
+                    if (mounted) {
+                      ScaffoldMessenger.of(context)
+                          .showSnackBar(SnackBar(content: Text(msg)));
                     }
                   }
                 }
 
-                // ====== 3) โหลดโปรไฟล์ล่าสุดขึ้นจอ ======
+                // 3) โหลดโปรไฟล์ล่าสุด + ปิด dialog
                 await _loadUserProfile();
-
                 if (!mounted) return;
                 Navigator.pop(ctx);
                 ScaffoldMessenger.of(context).showSnackBar(
@@ -358,13 +448,11 @@ class _AccountPageState extends State<AccountPage> {
               title: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    'แก้ไขข้อมูลส่วนตัว',
-                    style: GoogleFonts.kanit(
-                        color: _appBar,
-                        fontWeight: FontWeight.w700,
-                        fontSize: 20),
-                  ),
+                  Text('แก้ไขข้อมูลส่วนตัว',
+                      style: GoogleFonts.kanit(
+                          color: _appBar,
+                          fontWeight: FontWeight.w700,
+                          fontSize: 20)),
                   const SizedBox(height: 6),
                   Container(height: 2, color: _appBar.withOpacity(0.5)),
                 ],
@@ -375,7 +463,6 @@ class _AccountPageState extends State<AccountPage> {
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      // ====== ข้อมูลโปรไฟล์ ======
                       TextFormField(
                         controller: nameCtrl,
                         validator: _required,
@@ -402,73 +489,86 @@ class _AccountPageState extends State<AccountPage> {
                         decoration: _dec('วันเกิด (วัน/เดือน/ปี)',
                             suffix: const Icon(Icons.calendar_today)),
                       ),
-
                       const SizedBox(height: 18),
-                      // ====== Toggle เปลี่ยนรหัสผ่าน ======
-                      SwitchListTile(
-                        contentPadding: EdgeInsets.zero,
-                        title: Text('ต้องการเปลี่ยนรหัสผ่าน',
-                            style:
-                                GoogleFonts.kanit(fontWeight: FontWeight.w600)),
-                        value: changePassword,
-                        onChanged: (v) => setDState(() => changePassword = v),
-                      ),
 
-                      if (changePassword) ...[
-                        const SizedBox(height: 8),
-                        // รหัสเดิม
-                        TextFormField(
-                          controller: currentPassCtrl,
-                          obscureText: ob1,
-                          validator: (v) {
-                            if (!changePassword) return null;
-                            if (v == null || v.isEmpty)
-                              return 'กรุณากรอกรหัสผ่านเดิม';
-                            return null;
-                          },
-                          style: GoogleFonts.kanit(),
-                          decoration: _dec(
-                            'รหัสผ่านเดิม',
-                            suffix: IconButton(
-                              icon: Icon(ob1
-                                  ? Icons.visibility_off
-                                  : Icons.visibility),
-                              onPressed: () => setDState(() => ob1 = !ob1),
+                      // เฉพาะผู้ใช้ email/password เท่านั้นที่เห็นส่วนเปลี่ยนรหัสผ่าน
+                      if (canChangePassword) ...[
+                        SwitchListTile(
+                          contentPadding: EdgeInsets.zero,
+                          title: Text('ต้องการเปลี่ยนรหัสผ่าน',
+                              style: GoogleFonts.kanit(
+                                  fontWeight: FontWeight.w600)),
+                          value: changePassword,
+                          onChanged: (v) => setDState(() => changePassword = v),
+                        ),
+                        if (changePassword) ...[
+                          const SizedBox(height: 8),
+                          TextFormField(
+                            controller: currentPassCtrl,
+                            obscureText: ob1,
+                            validator: (v) {
+                              if (!changePassword) return null;
+                              if (v == null || v.isEmpty)
+                                return 'กรุณากรอกรหัสผ่านเดิม';
+                              return null;
+                            },
+                            style: GoogleFonts.kanit(),
+                            decoration: _dec(
+                              'รหัสผ่านเดิม',
+                              suffix: IconButton(
+                                icon: Icon(ob1
+                                    ? Icons.visibility_off
+                                    : Icons.visibility),
+                                onPressed: () => setDState(() => ob1 = !ob1),
+                              ),
                             ),
                           ),
-                        ),
-                        const SizedBox(height: 10),
-                        // รหัสใหม่
-                        TextFormField(
-                          controller: newPassCtrl,
-                          obscureText: ob2,
-                          validator: _newPassValidator,
-                          style: GoogleFonts.kanit(),
-                          decoration: _dec(
-                            'รหัสผ่านใหม่ (อย่างน้อย 8 ตัวอักษร)',
-                            suffix: IconButton(
-                              icon: Icon(ob2
-                                  ? Icons.visibility_off
-                                  : Icons.visibility),
-                              onPressed: () => setDState(() => ob2 = !ob2),
+                          const SizedBox(height: 10),
+                          TextFormField(
+                            controller: newPassCtrl,
+                            obscureText: ob2,
+                            validator: _newPassValidator,
+                            style: GoogleFonts.kanit(),
+                            decoration: _dec(
+                              'รหัสผ่านใหม่ (อย่างน้อย 8 ตัวอักษร)',
+                              suffix: IconButton(
+                                icon: Icon(ob2
+                                    ? Icons.visibility_off
+                                    : Icons.visibility),
+                                onPressed: () => setDState(() => ob2 = !ob2),
+                              ),
                             ),
                           ),
-                        ),
-                        const SizedBox(height: 10),
-                        // ยืนยันรหัสใหม่
-                        TextFormField(
-                          controller: confirmPassCtrl,
-                          obscureText: ob3,
-                          validator: _confirmPassValidator,
-                          style: GoogleFonts.kanit(),
-                          decoration: _dec(
-                            'ยืนยันรหัสผ่านใหม่',
-                            suffix: IconButton(
-                              icon: Icon(ob3
-                                  ? Icons.visibility_off
-                                  : Icons.visibility),
-                              onPressed: () => setDState(() => ob3 = !ob3),
+                          const SizedBox(height: 10),
+                          TextFormField(
+                            controller: confirmPassCtrl,
+                            obscureText: ob3,
+                            validator: _confirmPassValidator,
+                            style: GoogleFonts.kanit(),
+                            decoration: _dec(
+                              'ยืนยันรหัสผ่านใหม่',
+                              suffix: IconButton(
+                                icon: Icon(ob3
+                                    ? Icons.visibility_off
+                                    : Icons.visibility),
+                                onPressed: () => setDState(() => ob3 = !ob3),
+                              ),
                             ),
+                          ),
+                        ],
+                      ] else ...[
+                        // Google sign-in: ซ่อนฟิลด์ทั้งหมด และขึ้นแจ้งสั้น ๆ
+                        Container(
+                          width: double.infinity,
+                          margin: const EdgeInsets.only(top: 6),
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: _pill.withOpacity(0.7),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Text(
+                            'คุณเข้าสู่ระบบด้วย Google จึงไม่ต้องตั้งรหัสผ่านในระบบนี้',
+                            style: GoogleFonts.kanit(color: Colors.black87),
                           ),
                         ),
                       ],
@@ -510,7 +610,7 @@ class _AccountPageState extends State<AccountPage> {
     );
   }
 
-  // =============== 👇 ส่งคำร้อง (Dialog) ===============
+  // ---------- ส่งคำร้อง (ลบบัญชี/ระงับบัญชี) ----------
   InputDecoration _dialogFieldDecoration(String hint) {
     return InputDecoration(
       hintText: hint,
@@ -519,21 +619,16 @@ class _AccountPageState extends State<AccountPage> {
       fillColor: _pill.withOpacity(0.6),
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(16),
-        borderSide: BorderSide.none,
-      ),
+          borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
     );
   }
 
-  // =============== 👇 ส่งคำร้อง (Dialog) ===============
-// ใช้ร่วมกับ _dialogFieldDecoration() ที่หนูมีอยู่แล้ว
   void _openPetitionDialog() {
     final formKey = GlobalKey<FormState>();
     final TextEditingController textCtrl = TextEditingController();
     String? type;
     bool sending = false;
 
-    // ❌ ตัด "ยกเลิกระงับบัญชี"
     final Map<String, String> typeToStatus = {
       'ลบบัญชี': 'deleted',
       'ระงับบัญชี': 'suspended',
@@ -546,11 +641,18 @@ class _AccountPageState extends State<AccountPage> {
         return StatefulBuilder(
           builder: (ctx, setDState) {
             Future<void> submit() async {
+              // ต้องเลือกประเภท
               if (!formKey.currentState!.validate()) return;
               if (type == null) {
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(content: Text('กรุณาเลือกประเภทคำร้อง')),
                 );
+                return;
+              }
+
+              // ต้องกรอกเหตุผล
+              if (textCtrl.text.trim().isEmpty) {
+                await _showReasonRequiredDialog();
                 return;
               }
 
@@ -570,9 +672,7 @@ class _AccountPageState extends State<AccountPage> {
                   },
                   body: jsonEncode({
                     'status': status,
-                    'reason': textCtrl.text.trim().isEmpty
-                        ? 'ไม่ระบุเหตุผล'
-                        : textCtrl.text.trim(),
+                    'reason': textCtrl.text.trim(),
                   }),
                 );
 
@@ -581,7 +681,6 @@ class _AccountPageState extends State<AccountPage> {
                   if (!mounted) return;
 
                   if (status == 'deleted') {
-                    // ถ้า backend ยังไม่รองรับ deleted ตรงนี้จะไม่มีวันเข้ามา
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(
                         content: Text('ลบบัญชีสำเร็จ กำลังออกจากระบบ...'),
@@ -589,7 +688,8 @@ class _AccountPageState extends State<AccountPage> {
                       ),
                     );
                     await Future.delayed(const Duration(milliseconds: 800));
-                    await FirebaseAuth.instance.signOut();
+                    await AuthService().signOut();
+                    if (!mounted) return;
                     Navigator.pushAndRemoveUntil(
                       context,
                       MaterialPageRoute(builder: (_) => const LoginScreen()),
@@ -602,9 +702,8 @@ class _AccountPageState extends State<AccountPage> {
                   Navigator.pop(ctx);
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
-                      content: Text('ระงับบัญชีสำเร็จ'),
-                      backgroundColor: Colors.green,
-                    ),
+                        content: Text('ระงับบัญชีสำเร็จ'),
+                        backgroundColor: Colors.green),
                   );
                 } else {
                   String err = 'ดำเนินการไม่สำเร็จ (HTTP ${resp.statusCode})';
@@ -678,7 +777,10 @@ class _AccountPageState extends State<AccountPage> {
                     TextFormField(
                       controller: textCtrl,
                       maxLines: 3,
-                      decoration: _dialogFieldDecoration('เหตุผล (ไม่บังคับ)'),
+                      validator: (v) => (v == null || v.trim().isEmpty)
+                          ? 'กรุณาระบุเหตุผล'
+                          : null,
+                      decoration: _dialogFieldDecoration('เหตุผล (ต้องระบุ)'),
                       style: GoogleFonts.kanit(),
                     ),
                   ],
@@ -719,8 +821,7 @@ class _AccountPageState extends State<AccountPage> {
     );
   }
 
-  // =================================================
-
+  // ---------- Data ----------
   @override
   void initState() {
     super.initState();
@@ -751,8 +852,9 @@ class _AccountPageState extends State<AccountPage> {
       );
 
       if (response.statusCode == 200) {
-        final json = jsonDecode(response.body);
-        return UserModel.fromJson(json);
+        final jsonMap = jsonDecode(response.body);
+        // ถ้าใน UserModel มีการ parse แบบใช้ DateTime.parse(...Z) แนะนำให้ปรับฝั่งโมเดลให้ date-only ตามแนวคิดเดียวกัน
+        return UserModel.fromJson(jsonMap);
       } else {
         debugPrint("Failed to load profile: ${response.statusCode}");
       }
@@ -762,11 +864,10 @@ class _AccountPageState extends State<AccountPage> {
     return null;
   }
 
+  // ---------- Nav ----------
   void _onItemTapped(int index) {
     if (_selectedIndex == index) return;
-    setState(() {
-      _selectedIndex = index;
-    });
+    setState(() => _selectedIndex = index);
     switch (index) {
       case 0:
         Navigator.pushReplacement(
@@ -785,7 +886,7 @@ class _AccountPageState extends State<AccountPage> {
     }
   }
 
-  // ---------- UI Helpers ----------
+  // ---------- UI helpers ----------
   Widget _chip(String text, {IconData? icon}) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
@@ -855,7 +956,7 @@ class _AccountPageState extends State<AccountPage> {
     final role = u.role;
     final status = u.status;
     final bday = u.birthday != null
-        ? DateFormat('dd MMM yyyy').format(u.birthday!)
+        ? DateFormat('dd MMM yyyy').format(_toDateOnly(u.birthday!))
         : null;
 
     return Container(
@@ -887,18 +988,18 @@ class _AccountPageState extends State<AccountPage> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                         style: GoogleFonts.kanit(
                             fontSize: 20,
                             color: _accent,
-                            fontWeight: FontWeight.w700),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis),
+                            fontWeight: FontWeight.w700)),
                     const SizedBox(height: 4),
                     Text(mail,
-                        style: GoogleFonts.kanit(
-                            fontSize: 14, color: Colors.black54),
                         maxLines: 1,
-                        overflow: TextOverflow.ellipsis),
+                        overflow: TextOverflow.ellipsis,
+                        style: GoogleFonts.kanit(
+                            fontSize: 14, color: Colors.black54)),
                     const SizedBox(height: 10),
                     Wrap(
                       spacing: 8,
@@ -915,8 +1016,6 @@ class _AccountPageState extends State<AccountPage> {
             ],
           ),
           const SizedBox(height: 16),
-
-          // ปุ่มคู่: แก้ไข / ส่งคำร้อง
           Row(
             children: [
               Expanded(
@@ -982,14 +1081,16 @@ class _AccountPageState extends State<AccountPage> {
               value: u.status),
           if (u.birthday != null)
             _infoTile(
-                icon: Icons.cake_outlined,
-                label: 'Birthday',
-                value: DateFormat('dd MMM yyyy').format(u.birthday!)),
+              icon: Icons.cake_outlined,
+              label: 'Birthday',
+              value: DateFormat('dd MMM yyyy').format(_toDateOnly(u.birthday!)),
+            ),
         ],
       ),
     );
   }
 
+  // ---------- Build ----------
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -999,9 +1100,10 @@ class _AccountPageState extends State<AccountPage> {
           Column(
             children: [
               Container(
-                  height: MediaQuery.of(context).padding.top + 70,
-                  color: _appBar,
-                  width: double.infinity),
+                height: MediaQuery.of(context).padding.top + 70,
+                color: _appBar,
+                width: double.infinity,
+              ),
               const SizedBox(height: 54),
               Expanded(
                 child: isLoading
@@ -1021,12 +1123,8 @@ class _AccountPageState extends State<AccountPage> {
               ),
             ],
           ),
-
-          // ปุ่ม Logout (ลอยล่าง)
           Positioned(
               bottom: 20, left: 24, right: 24, child: _buildLogoutButton()),
-
-          // โลโก้บน
           Positioned(
             top: MediaQuery.of(context).padding.top + 30,
             left: MediaQuery.of(context).size.width / 2 - 50,
