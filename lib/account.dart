@@ -11,6 +11,7 @@ import 'package:pj1/login.dart';
 import 'package:pj1/mains.dart';
 import 'package:pj1/models/userModel.dart';
 import 'package:pj1/screens/login_screen.dart';
+import 'package:pj1/services/auth_service.dart';
 import 'package:pj1/target.dart';
 
 class AccountPage extends StatefulWidget {
@@ -77,7 +78,7 @@ class _AccountPageState extends State<AccountPage> {
 
     setState(() => _isLoggingOut = true);
     try {
-      await FirebaseAuth.instance.signOut();
+      await AuthService().signOut();
       if (!mounted) return;
       Navigator.pushAndRemoveUntil(
         context,
