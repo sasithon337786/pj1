@@ -20,11 +20,12 @@ class LoginScreen extends StatefulWidget {
   @override
   State<LoginScreen> createState() => _LoginScreenState();
 }
+
 // ===== THEME COLORS =====
 class _AppColors {
-  static const rose = Color(0xFFC98993);    // ปุ่ม/แถบหลัก
-  static const cream = Color(0xFFE6D2CD);   // กล่อง/พื้น
-  static const mocha = Color(0xFF564843);   // ข้อความเข้ม
+  static const rose = Color(0xFFC98993); // ปุ่ม/แถบหลัก
+  static const cream = Color(0xFFE6D2CD); // กล่อง/พื้น
+  static const mocha = Color(0xFF564843); // ข้อความเข้ม
 }
 
 class _LoginScreenState extends State<LoginScreen> {
@@ -72,7 +73,9 @@ class _LoginScreenState extends State<LoginScreen> {
       case 'network-request-failed':
         return 'เครือข่ายมีปัญหา ตรวจสอบการเชื่อมต่อ';
       default:
-        return fallback?.isNotEmpty == true ? fallback! : 'ล็อกอินไม่ได้: $code';
+        return fallback?.isNotEmpty == true
+            ? fallback!
+            : 'ล็อกอินไม่ได้: $code';
     }
   }
 
@@ -143,124 +146,140 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Future<void> _showBlockedDialog(String status, String? _) async {
-  final st = status.toLowerCase();
-  final title = 'ไม่สามารถเข้าสู่ระบบได้';
-  final content = st == 'suspend'
-      ? 'คุณเข้าสู่ระบบไม่ได้เนื่องจากบัญชีถูกระงับการใช้งาน'
-      : st == 'deleted'
-          ? 'คุณเข้าสู่ระบบไม่ได้เนื่องจากบัญชีของคุณถูกลบ'
-          : 'คุณเข้าสู่ระบบไม่ได้ (สถานะ: $status)';
+    final st = status.toLowerCase();
+    final title = 'ไม่สามารถเข้าสู่ระบบได้';
+    final content = st == 'suspend'
+        ? 'คุณเข้าสู่ระบบไม่ได้เนื่องจากบัญชีถูกระงับการใช้งาน'
+        : st == 'deleted'
+            ? 'คุณเข้าสู่ระบบไม่ได้เนื่องจากบัญชีของคุณถูกลบ'
+            : 'คุณเข้าสู่ระบบไม่ได้ (สถานะ: $status)';
 
-  // ไอคอน/สีตามสถานะ
-  final iconData = st == 'deleted' ? Icons.delete_forever_rounded : Icons.block_rounded;
+    // ไอคอน/สีตามสถานะ
+    final iconData =
+        st == 'deleted' ? Icons.delete_forever_rounded : Icons.block_rounded;
 
-  if (!mounted) return;
+    if (!mounted) return;
 
-  await showGeneralDialog(
-    context: context,
-    barrierDismissible: true,
-    barrierLabel: 'blocked-dialog',
-    barrierColor: Colors.black.withOpacity(0.45),
-    transitionDuration: const Duration(milliseconds: 220),
-    pageBuilder: (_, __, ___) => const SizedBox.shrink(),
-    transitionBuilder: (ctx, anim, __, ___) {
-      final curved = CurvedAnimation(parent: anim, curve: Curves.easeOutCubic);
-      return ScaleTransition(
-        scale: Tween<double>(begin: 0.95, end: 1.0).animate(curved),
-        child: Opacity(
-          opacity: curved.value,
-          child: Center(
-            child: Material(
-              color: Colors.transparent,
-              child: Container(
-                width: MediaQuery.of(ctx).size.width * 0.82,
-                padding: const EdgeInsets.fromLTRB(20, 18, 20, 12),
-                decoration: BoxDecoration(
-                  color: _AppColors.cream,
-                  borderRadius: BorderRadius.circular(24),
-                  boxShadow: const [
-                    BoxShadow(
-                      color: Colors.black12,
-                      blurRadius: 18,
-                      offset: Offset(0, 10),
-                    )
-                  ],
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    // Icon badge
-                    Container(
-                      padding: const EdgeInsets.all(14),
-                      decoration: BoxDecoration(
-                        color: _AppColors.rose.withOpacity(0.2),
-                        shape: BoxShape.circle,
-                      ),
-                      child: Icon(iconData, size: 34, color: _AppColors.mocha),
-                    ),
-                    const SizedBox(height: 14),
-                    Text(
-                      title,
-                      textAlign: TextAlign.center,
-                      style: GoogleFonts.kanit(
-                        fontSize: 20,
-                        fontWeight: FontWeight.w700,
-                        color: _AppColors.mocha,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      content,
-                      textAlign: TextAlign.center,
-                      style: GoogleFonts.kanit(
-                        fontSize: 16,
-                        color: _AppColors.mocha.withOpacity(0.85),
-                        height: 1.35,
-                      ),
-                    ),
-                    const SizedBox(height: 18),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        // ปุ่มปิด
-                        TextButton(
-                          onPressed: () => Navigator.of(ctx).pop(),
-                          style: TextButton.styleFrom(
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
-                            backgroundColor: _AppColors.mocha,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(16),
-                            ),
-                          ),
-                          child: Text('ปิด', style: GoogleFonts.kanit(fontSize: 16)),
+    await showGeneralDialog(
+      context: context,
+      barrierDismissible: true,
+      barrierLabel: 'blocked-dialog',
+      barrierColor: Colors.black.withOpacity(0.45),
+      transitionDuration: const Duration(milliseconds: 220),
+      pageBuilder: (_, __, ___) => const SizedBox.shrink(),
+      transitionBuilder: (ctx, anim, __, ___) {
+        final curved =
+            CurvedAnimation(parent: anim, curve: Curves.easeOutCubic);
+        return ScaleTransition(
+          scale: Tween<double>(begin: 0.95, end: 1.0).animate(curved),
+          child: Opacity(
+            opacity: curved.value,
+            child: Center(
+              child: Material(
+                color: Colors.transparent,
+                child: Container(
+                  width: MediaQuery.of(ctx).size.width * 0.82,
+                  padding: const EdgeInsets.fromLTRB(20, 18, 20, 12),
+                  decoration: BoxDecoration(
+                    color: _AppColors.cream,
+                    borderRadius: BorderRadius.circular(24),
+                    boxShadow: const [
+                      BoxShadow(
+                        color: Colors.black12,
+                        blurRadius: 18,
+                        offset: Offset(0, 10),
+                      )
+                    ],
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // Icon badge
+                      Container(
+                        padding: const EdgeInsets.all(14),
+                        decoration: BoxDecoration(
+                          color: _AppColors.rose.withOpacity(0.2),
+                          shape: BoxShape.circle,
                         ),
-                      ],
-                    ),
-                    const SizedBox(height: 6),
-                  ],
+                        child:
+                            Icon(iconData, size: 34, color: _AppColors.mocha),
+                      ),
+                      const SizedBox(height: 14),
+                      Text(
+                        title,
+                        textAlign: TextAlign.center,
+                        style: GoogleFonts.kanit(
+                          fontSize: 20,
+                          fontWeight: FontWeight.w700,
+                          color: _AppColors.mocha,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        content,
+                        textAlign: TextAlign.center,
+                        style: GoogleFonts.kanit(
+                          fontSize: 16,
+                          color: _AppColors.mocha.withOpacity(0.85),
+                          height: 1.35,
+                        ),
+                      ),
+                      const SizedBox(height: 18),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          // ปุ่มปิด
+                          TextButton(
+                            onPressed: () => Navigator.of(ctx).pop(),
+                            style: TextButton.styleFrom(
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 24, vertical: 10),
+                              backgroundColor: _AppColors.mocha,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                            ),
+                            child: Text('ปิด',
+                                style: GoogleFonts.kanit(fontSize: 16)),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                    ],
+                  ),
                 ),
               ),
             ),
           ),
-        ),
-      );
-    },
-  );
-}
+        );
+      },
+    );
+  }
 
   Future<void> _handleGoogleLogin() async {
     if (_isGoogleLoading) return;
     setState(() => _isGoogleLoading = true);
+
     try {
       final data = await _authService.signInWithGoogle();
 
       // ผ่าน active แล้ว
       final role = data.role;
-      final idToken = data.token;
-      await NotificationService.scheduleReminders(idToken);
+
+      // ✅ ดึง idToken สดใหม่จาก Firebase อีกครั้ง (กัน token หมดอายุ)
+      final user = FirebaseAuth.instance.currentUser;
+      final freshToken = await user?.getIdToken(true);
+
+      if (freshToken == null) {
+        throw Exception("ไม่สามารถดึง ID Token ได้");
+      }
+
+      // ✅ ใช้ token สดส่งไป backend สำหรับแจ้งเตือน
+      await NotificationService.scheduleReminders(freshToken);
 
       _showSnack('Google sign-in สำเร็จ!', backgroundColor: Colors.green);
+
       if (role == 'admin') {
         Navigator.pushReplacement(
           context,
@@ -306,12 +325,20 @@ class _LoginScreenState extends State<LoginScreen> {
         password: password,
       );
 
-      // ผ่าน active แล้ว
       final role = data.role;
-      final idToken = data.token;
-      await NotificationService.scheduleReminders(idToken);
+
+      // ✅ ดึง idToken สดจาก FirebaseAuth อีกครั้ง
+      final user = FirebaseAuth.instance.currentUser;
+      final freshToken = await user?.getIdToken(true);
+
+      if (freshToken == null) {
+        throw Exception("ไม่สามารถดึง ID Token ได้");
+      }
+
+      await NotificationService.scheduleReminders(freshToken);
 
       _showSnack('เข้าสู่ระบบสำเร็จ!', backgroundColor: Colors.green);
+
       if (role == 'admin') {
         Navigator.pushReplacement(
           context,
@@ -521,8 +548,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             },
                             style: ElevatedButton.styleFrom(
                               backgroundColor: const Color(0xFF564843),
-                              padding:
-                                  const EdgeInsets.symmetric(vertical: 12),
+                              padding: const EdgeInsets.symmetric(vertical: 12),
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(20),
                               ),
@@ -538,8 +564,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             onPressed: _isLoading ? null : _handleEmailLogin,
                             style: ElevatedButton.styleFrom(
                               backgroundColor: const Color(0xFF564843),
-                              padding:
-                                  const EdgeInsets.symmetric(vertical: 12),
+                              padding: const EdgeInsets.symmetric(vertical: 12),
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(20),
                               ),

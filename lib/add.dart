@@ -433,7 +433,10 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
                             ),
                           ),
                         ),
-                      const SizedBox(height: 20),
+                      SizedBox(
+                        height: userRole == 'admin' ? 20 : 56,
+                      ),
+
                       // แสดงหมวดหมู่
                       Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 12),
