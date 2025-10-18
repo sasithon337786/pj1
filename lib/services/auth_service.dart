@@ -144,16 +144,23 @@ class AuthService {
     }
   }
 
-  // ------------------------------------------------------------
-  // Google Sign-in
-  // ------------------------------------------------------------
   Future<AuthResponse> signInWithGoogle() async {
     try {
+      // 1) ล้างเซสชันเก่าของ Google Play Services ก่อนเสมอ
+      try {
+        await _googleSignIn.disconnect();
+      } catch (_) {}
+      try {
+        await _googleSignIn.signOut();
+      } catch (_) {}
+
+      // 2) เปิดตัวเลือกบัญชีทุกครั้ง
       final googleUser = await _googleSignIn.signIn();
       if (googleUser == null) {
         throw Exception('Google sign-in aborted by user');
       }
 
+      // 3) แลก credential กับ Firebase
       final googleAuth = await googleUser.authentication;
       final credential = GoogleAuthProvider.credential(
         accessToken: googleAuth.accessToken,
@@ -166,7 +173,10 @@ class AuthService {
         throw Exception('Failed to sign in with Google');
       }
 
-      final idToken = await user.getIdToken(true); // ✅ สดใหม่เสมอ
+      // 4) ดึง Firebase ID Token สดใหม่เสมอ
+      final idToken = await user.getIdToken(true);
+
+      // 5) เรียก backend
       final response = await http.post(
         Uri.parse('${ApiEndpoints.baseUrl}/api/auth/loginwithgoogle'),
         headers: {
@@ -180,7 +190,15 @@ class AuthService {
         }),
       );
 
-      final body = response.body.isNotEmpty ? jsonDecode(response.body) : {};
+      // 6) พาร์ส body ให้ปลอดภัย
+      Map<String, dynamic> body = {};
+      try {
+        if (response.body.isNotEmpty) {
+          body = jsonDecode(response.body) as Map<String, dynamic>;
+        }
+      } catch (_) {
+        // ถ้าพาร์สไม่ได้ ปล่อยเป็น {} ไป
+      }
 
       if (response.statusCode == 200) {
         final auth = AuthResponse.fromJson(body);
@@ -196,26 +214,22 @@ class AuthService {
         }
 
         return auth;
-      } else {
-        // ❌ 403/410 จะมาที่นี่
-        await _auth.signOut();
-        try {
-          await _googleSignIn.signOut();
-        } catch (_) {}
-
-        String? status;
-        String? message;
-        try {
-          final err = response.body.isNotEmpty ? jsonDecode(response.body) : {};
-          status = err['status'] as String?;
-          message = err['message'] as String?;
-        } catch (_) {
-          message = 'เข้าสู่ระบบล้มเหลว (HTTP ${response.statusCode})';
-        }
-
-        _throwBlocked(status, message);
       }
+
+      // ❌ สถานะอื่น ๆ: ออกจากระบบฝั่งไคลเอนต์ แล้วโยนสาเหตุแบบสวยงาม
+      await _auth.signOut();
+      try {
+        await _googleSignIn.signOut();
+      } catch (_) {}
+
+      String? status = body['status'] as String?;
+      String? message = body['message'] as String?;
+      if (status == null && message == null) {
+        message = 'เข้าสู่ระบบล้มเหลว (HTTP ${response.statusCode})';
+      }
+      _throwBlocked(status, message); // จะ throw AuthBlockedException
     } on FirebaseAuthException catch (e) {
+      // แปลงโค้ด Firebase เป็นข้อความไทย
       throw Exception(_getFirebaseErrorMessage(e.code));
     } catch (e) {
       rethrow;
@@ -226,40 +240,40 @@ class AuthService {
   // Get user role from backend
   // ------------------------------------------------------------
   Future<String?> getUserRole() async {
-  try {
-    final user = _auth.currentUser;
-    if (user == null) return null;
+    try {
+      final user = _auth.currentUser;
+      if (user == null) return null;
 
-    final idToken = await user.getIdToken(true);
-    final response = await http.get(
-      Uri.parse('${ApiEndpoints.baseUrl}/api/auth/getProfile'),
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer $idToken',
-      },
-    );
+      final idToken = await user.getIdToken(true);
+      final response = await http.get(
+        Uri.parse('${ApiEndpoints.baseUrl}/api/auth/getProfile'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $idToken',
+        },
+      );
 
-    if (response.statusCode == 200) {
-      final data = jsonDecode(response.body);
-      return data['role'] as String?;
-    }
-
-    // ✅ ถ้า backend ส่ง 401/403 และมี status ใน body → โยน AuthBlockedException
-    if (response.statusCode == 401 || response.statusCode == 403) {
-      final body = response.body.isNotEmpty ? jsonDecode(response.body) : {};
-      final status = (body['status'] ?? '').toString();
-      final message = (body['message'] ?? '').toString();
-      if (status.isNotEmpty) {
-        _throwBlocked(status, message); // <-- จะ throw AuthBlockedException
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        return data['role'] as String?;
       }
-      return null; // ถ้าไม่มี status ก็คืน null ไปเหมือนเดิม
-    }
 
-    throw Exception('Failed to get user role: ${response.statusCode}');
-  } catch (e) {
-    rethrow;
+      // ✅ ถ้า backend ส่ง 401/403 และมี status ใน body → โยน AuthBlockedException
+      if (response.statusCode == 401 || response.statusCode == 403) {
+        final body = response.body.isNotEmpty ? jsonDecode(response.body) : {};
+        final status = (body['status'] ?? '').toString();
+        final message = (body['message'] ?? '').toString();
+        if (status.isNotEmpty) {
+          _throwBlocked(status, message); // <-- จะ throw AuthBlockedException
+        }
+        return null; // ถ้าไม่มี status ก็คืน null ไปเหมือนเดิม
+      }
+
+      throw Exception('Failed to get user role: ${response.statusCode}');
+    } catch (e) {
+      rethrow;
+    }
   }
-}
 
   // ------------------------------------------------------------
   // Register new user
@@ -312,10 +326,20 @@ class AuthService {
   // ------------------------------------------------------------
   Future<void> signOut() async {
     try {
-      await Future.wait([
-        _auth.signOut(),
-        _googleSignIn.signOut(),
-      ]);
+      // พยายาม revoke การเชื่อมต่อบัญชี Google (ล้าง chooser cache)
+      try {
+        await _googleSignIn.disconnect();
+      } catch (_) {
+        // เงียบได้: ถ้าไม่ได้เคยเชื่อม Google หรือบนบางเครื่อง method นี้จะ throw
+      }
+
+      // เผื่อกรณียังมี session ค้าง ให้ signOut อีกรอบ
+      try {
+        await _googleSignIn.signOut();
+      } catch (_) {}
+
+      // ออกจาก Firebase เสมอ
+      await _auth.signOut();
     } catch (e) {
       rethrow;
     }
