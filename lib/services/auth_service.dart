@@ -10,20 +10,28 @@ import '../constant/api_endpoint.dart';
 import '../models/auth_response.dart';
 
 /// Exception สำหรับกรณีที่สถานะผู้ใช้ไม่ใช่ 'active'
+/// Exception สำหรับกรณีที่สถานะผู้ใช้ไม่ใช่ 'active'
 class AuthBlockedException implements Exception {
-  final String status;   // 'suspend' | 'deleted' | อื่น ๆ
-  final String message;  // ข้อความจาก backend (ถ้ามี)
+  final String status; // 'suspended' | 'deleted' | อื่น ๆ
+  final String message; // ข้อความจาก backend (ถ้ามี)
   AuthBlockedException(this.status, this.message);
   @override
   String toString() => 'AuthBlockedException($status): $message';
 }
 
-// helper: โยน exception ตามสถานะ พร้อมข้อความเริ่มต้นภาษาไทย
+/// แปลงสถานะให้เป็นรูปแบบมาตรฐาน (กันเคส backend/DB เก่าเขียน 'suspend')
+String _normalizeStatus(String? status) {
+  final st = (status ?? '').toLowerCase().trim();
+  if (st == 'suspend') return 'suspended';
+  return st;
+}
+
+/// โยน exception พร้อมข้อความภาษาไทย
 Never _throwBlocked(String? status, String? serverMessage) {
-  final st = (status ?? '').toLowerCase();
+  final st = _normalizeStatus(status);
   final msg = (serverMessage ?? '').trim();
 
-  if (st == 'suspend') {
+  if (st == 'suspended') {
     throw AuthBlockedException(
       st,
       msg.isNotEmpty
@@ -98,19 +106,36 @@ class AuthService {
 
       if (response.statusCode == 200) {
         final auth = AuthResponse.fromJson(body);
+        final status = _normalizeStatus(auth.status);
 
-        // อนุญาตเฉพาะ active
-        if ((auth.status ?? '').toLowerCase() != 'active') {
+        // ✅ อนุญาตเฉพาะ active
+        if (status != 'active') {
           await _auth.signOut();
-          try { await _googleSignIn.signOut(); } catch (_) {}
-          _throwBlocked(auth.status, body['message'] as String?);
+          try {
+            await _googleSignIn.signOut();
+          } catch (_) {}
+          _throwBlocked(status, body['message'] as String?);
         }
+
         return auth;
       } else {
-        // 403/410 จะมาที่นี่
+        // ❌ 403/410 จะมาที่นี่
         await _auth.signOut();
-        try { await _googleSignIn.signOut(); } catch (_) {}
-        _throwBlocked(body['status'] as String?, body['message'] as String?);
+        try {
+          await _googleSignIn.signOut();
+        } catch (_) {}
+
+        String? status;
+        String? message;
+        try {
+          final err = response.body.isNotEmpty ? jsonDecode(response.body) : {};
+          status = err['status'] as String?;
+          message = err['message'] as String?;
+        } catch (_) {
+          message = 'เข้าสู่ระบบล้มเหลว (HTTP ${response.statusCode})';
+        }
+
+        _throwBlocked(status, message);
       }
     } on FirebaseAuthException catch (e) {
       throw Exception(_getFirebaseErrorMessage(e.code));
@@ -141,7 +166,7 @@ class AuthService {
         throw Exception('Failed to sign in with Google');
       }
 
-      final idToken = await user.getIdToken(); // Firebase ID token
+      final idToken = await user.getIdToken(true); // ✅ สดใหม่เสมอ
       final response = await http.post(
         Uri.parse('${ApiEndpoints.baseUrl}/api/auth/loginwithgoogle'),
         headers: {
@@ -157,25 +182,38 @@ class AuthService {
 
       final body = response.body.isNotEmpty ? jsonDecode(response.body) : {};
 
-      // Logging (ถ้าต้องการ debug)
-      // print('Response Status: ${response.statusCode}');
-      // print('Response Body: ${response.body}');
-
       if (response.statusCode == 200) {
         final auth = AuthResponse.fromJson(body);
+        final status = _normalizeStatus(auth.status);
 
-        // อนุญาตเฉพาะ active
-        if ((auth.status ?? '').toLowerCase() != 'active') {
+        // ✅ อนุญาตเฉพาะ active
+        if (status != 'active') {
           await _auth.signOut();
-          try { await _googleSignIn.signOut(); } catch (_) {}
-          _throwBlocked(auth.status, body['message'] as String?);
+          try {
+            await _googleSignIn.signOut();
+          } catch (_) {}
+          _throwBlocked(status, body['message'] as String?);
         }
+
         return auth;
       } else {
-        // 403/410 จะมาที่นี่
+        // ❌ 403/410 จะมาที่นี่
         await _auth.signOut();
-        try { await _googleSignIn.signOut(); } catch (_) {}
-        _throwBlocked(body['status'] as String?, body['message'] as String?);
+        try {
+          await _googleSignIn.signOut();
+        } catch (_) {}
+
+        String? status;
+        String? message;
+        try {
+          final err = response.body.isNotEmpty ? jsonDecode(response.body) : {};
+          status = err['status'] as String?;
+          message = err['message'] as String?;
+        } catch (_) {
+          message = 'เข้าสู่ระบบล้มเหลว (HTTP ${response.statusCode})';
+        }
+
+        _throwBlocked(status, message);
       }
     } on FirebaseAuthException catch (e) {
       throw Exception(_getFirebaseErrorMessage(e.code));
@@ -188,33 +226,40 @@ class AuthService {
   // Get user role from backend
   // ------------------------------------------------------------
   Future<String?> getUserRole() async {
-    try {
-      final user = _auth.currentUser;
-      if (user == null) return null;
+  try {
+    final user = _auth.currentUser;
+    if (user == null) return null;
 
-      final idToken = await user.getIdToken(true);
-      final response = await http.get(
-        Uri.parse('${ApiEndpoints.baseUrl}/api/auth/getProfile'),
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $idToken',
-        },
-      );
+    final idToken = await user.getIdToken(true);
+    final response = await http.get(
+      Uri.parse('${ApiEndpoints.baseUrl}/api/auth/getProfile'),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $idToken',
+      },
+    );
 
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        return data['role'] as String?;
-      }
-
-      if (response.statusCode == 401 || response.statusCode == 403) {
-        return null;
-      }
-
-      throw Exception('Failed to get user role: ${response.statusCode}');
-    } catch (e) {
-      rethrow;
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+      return data['role'] as String?;
     }
+
+    // ✅ ถ้า backend ส่ง 401/403 และมี status ใน body → โยน AuthBlockedException
+    if (response.statusCode == 401 || response.statusCode == 403) {
+      final body = response.body.isNotEmpty ? jsonDecode(response.body) : {};
+      final status = (body['status'] ?? '').toString();
+      final message = (body['message'] ?? '').toString();
+      if (status.isNotEmpty) {
+        _throwBlocked(status, message); // <-- จะ throw AuthBlockedException
+      }
+      return null; // ถ้าไม่มี status ก็คืน null ไปเหมือนเดิม
+    }
+
+    throw Exception('Failed to get user role: ${response.statusCode}');
+  } catch (e) {
+    rethrow;
   }
+}
 
   // ------------------------------------------------------------
   // Register new user

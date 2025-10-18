@@ -123,7 +123,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           setState(() => localCaptchaErrorText =
                               "พบข้อผิดพลาด กรุณาลองใหม่อีกครั้ง");
                           await Future.delayed(const Duration(seconds: 2));
-                          localSliderController.create.call();
+                          localSliderController.create?.call();
                           setState(() => localCaptchaErrorText = "");
                         }
                       },
@@ -146,17 +146,20 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Future<void> _showBlockedDialog(String status, String? _) async {
-    final st = status.toLowerCase();
+    final raw = status; // อาจเป็น '' ได้
+    final st = (raw.isNotEmpty ? raw : 'unknown').trim().toLowerCase();
+    final isSuspended = st == 'suspend' || st == 'suspended';
+    final isDeleted = st == 'deleted';
+
     final title = 'ไม่สามารถเข้าสู่ระบบได้';
-    final content = st == 'suspend'
+    final content = isSuspended
         ? 'คุณเข้าสู่ระบบไม่ได้เนื่องจากบัญชีถูกระงับการใช้งาน'
-        : st == 'deleted'
+        : isDeleted
             ? 'คุณเข้าสู่ระบบไม่ได้เนื่องจากบัญชีของคุณถูกลบ'
             : 'คุณเข้าสู่ระบบไม่ได้ (สถานะ: $status)';
 
-    // ไอคอน/สีตามสถานะ
     final iconData =
-        st == 'deleted' ? Icons.delete_forever_rounded : Icons.block_rounded;
+        isDeleted ? Icons.delete_forever_rounded : Icons.block_rounded;
 
     if (!mounted) return;
 
@@ -306,7 +309,8 @@ class _LoginScreenState extends State<LoginScreen> {
 
   Future<void> _handleEmailLogin() async {
     // validate + captcha
-    if (!_formKey.currentState!.validate() || !isRobotChecked) {
+    final ok = _formKey.currentState?.validate() ?? false;
+    if (!ok || !isRobotChecked) {
       if (!isRobotChecked) {
         _showSnack("กรุณายืนยัน 'I'm not a robot'",
             backgroundColor: Colors.orange);
@@ -561,7 +565,13 @@ class _LoginScreenState extends State<LoginScreen> {
                         const SizedBox(width: 15),
                         Expanded(
                           child: ElevatedButton(
-                            onPressed: _isLoading ? null : _handleEmailLogin,
+                            onPressed: () async {
+                              try {
+                                await _handleEmailLogin();
+                              } catch (e, st) {
+                                debugPrint('Login press error: $e\n$st');
+                              }
+                            },
                             style: ElevatedButton.styleFrom(
                               backgroundColor: const Color(0xFF564843),
                               padding: const EdgeInsets.symmetric(vertical: 12),
