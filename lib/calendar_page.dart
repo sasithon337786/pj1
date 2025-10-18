@@ -105,135 +105,56 @@ class _CalendarPageState extends State<CalendarPage> {
         setState(() => _loading = false);
         return;
       }
+
       final idToken = await user.getIdToken(true);
       final headers = {
         'Content-Type': 'application/json; charset=UTF-8',
         'Authorization': 'Bearer $idToken',
       };
 
-      // 1) ดึงกิจกรรมทั้งหมดของผู้ใช้
-      final actsUrl = Uri.parse(
-        '${ApiEndpoints.baseUrl}/api/activityDetail/getMyActivityDetails?uid=${user.uid}',
+      // 🔹 1) เรียก endpoint ใหม่ที่รวม percent รายวันทั้งหมด
+      final url = Uri.parse(
+        '${ApiEndpoints.baseUrl}/api/activityDetail/dailyPercentAll',
       );
-      final actsResp = await http.get(actsUrl, headers: headers);
-      if (actsResp.statusCode != 200) {
-        setState(() => _loading = false);
-        return;
-      }
-      final List acts = jsonDecode(actsResp.body) as List;
 
-      // เตรียม meta ต่อ act_detail_id → { round, create_at }
-      final Map<int, ({String round, DateTime? createAt})> actMeta = {};
-      for (final a in acts) {
-        int? id;
-        final v = a['act_detail_id'];
-        if (v is int)
-          id = v;
-        else if (v is num)
-          id = v.toInt();
-        else if (v is String) id = int.tryParse(v);
-        if (id == null) continue;
-
-        final roundStr =
-            (a['round'] ?? '').toString().toLowerCase(); // day|week
-        final createAtDay = _parseCreateAtDay(a['create_at']);
-        actMeta[id] = (round: roundStr, createAt: createAtDay);
-      }
-
-      if (actMeta.isEmpty) {
+      final resp = await http.get(url, headers: headers);
+      if (resp.statusCode != 200) {
         setState(() => _loading = false);
         return;
       }
 
-      // 2) ดึง dailyPercent ของทุก activity (ขนาน) พร้อมแนบ id กลับมา
-      final futures = actMeta.keys.map((id) async {
-        final url = Uri.parse(
-            '${ApiEndpoints.baseUrl}/api/activityHistory/dailyPercent?act_detail_id=$id');
-        try {
-          final resp = await http.get(url, headers: headers);
-          if (resp.statusCode == 200) {
-            final body = jsonDecode(resp.body);
-            if (body is List) return {'id': id, 'rows': body};
-          }
-        } catch (_) {}
-        return {'id': id, 'rows': <dynamic>[]};
-      }).toList();
+      // 🔹 2) แปลงข้อมูล JSON ที่ได้
+      final jsonBody = jsonDecode(resp.body);
+      final List<dynamic> dataList =
+          jsonBody is Map && jsonBody['data'] is List ? jsonBody['data'] : [];
 
-      final results = await Future.wait(futures);
-
-      // 3) รวมเป็นเปอร์เซ็นต์เฉลี่ยต่อวัน (เติมวันว่าง=0 ตามช่วง round/created_at)
-      final Map<DateTime, List<double>> perDayPercents = {};
-      final todayLocal = _dateOnly(DateTime.now());
-
-      for (final r in results) {
-        final int id = r['id'] as int;
-        final List rows = r['rows'] as List;
-
-        final meta = actMeta[id];
-        final roundStr = meta?.round ?? 'day';
-        final createAt =
-            meta?.createAt != null ? _dateOnly(meta!.createAt!) : null;
-
-        // 3.1 map ของกิจกรรมนี้ → dayKey -> percent
-        final Map<DateTime, double> dayToPct = {};
-        for (final e in rows) {
-          final dateStr = (e['date'] ?? '').toString();
-          if (dateStr.isEmpty) continue;
-
-          final dayKey = _parseApiDateToLocalDay(dateStr);
-          if (dayKey == null) continue;
-
-          double pct = 0.0;
-          final raw = e['percent'];
-          if (raw is num) {
-            pct = raw.toDouble();
-          } else if (raw is String) {
-            pct = double.tryParse(raw) ?? 0.0;
-          } else {
-            continue;
-          }
-          dayToPct[dayKey] = pct.clamp(0.0, 100.0);
-        }
-
-        // 3.2 เติมวันว่างเป็น 0% ตามช่วง round ของกิจกรรมนั้น
-        if (createAt != null) {
-          if (roundStr == 'week') {
-            final end = _dateOnly(createAt.add(const Duration(days: 6)));
-            final endClamped = end.isAfter(todayLocal) ? todayLocal : end;
-            for (final d in _daysInRange(createAt, endClamped)) {
-              dayToPct.putIfAbsent(d, () => 0.0);
-            }
-          } else {
-            // day: เฉพาะวัน create_at
-            dayToPct.putIfAbsent(createAt, () => 0.0);
-          }
-        }
-
-        // 3.3 รวมเข้าถังเฉลี่ยรายวันทั้งหมด
-        dayToPct.forEach((day, pct) {
-          perDayPercents.putIfAbsent(day, () => []).add(pct);
-        });
-      }
-
-      // 4) คำนวณเฉลี่ย/ลงสี
+      // 🔹 3) ล้างข้อมูลเดิม
       _successDays.clear();
       _failedDays.clear();
       _dailyOverallPercent.clear();
 
-      perDayPercents.forEach((day, list) {
-        if (list.isEmpty) return;
-        final sum = list.fold<double>(0.0, (a, b) => a + b);
-        double avg = sum / list.length;
-        if (avg.isNaN) return;
-        avg = avg.clamp(0.0, 100.0);
+      for (final e in dataList) {
+        final dateStr = (e['date'] ?? '').toString();
+        final dayKey = _parseApiDateToLocalDay(dateStr);
+        if (dayKey == null) continue;
 
-        _dailyOverallPercent[day] = avg;
-        if (avg > 50.0) {
-          _successDays.add(day); // เขียว
-        } else {
-          _failedDays.add(day); // แดง
+        double pct = 0.0;
+        final raw = e['percent'];
+        if (raw is num) {
+          pct = raw.toDouble();
+        } else if (raw is String) {
+          pct = double.tryParse(raw) ?? 0.0;
         }
-      });
+
+        _dailyOverallPercent[dayKey] = pct;
+        if (pct > 50.0) {
+          _successDays.add(dayKey);
+        } else {
+          _failedDays.add(dayKey);
+        }
+      }
+    } catch (e) {
+      debugPrint('🔥 Error loading calendar data: $e');
     } finally {
       if (mounted) setState(() => _loading = false);
     }
