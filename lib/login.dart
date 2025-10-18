@@ -145,23 +145,24 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
-  Future<void> _showBlockedDialog(String status, String? _) async {
-    final raw = status; // อาจเป็น '' ได้
-    final st = (raw.isNotEmpty ? raw : 'unknown').trim().toLowerCase();
+  Future<void> _showBlockedDialog(String status, String? serverMessage) async {
+    if (!mounted) return;
+
+    final st = (status.isNotEmpty ? status : 'unknown').trim().toLowerCase();
     final isSuspended = st == 'suspend' || st == 'suspended';
     final isDeleted = st == 'deleted';
 
     final title = 'ไม่สามารถเข้าสู่ระบบได้';
-    final content = isSuspended
-        ? 'คุณเข้าสู่ระบบไม่ได้เนื่องจากบัญชีถูกระงับการใช้งาน'
-        : isDeleted
-            ? 'คุณเข้าสู่ระบบไม่ได้เนื่องจากบัญชีของคุณถูกลบ'
-            : 'คุณเข้าสู่ระบบไม่ได้ (สถานะ: $status)';
+    final content = (serverMessage ?? '').trim().isNotEmpty
+        ? serverMessage!.trim()
+        : isSuspended
+            ? 'คุณเข้าสู่ระบบไม่ได้เนื่องจากบัญชีถูกระงับการใช้งาน'
+            : isDeleted
+                ? 'คุณเข้าสู่ระบบไม่ได้เนื่องจากบัญชีของคุณถูกลบ'
+                : 'คุณไม่สามารถเข้าสู่ระบบได้ (สถานะ: $status)';
 
     final iconData =
         isDeleted ? Icons.delete_forever_rounded : Icons.block_rounded;
-
-    if (!mounted) return;
 
     await showGeneralDialog(
       context: context,
@@ -181,27 +182,27 @@ class _LoginScreenState extends State<LoginScreen> {
               child: Material(
                 color: Colors.transparent,
                 child: Container(
-                  width: MediaQuery.of(ctx).size.width * 0.82,
+                  // คงสไตล์เดิม แต่ล็อกความกว้างไม่ให้เพี้ยนทุกจอ
+                  width: (MediaQuery.of(ctx).size.width * 0.82)
+                      .clamp(260.0, 460.0),
                   padding: const EdgeInsets.fromLTRB(20, 18, 20, 12),
                   decoration: BoxDecoration(
                     color: _AppColors.cream,
                     borderRadius: BorderRadius.circular(24),
                     boxShadow: const [
                       BoxShadow(
-                        color: Colors.black12,
-                        blurRadius: 18,
-                        offset: Offset(0, 10),
-                      )
+                          color: Colors.black12,
+                          blurRadius: 18,
+                          offset: Offset(0, 10)),
                     ],
                   ),
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      // Icon badge
                       Container(
                         padding: const EdgeInsets.all(14),
                         decoration: BoxDecoration(
-                          color: _AppColors.rose.withOpacity(0.2),
+                          color: _AppColors.rose.withOpacity(0.20),
                           shape: BoxShape.circle,
                         ),
                         child:
@@ -215,6 +216,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           fontSize: 20,
                           fontWeight: FontWeight.w700,
                           color: _AppColors.mocha,
+                          height: 1.25,
                         ),
                       ),
                       const SizedBox(height: 8),
@@ -225,13 +227,13 @@ class _LoginScreenState extends State<LoginScreen> {
                           fontSize: 16,
                           color: _AppColors.mocha.withOpacity(0.85),
                           height: 1.35,
+                          fontWeight: FontWeight.w500,
                         ),
                       ),
                       const SizedBox(height: 18),
                       Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          // ปุ่มปิด
                           TextButton(
                             onPressed: () => Navigator.of(ctx).pop(),
                             style: TextButton.styleFrom(
@@ -240,11 +242,15 @@ class _LoginScreenState extends State<LoginScreen> {
                                   horizontal: 24, vertical: 10),
                               backgroundColor: _AppColors.mocha,
                               shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(16),
-                              ),
+                                  borderRadius: BorderRadius.circular(16)),
+                              textStyle: GoogleFonts.kanit(
+                                  fontSize: 16, fontWeight: FontWeight.w600),
                             ),
                             child: Text('ปิด',
-                                style: GoogleFonts.kanit(fontSize: 16)),
+                                style: GoogleFonts.kanit(
+                                    color: Colors.white,
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w600)),
                           ),
                         ],
                       ),
