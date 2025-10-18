@@ -752,37 +752,31 @@ class TaskCard extends StatelessWidget {
                     final uid = FirebaseAuth.instance.currentUser!.uid;
                     try {
                       final role = await _getUserRole(uid);
-                      String deleteUrl;
+                      final idToken = await FirebaseAuth.instance.currentUser
+                          ?.getIdToken(true);
+                      if (idToken == null) {/* แจ้ง error */}
 
-                      if (role == 'admin') {
-                        deleteUrl =
-                            '${ApiEndpoints.baseUrl}/api/adminAct/deleteDefaultActivity';
-                      } else {
-                        deleteUrl =
-                            '${ApiEndpoints.baseUrl}/api/activity/deleteAct';
-                      }
+                      final deleteUrl =
+                          '${ApiEndpoints.baseUrl}/api/activity/deleteAct';
 
                       showDialog(
                         context: context,
                         barrierDismissible: false,
-                        builder: (BuildContext context) {
-                          return const Center(
-                            child: CircularProgressIndicator(
-                              valueColor:
-                                  AlwaysStoppedAnimation<Color>(Colors.white),
-                              backgroundColor: Colors.black54,
-                            ),
-                          );
-                        },
+                        builder: (_) =>
+                            const Center(child: CircularProgressIndicator()),
                       );
 
                       final response = await http.post(
                         Uri.parse(deleteUrl),
-                        headers: {'Content-Type': 'application/json'},
-                        body: jsonEncode({'uid': uid, 'act_id': act_id}),
+                        headers: {
+                          'Content-Type': 'application/json',
+                          'Authorization': 'Bearer $idToken', // <-- สำคัญ
+                        },
+                        body: jsonEncode({
+                          'act_id': act_id, // <-- ไม่ต้องส่ง uid
+                        }),
                       );
-
-                      Navigator.pop(context);
+                      Navigator.of(context).pop(); // ปิด dialog
 
                       if (response.statusCode == 200) {
                         ScaffoldMessenger.of(context).showSnackBar(
