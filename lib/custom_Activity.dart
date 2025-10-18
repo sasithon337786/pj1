@@ -147,7 +147,7 @@ class _CreateActivityScreenState extends State<CreateActivityScreen> {
 
     // ✅ บังคับ bucket + path ให้ตรงเป๊ะด้วย gs://
     final ref = FirebaseStorage.instance.refFromURL(
-      'gs://finalproject-609a4.appspot.com/activity_pics/$fileName',
+      'gs://finalproject-609a4.firebasestorage.app/activity_pics/$fileName',
     );
 
     final snapshot = await ref.putFile(
@@ -158,18 +158,13 @@ class _CreateActivityScreenState extends State<CreateActivityScreen> {
       debugPrint('❌ Upload failed: state=${snapshot.state}');
       return null;
     }
-
-    // (ออปชัน) เช็คข้อมูลไฟล์; ถ้า read rules ไม่ allow ตรงนี้จะ error
     await ref.getMetadata();
-
     final url = await ref.getDownloadURL();
     debugPrint('✅ Uploaded OK -> bucket=${ref.bucket}, path=${ref.fullPath}');
     debugPrint('✅ URL: $url');
     return url;
   } on FirebaseException catch (e) {
     debugPrint('🔥 FirebaseException [${e.code}] ${e.message}');
-    // ช่วยดีบักว่าไปถูกที่ไหม
-    // debugPrint('bucket(opt)= ${FirebaseStorage.instance.app.options.storageBucket}');
     return null;
   } catch (e) {
     debugPrint('🔥 Error uploading activity image: $e');
@@ -224,7 +219,8 @@ class _CreateActivityScreenState extends State<CreateActivityScreen> {
       if (imageUrl == null) {
         // หยุดก่อน อย่ายิง API ต่อ เพื่อเลี่ยง "missing required field"
         throw Exception('อัปโหลดรูปภาพไม่สำเร็จ');
-      }
+      } 
+      
 
       // เตรียมข้อมูลและยิง API
       final postUrl = '${ApiEndpoints.baseUrl}/api/activity/createAct';
@@ -233,7 +229,7 @@ class _CreateActivityScreenState extends State<CreateActivityScreen> {
         'act_name': activityName,
         'act_pic': imageUrl,
       };
-
+      debugPrint(bodyData.toString());
       final response = await http.post(
         Uri.parse(postUrl),
         headers: {
