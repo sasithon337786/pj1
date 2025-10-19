@@ -13,7 +13,6 @@ import 'package:pj1/constant/api_endpoint.dart';
 import 'dart:io';
 import 'package:http_parser/http_parser.dart';
 import 'package:pj1/login.dart';
-// import 'package:pj1/login.dart';
 
 class RegistrationScreen extends StatefulWidget {
   const RegistrationScreen({super.key});
@@ -48,13 +47,11 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
           padding: const EdgeInsets.all(20),
           child: Column(
             children: [
-              Text(
-                'เลือกรูปภาพ',
-                style: GoogleFonts.kanit(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
+              Text('เลือกรูปภาพ',
+                  style: GoogleFonts.kanit(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  )),
               const SizedBox(height: 20),
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
@@ -96,25 +93,20 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
     );
   }
 
-// อัปโหลดขึ้น Firebase Storage แล้วคืน download URL
+  // อัปโหลดขึ้น Firebase Storage แล้วคืน download URL
   Future<String?> _uploadProfileImage(String userId, File imageFile) async {
     try {
-      // สุ่มชื่อไฟล์กัน cache/ชนกัน
       final random = Random();
       final randomNumber = random.nextInt(90000) + 10000;
       final fileName = '${userId}_$randomNumber.jpg';
 
-      // ✅ ใช้ bucket จาก Firebase options (หลีกเลี่ยงการ hardcode)
       final bucket = Firebase.app().options.storageBucket;
       if (bucket == null || bucket.isEmpty) {
         debugPrint('🔥 storageBucket is not set in Firebase options');
         return null;
       }
 
-      // ✅ path โฟลเดอร์สำหรับโปรไฟล์
       final fullGsUrl = 'gs://$bucket/profile_images/$fileName';
-
-      // อ้างอิงผ่าน gs:// (ชัดเจนเรื่อง bucket)
       final ref = FirebaseStorage.instance.refFromURL(fullGsUrl);
 
       final snapshot = await ref.putFile(
@@ -127,9 +119,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
         return null;
       }
 
-      // ดึง metadata เฉย ๆ (optional แต่มีประโยชน์เวลา debug)
       await ref.getMetadata();
-
       final url = await ref.getDownloadURL();
       debugPrint('✅ Uploaded OK -> bucket=${ref.bucket}, path=${ref.fullPath}');
       debugPrint('✅ URL: $url');
@@ -144,6 +134,17 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
   }
 
   Future<void> _registerUser() async {
+    // ✅ ต้องเลือกรูปก่อน
+    if (_image == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('กรุณาใส่รูปภาพโปรไฟล์ของคุณ'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
     if (!_formKey.currentState!.validate()) return;
 
     if (passwordController.text != confirmPasswordController.text) {
@@ -159,16 +160,15 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
     setState(() => _isLoading = true);
 
     try {
-      final email = emailController.text.trim();
+      final email = emailController.text.trim().toLowerCase(); // normalize
 
       // 1) อัปโหลดรูปไป Firebase Storage ก่อน (ถ้ามีรูป)
       String? photoURL;
       if (_image != null) {
-        photoURL = await _uploadProfileImage(
-            email, _image!); // ✅ แก้ให้ส่ง 2 พารามิเตอร์
+        photoURL = await _uploadProfileImage(email, _image!);
       }
 
-      // 2) ส่ง JSON ไป backend (ไม่ใช้ Multipart อีก)
+      // 2) ส่ง JSON ไป backend
       final uri = Uri.parse(
           '${ApiEndpoints.baseUrl}/api/auth/registerwithemailpassword');
 
@@ -266,8 +266,8 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                       right: 0,
                       child: Container(
                         padding: const EdgeInsets.all(4),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF564843),
+                        decoration: const BoxDecoration(
+                          color: Color(0xFF564843),
                           shape: BoxShape.circle,
                         ),
                         child: const Icon(
@@ -327,9 +327,18 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                         if (value == null || value.isEmpty) {
                           return 'กรุณากรอกอีเมล';
                         }
-                        if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$')
-                            .hasMatch(value)) {
+                        final email = value.trim().toLowerCase();
+
+                        // เช็กฟอร์แมตอีเมลทั่วไป
+                        final basicEmailOk =
+                            RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$')
+                                .hasMatch(email);
+                        if (!basicEmailOk) {
                           return 'รูปแบบอีเมลไม่ถูกต้อง';
+                        }
+                        // ✅ บังคับลงท้าย .com เท่านั้น
+                        if (!email.endsWith('.com')) {
+                          return 'อีเมลต้องลงท้ายด้วย .com เท่านั้น';
                         }
                         return null;
                       },

@@ -1,19 +1,20 @@
+// lib/screens/increase_activity.dart
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-// ====== REST & Auth ======
-import 'dart:convert';
+// REST & Auth
 import 'package:http/http.dart' as http;
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:pj1/constant/api_endpoint.dart';
-// =========================
 
 class Increaseactivity extends StatefulWidget {
-  final String actName;      // ชื่อกิจกรรม
-  final String unit;         // หน่วย (ml, km, hr, ครั้ง ฯลฯ)
-  final String actDetailId;  // id ของ activity_detail (รับเป็น String แต่จะแปลงเป็น int ตอนยิง)
-  final String? goal;        // เป้าหมายรวม (string)
-  final String? imageSrc;    // asset หรือ URL
+  final String actName; // ชื่อกิจกรรม
+  final String unit; // หน่วย (ml, km, hr, ครั้ง ฯลฯ)
+  final String
+      actDetailId; // id ของ activity_detail (รับเป็น String แต่จะแปลงเป็น int ตอนยิง)
+  final String? goal; // เป้าหมายรวม (string)
+  final String? imageSrc; // asset หรือ URL
 
   const Increaseactivity({
     super.key,
@@ -49,12 +50,16 @@ class _IncreaseactivityPageState extends State<Increaseactivity> {
     };
   }
 
-  String _fmt(num n) {
-    if (n % 1 == 0) return n.toInt().toString();
-    return n.toString();
-  }
+  String _fmt(num n) => (n % 1 == 0) ? n.toInt().toString() : n.toString();
 
   bool get _isCompleted => _goalAmount > 0 && _currentAmount >= _goalAmount;
+
+  // 🔒 ตัดค่าไม่ให้เกินเป้า (เรียกใช้ทุกครั้งหลังได้ค่าจาก server หรือจะ setState)
+  void _enforceGoalCap() {
+    if (_goalAmount > 0 && _currentAmount > _goalAmount) {
+      _currentAmount = _goalAmount;
+    }
+  }
 
   @override
   void initState() {
@@ -71,7 +76,7 @@ class _IncreaseactivityPageState extends State<Increaseactivity> {
 
   // ========= API Calls =========
 
-  // ดึงยอดรวมของวันนี้ (ให้ backend อ่าน uid จาก token)
+  // ดึงยอดรวม "วันนี้" ของกิจกรรมนี้
   Future<void> _fetchCurrentValue(String actDetailId) async {
     setState(() => _isLoading = true);
 
@@ -82,8 +87,9 @@ class _IncreaseactivityPageState extends State<Increaseactivity> {
         return;
       }
 
-      final url = Uri.parse('${ApiEndpoints.baseUrl}/api/activityHistory/getTodaySum')
-          .replace(queryParameters: {'act_detail_id': '$actDetailIdInt'});
+      final url = Uri.parse(
+        '${ApiEndpoints.baseUrl}/api/activityHistory/getTodaySum',
+      ).replace(queryParameters: {'act_detail_id': '$actDetailIdInt'});
 
       final res = await http.get(url, headers: await _authHeaders());
 
@@ -106,6 +112,8 @@ class _IncreaseactivityPageState extends State<Increaseactivity> {
           _goalAmount = double.tryParse(g) ?? _goalAmount;
         }
 
+        _enforceGoalCap(); // 🔒 กันหลุดเกินเป้า
+
         if (mounted) setState(() {});
       } else {
         debugPrint('fetch current_value failed: ${res.statusCode} ${res.body}');
@@ -127,16 +135,17 @@ class _IncreaseactivityPageState extends State<Increaseactivity> {
     }
   }
 
-  // เพิ่มค่าตามจำนวนที่ใส่ -> return สำเร็จ/ล้มเหลว
+  // เพิ่มจำนวนแบบ "บวกเพิ่ม" (เพิ่มเฉพาะที่ไม่เกินเป้า)
   Future<bool> _persistIncrease(double amountToAdd) async {
     if (_isSaving) return false;
     setState(() => _isSaving = true);
 
     try {
-      final url = Uri.parse('${ApiEndpoints.baseUrl}/api/activityHistory/increaseCurrentValue');
+      final url = Uri.parse(
+        '${ApiEndpoints.baseUrl}/api/activityHistory/increaseCurrentValue',
+      );
 
       final headers = await _authHeaders();
-      headers.putIfAbsent('Content-Type', () => 'application/json');
 
       final int? actDetailIdInt = int.tryParse(widget.actDetailId);
       if (actDetailIdInt == null) {
@@ -144,28 +153,27 @@ class _IncreaseactivityPageState extends State<Increaseactivity> {
         throw Exception('act_detail_id invalid');
       }
 
-      // กัน action ไม่ให้ NaN/negative
+      // กัน NaN/negative
       double action = amountToAdd.isFinite ? amountToAdd : 0;
       if (action < 0) action = 0;
 
-      // กัน overshoot กับ goal (ถ้าอยากให้เพิ่มเกินได้ ให้ลบบล็อคนี้)
+      // กัน overshoot (บวกได้ไม่เกินที่เหลือ)
       if (_goalAmount > 0) {
-        final remain = _goalAmount - _currentAmount;
-        if (action > remain) action = remain.clamp(0, double.infinity);
+        final remain = (_goalAmount - _currentAmount).clamp(0, double.infinity);
+        if (action > remain) action = remain.toDouble();
       }
 
       final body = jsonEncode({
-        'act_detail_id': actDetailIdInt, // number
-        'action': action,                // number >= 0
+        'act_detail_id': actDetailIdInt,
+        'action': action,
       });
-
-      debugPrint('POST increaseCurrentValue body: $body');
 
       final res = await http.post(url, headers: headers, body: body);
 
       if (res.statusCode == 200) {
         final data = jsonDecode(res.body);
-        // รองรับได้ทั้ง current_value และ todaySum
+
+        // รองรับทั้ง current_value และ todaySum
         final cv = data['current_value'] ?? data['todaySum'];
         if (cv is num) {
           _currentAmount = cv.toDouble();
@@ -181,6 +189,8 @@ class _IncreaseactivityPageState extends State<Increaseactivity> {
             _goalAmount = double.tryParse(g) ?? _goalAmount;
           }
         }
+
+        _enforceGoalCap(); // 🔒 กันหลุด
 
         _hasChanged = true;
         if (mounted) setState(() {});
@@ -207,14 +217,15 @@ class _IncreaseactivityPageState extends State<Increaseactivity> {
     }
   }
 
-  // ดึงค่าล่าสุดของ "วันนี้"
+  // ดึงค่าล่าสุดของ "วันนี้" (ไว้โชว์ใน dialog แก้ไข)
   Future<void> _fetchLatestValue() async {
     try {
       final token = await FirebaseAuth.instance.currentUser?.getIdToken();
       if (token == null) return;
 
-      final url = Uri.parse('${ApiEndpoints.baseUrl}/api/activityHistory/latest')
-          .replace(queryParameters: {'act_detail_id': widget.actDetailId});
+      final url = Uri.parse(
+        '${ApiEndpoints.baseUrl}/api/activityHistory/latest',
+      ).replace(queryParameters: {'act_detail_id': widget.actDetailId});
 
       final res = await http.get(url, headers: {
         'Authorization': 'Bearer $token',
@@ -240,16 +251,17 @@ class _IncreaseactivityPageState extends State<Increaseactivity> {
     }
   }
 
-  // ตั้งค่า absolute (แก้ค่ารวมของวันนี้ให้เป็นตัวเลข X)
+  // ตั้งค่ารวมของวันนี้เป็นค่าใหม่แบบ "absolute"
   Future<void> _persistUpdateAbsolute(double newValue) async {
     if (_isSaving) return;
 
     setState(() => _isSaving = true);
     try {
-      final url = Uri.parse('${ApiEndpoints.baseUrl}/api/activityHistory/updateCurrentValue');
+      final url = Uri.parse(
+        '${ApiEndpoints.baseUrl}/api/activityHistory/updateCurrentValue',
+      );
 
       final headers = await _authHeaders();
-      headers.putIfAbsent('Content-Type', () => 'application/json');
 
       final int? actDetailIdInt = int.tryParse(widget.actDetailId);
       if (actDetailIdInt == null) {
@@ -257,25 +269,22 @@ class _IncreaseactivityPageState extends State<Increaseactivity> {
         throw Exception('act_detail_id invalid');
       }
 
-      // กันค่าติดลบ/ไม่ใช่ตัวเลข และไม่ให้เกิน goal
+      // กันค่าติดลบ/NaN และไม่ให้เกิน goal
       double safeValue = newValue.isFinite ? (newValue < 0 ? 0 : newValue) : 0;
       if (_goalAmount > 0 && safeValue > _goalAmount) {
         safeValue = _goalAmount;
       }
 
       final body = jsonEncode({
-        'act_detail_id': actDetailIdInt, // number
-        'action': safeValue,             // number >= 0
+        'act_detail_id': actDetailIdInt,
+        'action': safeValue,
       });
-
-      debugPrint('PUT updateCurrentValue body: $body');
 
       final res = await http.put(url, headers: headers, body: body);
 
       if (res.statusCode == 200) {
         final data = jsonDecode(res.body);
 
-        // รองรับทั้ง todaySum / current_value
         final tv = data['todaySum'] ?? data['current_value'];
         if (tv is num) {
           _currentAmount = tv.toDouble();
@@ -290,10 +299,12 @@ class _IncreaseactivityPageState extends State<Increaseactivity> {
           _goalAmount = double.tryParse(g) ?? _goalAmount;
         }
 
+        _enforceGoalCap(); // 🔒 กันหลุด
+
         _hasChanged = true;
         if (mounted) setState(() {}); // อัปเดตทันที
 
-        // ✅ ดึงค่าจาก server อีกรอบให้ตรง 100% (กัน rounding/normalize ฝั่ง server)
+        // รีเฟรชจาก server เพื่อความชัวร์
         await _fetchCurrentValue(widget.actDetailId);
       } else {
         debugPrint('Update absolute failed: ${res.statusCode} ${res.body}');
@@ -333,6 +344,8 @@ class _IncreaseactivityPageState extends State<Increaseactivity> {
     }
 
     double toAdd = value;
+
+    // กัน overshoot ฝั่ง UI อีกชั้น
     if (_goalAmount > 0) {
       final double remain = (_goalAmount - _currentAmount);
       if (remain <= 0) {
@@ -350,7 +363,7 @@ class _IncreaseactivityPageState extends State<Increaseactivity> {
 
     final ok = await _persistIncrease(toAdd);
     if (ok) {
-      await _fetchCurrentValue(widget.actDetailId); // ✅ รีเฟรชหลังเพิ่มสำเร็จ
+      await _fetchCurrentValue(widget.actDetailId); // รีเฟรชหลังเพิ่มสำเร็จ
     }
     _controller.clear();
 
@@ -365,15 +378,19 @@ class _IncreaseactivityPageState extends State<Increaseactivity> {
       builder: (_) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         backgroundColor: const Color(0xFFEFEAE3),
-        title: Text('ถึงเป้าหมายแล้ว',
-            style: GoogleFonts.kanit(color: const Color(0xFF564843))),
-        content: Text('คุณใส่ข้อมูลครบตามที่ตั้งเป้าไว้แล้ว',
-            style: GoogleFonts.kanit(color: const Color(0xFF564843))),
+        title: Text(
+          'คุณทำตามเป้าหมายแล้ว',
+          style: GoogleFonts.kanit(color: const Color(0xFF564843)),
+        ),
+        content: Text(
+          'เยี่ยมมาก! วันนี้คุณถึงเป้าหมายที่ตั้งไว้เรียบร้อย 🎯',
+          style: GoogleFonts.kanit(color: const Color(0xFF564843)),
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child:
-                Text('ตกลง', style: GoogleFonts.kanit(color: const Color(0xFFC98993))),
+            child: Text('ตกลง',
+                style: GoogleFonts.kanit(color: const Color(0xFFC98993))),
           ),
         ],
       ),
@@ -381,18 +398,20 @@ class _IncreaseactivityPageState extends State<Increaseactivity> {
   }
 
   Future<void> _openEditDialog() async {
-    final TextEditingController editCtl = TextEditingController(text: _fmt(_currentAmount));
+    final TextEditingController editCtl =
+        TextEditingController(text: _fmt(_currentAmount));
 
-    await _fetchLatestValue(); // ✅ โหลดค่าล่าสุดก่อนเปิด Dialog
+    await _fetchLatestValue(); // โหลดค่าล่าสุดก่อนเปิด Dialog
 
     await showDialog(
       context: context,
       builder: (ctx) {
-        // ✅ ใส่ค่าล่าสุดในช่อง TextField
+        // เติมค่าล่าสุดลงไปเป็นค่าเริ่มต้น
         editCtl.text = _fmt(_latestValue ?? _currentAmount);
 
         return AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           backgroundColor: const Color(0xFFEFEAE3),
           title: Text('แก้ไขค่าล่าสุด',
               style: GoogleFonts.kanit(color: const Color(0xFF564843))),
@@ -442,14 +461,17 @@ class _IncreaseactivityPageState extends State<Increaseactivity> {
                 final newVal = double.tryParse(raw.replaceAll(',', ''));
                 if (newVal == null || newVal < 0) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('กรุณากรอกตัวเลขที่ถูกต้อง (≥ 0)')),
+                    const SnackBar(
+                        content: Text('กรุณากรอกตัวเลขที่ถูกต้อง (≥ 0)')),
                   );
                   return;
                 }
                 if (_goalAmount > 0 && newVal > _goalAmount) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
-                      content: Text('ห้ามเกินเป้าหมาย ${_fmt(_goalAmount)} ${widget.unit}'),
+                      content: Text(
+                        'ห้ามเกินเป้าหมาย ${_fmt(_goalAmount)} ${widget.unit}',
+                      ),
                     ),
                   );
                   return;
@@ -457,13 +479,14 @@ class _IncreaseactivityPageState extends State<Increaseactivity> {
 
                 setState(() {
                   _currentAmount = newVal; // อัปเดตทันทีในหน้า
+                  _enforceGoalCap(); // 🔒 กันหลุด ณ จุดนี้ด้วย
                   _hasChanged = true;
                 });
 
                 Navigator.pop(ctx); // ปิด Dialog
 
-                // ยิงอัปเดต absolute และรีเฟรชผลจาก server ภายในฟังก์ชัน
-                await _persistUpdateAbsolute(newVal);
+                // ยิงอัปเดต absolute และรีเฟรชจาก server ภายในฟังก์ชัน
+                await _persistUpdateAbsolute(_currentAmount);
 
                 if (_goalAmount > 0 && _currentAmount >= _goalAmount) {
                   _showGoalReachedDialog();
@@ -501,8 +524,9 @@ class _IncreaseactivityPageState extends State<Increaseactivity> {
             src,
             fit: BoxFit.cover,
             errorBuilder: (_, __, ___) => placeholder,
-            loadingBuilder: (context, child, progress) =>
-                progress == null ? child : const Center(child: CircularProgressIndicator()),
+            loadingBuilder: (context, child, progress) => progress == null
+                ? child
+                : const Center(child: CircularProgressIndicator()),
           )
         : Image.asset(
             src,
@@ -527,12 +551,13 @@ class _IncreaseactivityPageState extends State<Increaseactivity> {
       },
       child: Scaffold(
         backgroundColor: const Color(0xFFC98993),
-        body: RefreshIndicator( // ✅ รูดลงเพื่อรีเฟรช
+        body: RefreshIndicator(
           onRefresh: () => _fetchCurrentValue(widget.actDetailId),
           child: SingleChildScrollView(
             physics: const AlwaysScrollableScrollPhysics(),
             child: Column(
               children: [
+                // Header
                 Stack(
                   children: [
                     Column(
@@ -575,15 +600,22 @@ class _IncreaseactivityPageState extends State<Increaseactivity> {
                     ),
                   ],
                 ),
+
                 const SizedBox(height: 20),
+
+                // Card
                 Container(
                   padding: const EdgeInsets.all(24),
-                  margin: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+                  margin:
+                      const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
                   decoration: BoxDecoration(
                     color: const Color(0xFFEFEAE3),
                     borderRadius: BorderRadius.circular(24),
                     boxShadow: const [
-                      BoxShadow(color: Colors.black12, blurRadius: 10, offset: Offset(0, 4)),
+                      BoxShadow(
+                          color: Colors.black12,
+                          blurRadius: 10,
+                          offset: Offset(0, 4)),
                     ],
                   ),
                   child: Column(
@@ -610,12 +642,16 @@ class _IncreaseactivityPageState extends State<Increaseactivity> {
                           ),
                         ],
                       ),
+
                       const SizedBox(height: 24),
+
+                      // วงกลมค่าปัจจุบัน/เป้าหมาย
                       CircleAvatar(
                         radius: 75,
                         backgroundColor: const Color(0xFF564843),
                         child: _isLoading
-                            ? const CircularProgressIndicator(color: Colors.white)
+                            ? const CircularProgressIndicator(
+                                color: Colors.white)
                             : RichText(
                                 textAlign: TextAlign.center,
                                 text: TextSpan(
@@ -657,9 +693,13 @@ class _IncreaseactivityPageState extends State<Increaseactivity> {
                                 ),
                               ),
                       ),
+
                       const SizedBox(height: 28),
+
+                      // กล่องกรอก + ปุ่มบวก
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 6),
                         decoration: BoxDecoration(
                           color: const Color(0xFFE6D2CD),
                           borderRadius: BorderRadius.circular(12),
@@ -669,7 +709,8 @@ class _IncreaseactivityPageState extends State<Increaseactivity> {
                             Expanded(
                               child: TextField(
                                 controller: _controller,
-                                keyboardType: const TextInputType.numberWithOptions(
+                                keyboardType:
+                                    const TextInputType.numberWithOptions(
                                   signed: false,
                                   decimal: true,
                                 ),
@@ -678,14 +719,17 @@ class _IncreaseactivityPageState extends State<Increaseactivity> {
                                   hintText: _isCompleted
                                       ? 'ทำครบเป้าหมายแล้ว'
                                       : 'Add amount (${unitLabel.isNotEmpty ? unitLabel : 'value'})...',
-                                  hintStyle: GoogleFonts.kanit(color: Colors.white70),
+                                  hintStyle:
+                                      GoogleFonts.kanit(color: Colors.white70),
                                   border: InputBorder.none,
                                 ),
                                 enabled: !_isSaving && !_isCompleted,
                               ),
                             ),
                             GestureDetector(
-                              onTap: (_isSaving || _isCompleted) ? null : _addAmount,
+                              onTap: (_isSaving || _isCompleted)
+                                  ? null
+                                  : _addAmount,
                               child: Container(
                                 padding: const EdgeInsets.all(6),
                                 decoration: BoxDecoration(
@@ -703,13 +747,17 @@ class _IncreaseactivityPageState extends State<Increaseactivity> {
                                           color: Colors.white,
                                         ),
                                       )
-                                    : const Icon(Icons.check, color: Colors.white),
+                                    : const Icon(Icons.check,
+                                        color: Colors.white),
                               ),
                             ),
                           ],
                         ),
                       ),
+
                       const SizedBox(height: 12),
+
+                      // ปุ่มแก้ไขค่าล่าสุดแบบ absolute
                       SizedBox(
                         width: double.infinity,
                         height: 44,
@@ -720,7 +768,8 @@ class _IncreaseactivityPageState extends State<Increaseactivity> {
                               borderRadius: BorderRadius.circular(12),
                             ),
                           ),
-                          icon: const Icon(Icons.edit, color: Color(0xFFC98993)),
+                          icon:
+                              const Icon(Icons.edit, color: Color(0xFFC98993)),
                           label: Text(
                             'แก้ไขค่าล่าสุด',
                             style: GoogleFonts.kanit(
