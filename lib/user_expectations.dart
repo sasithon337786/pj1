@@ -236,47 +236,71 @@ class _ExpectationResultScreenState extends State<ExpectationResultScreen> {
   }
 
   Future<void> _saveExpectation(String text) async {
-    final user = FirebaseAuth.instance.currentUser;
-    if (user == null) return;
+  final user = FirebaseAuth.instance.currentUser;
+  if (user == null) return;
 
-    try {
-      final idToken = await user.getIdToken(true);
-      final url = Uri.parse(
-        '${ApiEndpoints.baseUrl}/api/expuser/updateexpectation',
-      );
+  final trimmed = text.trim();
 
-      final res = await http.put(
-        url,
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $idToken',
-        },
-        body: jsonEncode({
-          'act_id': widget.actId,
-          'user_exp': text,
-        }),
-      );
+  // ✅ ตรวจข้อความว่าง
+  if (trimmed.isEmpty) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('กรุณากรอกข้อความก่อนบันทึก')),
+    );
+    return;
+  }
 
-      if (res.statusCode == 200) {
-        setState(() {
-          expectationController.text = text;
-        });
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('บันทึกความคาดหวังแล้ว')),
-        );
-      } else {
-        debugPrint('saveExpectation ${res.statusCode}: ${res.body}');
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('บันทึกไม่สำเร็จ (${res.statusCode})')),
-        );
-      }
-    } catch (e) {
-      debugPrint('saveExpectation error: $e');
+  // ✅ ตรวจความยาวไม่เกิน 500 ตัวอักษร
+  if (trimmed.length > 500) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          'ข้อความยาวเกินไป (${trimmed.length}/500 ตัวอักษร)',
+        ),
+        backgroundColor: Colors.redAccent,
+      ),
+    );
+    return;
+  }
+
+  try {
+    final idToken = await user.getIdToken(true);
+    final url = Uri.parse(
+      '${ApiEndpoints.baseUrl}/api/expuser/updateexpectation',
+    );
+
+    final res = await http.put(
+      url,
+      headers: {
+        'Content-Type': 'application/json; charset=UTF-8',
+        'Authorization': 'Bearer $idToken',
+      },
+      body: jsonEncode({
+        'act_id': widget.actId,
+        'user_exp': trimmed,
+      }),
+    );
+
+    if (res.statusCode == 200) {
+      setState(() {
+        expectationController.text = trimmed;
+      });
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('เชื่อมต่อเซิร์ฟเวอร์ไม่ได้')),
+        const SnackBar(content: Text('บันทึกความคาดหวังแล้ว')),
+      );
+    } else {
+      debugPrint('saveExpectation ${res.statusCode}: ${res.body}');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('บันทึกไม่สำเร็จ ข้อความยาวเกินไป')),
       );
     }
+  } catch (e) {
+    debugPrint('saveExpectation error: $e');
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('เชื่อมต่อเซิร์ฟเวอร์ไม่ได้')),
+    );
   }
+}
+
 
   Future<void> _openEditExpectationDialog() async {
     final ctl = TextEditingController(text: expectationController.text);

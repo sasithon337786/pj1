@@ -72,16 +72,21 @@ class _ExpectationScreenState extends State<ExpectationScreen> {
   }
 
   Future<void> _submitExpectation() async {
-    final String expectationValue = expectationController.text;
-    // final String percentageValue = percentageController.text;
+    final String expectationValue = expectationController.text.trim();
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
-
-    final uid = user.uid;
 
     if (expectationValue.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('กรุณากรอกข้อมูลให้ครบถ้วน')),
+      );
+      return;
+    }
+
+    // ✅ ตรวจความยาวสูงสุด
+    if (expectationValue.length > 500) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('ข้อความยาวเกินไป (สูงสุด 500 ตัวอักษร)')),
       );
       return;
     }
@@ -94,11 +99,11 @@ class _ExpectationScreenState extends State<ExpectationScreen> {
         url,
         headers: {
           'Content-Type': 'application/json; charset=UTF-8',
-          'Authorization': 'Bearer $idToken', // 🔑 เพิ่ม token
+          'Authorization': 'Bearer $idToken',
         },
         body: jsonEncode({
           "act_id": widget.actId,
-          "uid": uid,
+          "uid": user.uid,
           "user_exp": expectationValue,
         }),
       );
@@ -107,8 +112,6 @@ class _ExpectationScreenState extends State<ExpectationScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('บันทึกความคาดหวังเรียบร้อย')),
         );
-
-        // ไปหน้า Targetpage
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(builder: (context) => const Targetpage()),
