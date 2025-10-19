@@ -13,7 +13,6 @@ import 'package:pj1/models/userModel.dart';
 import 'package:pj1/Addmin/listuser_delete_admin.dart';
 import 'package:pj1/Addmin/listuser_petition.dart';
 import 'package:pj1/Addmin/listuser_suspended.dart';
-import 'package:pj1/screens/login_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class MainAdmin extends StatefulWidget {

@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -143,17 +144,19 @@ class _EditActivityState extends State<EditActivity> {
         role = roleData['role'];
       }
 
-      final Uri url = role == 'admin'
-          ? Uri.parse(
-              '${ApiEndpoints.baseUrl}/api/adminAct/updateDefaultActivity')
-          : Uri.parse('${ApiEndpoints.baseUrl}/api/activity/updateAct');
+      final idToken = await FirebaseAuth.instance.currentUser?.getIdToken(true);
+      if (idToken == null) {/* แจ้ง error */}
+
+      final url = Uri.parse('${ApiEndpoints.baseUrl}/api/activity/updateAct');
 
       final response = await http.put(
         url,
-        headers: {'Content-Type': 'application/json'},
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $idToken', // <-- สำคัญ
+        },
         body: jsonEncode({
           'act_id': actId,
-          'uid': uid,
           'act_name': newName,
           'act_pic': imageUrl,
         }),

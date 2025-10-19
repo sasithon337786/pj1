@@ -205,59 +205,59 @@ class NotificationService {
     await checkPendingNotifications();
   }
 
-  // ✅ ฟังก์ชันทดสอบแจ้งเตือนทันที
-  static Future<void> showTestNotification() async {
-    await _flutterLocalNotificationsPlugin.show(
-      999,
-      'ทดสอบแจ้งเตือน',
-      'ถ้าเห็นข้อความนี้แสดงว่าระบบแจ้งเตือนทำงานได้',
-      NotificationDetails(
-        android: AndroidNotificationDetails(
-          _channel.id,
-          _channel.name,
-          channelDescription: _channel.description,
-          importance: Importance.max,
-          priority: Priority.high,
-          playSound: true,
-          enableVibration: true,
-        ),
-      ),
-      payload: jsonEncode({"source": "instant"}),
-    );
-    debugPrint("🧪 ส่งการแจ้งเตือนทดสอบแล้ว");
-  }
+  // // ✅ ฟังก์ชันทดสอบแจ้งเตือนทันที
+  // static Future<void> showTestNotification() async {
+  //   await _flutterLocalNotificationsPlugin.show(
+  //     999,
+  //     'ทดสอบแจ้งเตือน',
+  //     'ถ้าเห็นข้อความนี้แสดงว่าระบบแจ้งเตือนทำงานได้',
+  //     NotificationDetails(
+  //       android: AndroidNotificationDetails(
+  //         _channel.id,
+  //         _channel.name,
+  //         channelDescription: _channel.description,
+  //         importance: Importance.max,
+  //         priority: Priority.high,
+  //         playSound: true,
+  //         enableVibration: true,
+  //       ),
+  //     ),
+  //     payload: jsonEncode({"source": "instant"}),
+  //   );
+  //   debugPrint("🧪 ส่งการแจ้งเตือนทดสอบแล้ว");
+  // }
 
-  // ✅ ฟังก์ชันทดสอบแจ้งเตือนแบบตั้งเวลา
-  static Future<void> scheduleTestNotificationIn10Seconds() async {
-    final now = tz.TZDateTime.now(tz.local);
-    final scheduleTime = now.add(const Duration(seconds: 45)); // แนะนำ 45s
+  // // ✅ ฟังก์ชันทดสอบแจ้งเตือนแบบตั้งเวลา
+  // static Future<void> scheduleTestNotificationIn10Seconds() async {
+  //   final now = tz.TZDateTime.now(tz.local);
+  //   final scheduleTime = now.add(const Duration(seconds: 45)); // แนะนำ 45s
 
-    await _flutterLocalNotificationsPlugin.zonedSchedule(
-      998,
-      '⏰ ทดสอบตั้งเวลา',
-      'ถ้าเห็นนี้หลัง 45 วินาที = ระบบตั้งเวลาทำงาน!',
-      scheduleTime,
-      NotificationDetails(
-        android: AndroidNotificationDetails(
-          _channel.id,
-          _channel.name,
-          channelDescription: _channel.description,
-          importance: Importance.max,
-          priority: Priority.high,
-          playSound: true,
-          enableVibration: true,
-          icon: '@mipmap/ic_launcher',
-        ),
-      ),
-      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+  //   await _flutterLocalNotificationsPlugin.zonedSchedule(
+  //     998,
+  //     '⏰ ทดสอบตั้งเวลา',
+  //     'ถ้าเห็นนี้หลัง 45 วินาที = ระบบตั้งเวลาทำงาน!',
+  //     scheduleTime,
+  //     NotificationDetails(
+  //       android: AndroidNotificationDetails(
+  //         _channel.id,
+  //         _channel.name,
+  //         channelDescription: _channel.description,
+  //         importance: Importance.max,
+  //         priority: Priority.high,
+  //         playSound: true,
+  //         enableVibration: true,
+  //         icon: '@mipmap/ic_launcher',
+  //       ),
+  //     ),
+  //     androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
       
-      payload: jsonEncode({
-        "source": "test",
-        "scheduledAt": scheduleTime.toIso8601String(),
-      }),
-    );
+  //     payload: jsonEncode({
+  //       "source": "test",
+  //       "scheduledAt": scheduleTime.toIso8601String(),
+  //     }),
+  //   );
 
-    debugPrint('⏱️ ตั้งแจ้งเตือนทดสอบไว้ที่: '
-        '${scheduleTime.hour}:${scheduleTime.minute}:${scheduleTime.second}');
-  }
+  //   debugPrint('⏱️ ตั้งแจ้งเตือนทดสอบไว้ที่: '
+  //       '${scheduleTime.hour}:${scheduleTime.minute}:${scheduleTime.second}');
+  // }
 }

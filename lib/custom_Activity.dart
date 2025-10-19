@@ -136,52 +136,69 @@ class _CreateActivityScreenState extends State<CreateActivityScreen> {
     }
   }
 
+// --------------------------
+// 1) อัปโหลดรูป activity
+// --------------------------
   Future<String?> _uploadActivityImage(String userId, File imageFile) async {
-    try {
-      final random = Random();
-      final randomNumber = random.nextInt(90000) + 10000;
+  try {
+    final random = Random();
+    final randomNumber = random.nextInt(90000) + 10000;
+    final fileName = '${userId}_$randomNumber.jpg';
 
-      final ref = _storage
-          .ref()
-          .child('activity_pics')
-          .child('${userId}_$randomNumber.jpg');
+    // ✅ บังคับ bucket + path ให้ตรงเป๊ะด้วย gs://
+    final ref = FirebaseStorage.instance.refFromURL(
+      'gs://finalproject-609a4.firebasestorage.app/activity_pics/$fileName',
+    );
 
-      final uploadTask = ref.putFile(imageFile);
-      final snapshot = await uploadTask;
-      final downloadUrl = await snapshot.ref.getDownloadURL();
-      return downloadUrl;
-    } catch (e) {
-      print('Error uploading category image: $e');
+    final snapshot = await ref.putFile(
+      imageFile,
+      SettableMetadata(contentType: 'image/jpeg'),
+    );
+    if (snapshot.state != TaskState.success) {
+      debugPrint('❌ Upload failed: state=${snapshot.state}');
       return null;
     }
+    await ref.getMetadata();
+    final url = await ref.getDownloadURL();
+    debugPrint('✅ Uploaded OK -> bucket=${ref.bucket}, path=${ref.fullPath}');
+    debugPrint('✅ URL: $url');
+    return url;
+  } on FirebaseException catch (e) {
+    debugPrint('🔥 FirebaseException [${e.code}] ${e.message}');
+    return null;
+  } catch (e) {
+    debugPrint('🔥 Error uploading activity image: $e');
+    return null;
   }
+}
 
+// --------------------------
+// 2) Create Activity
+// --------------------------
   Future _createActivity() async {
-    final uid = FirebaseAuth.instance.currentUser?.uid;
-    String activityName = activityNameController.text.trim();
+    final user = FirebaseAuth.instance.currentUser;
+    final activityName = activityNameController.text.trim();
 
+    // validate
     if (activityName.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('กรุณาใส่ชื่อกิจกรรม')),
       );
       return;
     }
-
     if (selectedImage == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('กรุณาเลือกรูปภาพ')),
       );
       return;
     }
-
     if (_selectedCategoryId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('กรุณาเลือกหมวดหมู่')),
       );
       return;
     }
-
-    if (uid == null) {
+    if (user == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('กรุณาเข้าสู่ระบบ')),
       );
@@ -191,46 +208,64 @@ class _CreateActivityScreenState extends State<CreateActivityScreen> {
     setState(() => isLoading = true);
 
     try {
-      // อัปโหลดรูปไป Firebase
-      final imageUrl = await _uploadActivityImage(uid, selectedImage!);
-      if (imageUrl == null) throw Exception('Upload image failed');
+      // SDK ส่วนใหญ่คืน String non-null; ใช้ trim เผื่อ edge case
+      final token = await user.getIdToken(true);
+      if (token == null || token.isEmpty) {
+        throw Exception('ไม่สามารถดึง ID Token ได้');
+      }
 
-      // เตรียม body ส่ง server
+      // อัปโหลดรูป
+      final imageUrl = await _uploadActivityImage(user.uid, selectedImage!);
+      if (imageUrl == null) {
+        // หยุดก่อน อย่ายิง API ต่อ เพื่อเลี่ยง "missing required field"
+        throw Exception('อัปโหลดรูปภาพไม่สำเร็จ');
+      } 
+      
+
+      // เตรียมข้อมูลและยิง API
       final postUrl = '${ApiEndpoints.baseUrl}/api/activity/createAct';
       final bodyData = {
-        'uid': uid, // ส่ง uid เสมอ
-        'cate_id': _selectedCategoryId, // หมวดหมู่
-        'act_name': activityName, // ชื่อกิจกรรม
-        'act_pic': imageUrl, // URL รูปจาก Firebase
+        'cate_id': _selectedCategoryId, // ควรเป็น int ถ้า backend คาด int
+        'act_name': activityName,
+        'act_pic': imageUrl,
       };
-
+      debugPrint(bodyData.toString());
       final response = await http.post(
         Uri.parse(postUrl),
-        headers: {'Content-Type': 'application/json'},
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
         body: jsonEncode(bodyData),
       );
 
       if (response.statusCode == 200) {
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('เพิ่มกิจกรรมสำเร็จ')),
-          );
-          Navigator.pop(context, true);
-        }
-      } else {
-        final message =
-            jsonDecode(response.body)['message'] ?? 'บันทึกกิจกรรมล้มเหลว';
+        if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(message)),
+          const SnackBar(content: Text('เพิ่มกิจกรรมสำเร็จ')),
         );
+        Navigator.pop(context, true);
+      } else {
+        String message = 'บันทึกกิจกรรมล้มเหลว';
+        try {
+          final data = jsonDecode(response.body);
+          if (data is Map && data['message'] is String) {
+            message = data['message'];
+          }
+        } catch (_) {}
+        if (mounted) {
+          ScaffoldMessenger.of(context)
+              .showSnackBar(SnackBar(content: Text(message)));
+        }
       }
     } catch (e) {
-      print('Error creating activity: $e');
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('เกิดข้อผิดพลาด กรุณาลองใหม่อีกครั้ง')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))),
+        );
+      }
     } finally {
-      setState(() => isLoading = false);
+      if (mounted) setState(() => isLoading = false);
     }
   }
 
