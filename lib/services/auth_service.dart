@@ -5,6 +5,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart';
+import 'package:firebase_storage/firebase_storage.dart'; // ✅ ต้องมี
 
 import '../constant/api_endpoint.dart';
 import '../models/auth_response.dart';
@@ -279,47 +280,52 @@ class AuthService {
   // Register new user
   // ------------------------------------------------------------
   Future<Map<String, dynamic>> registerUser({
-    required String name,
-    required String email,
-    required String password,
-    required String birthday,
-    File? image,
-  }) async {
-    try {
-      final uri = Uri.parse(
-        '${ApiEndpoints.baseUrl}/api/auth/registerwithemailpassword',
-      );
-      final request = http.MultipartRequest('POST', uri);
+  required String name,
+  required String email,
+  required String password,
+  required String birthday,
+  File? image,
+}) async {
+  try {
+    // 1) อัปโหลดรูปขึ้น Firebase Storage (ถ้ามี)
+    String? photoURL;
+    if (image != null) {
+      // ตั้งชื่อไฟล์แบบ safe จากอีเมล
+      final safeEmail = email.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '_');
+      final ref = FirebaseStorage.instance
+          .ref()
+          .child('profile_images')
+          .child('$safeEmail.jpg');
 
-      request.fields.addAll({
-        'username': name,
-        'email': email,
-        'password': password,
-        'birthday': birthday,
-      });
-
-      if (image != null) {
-        request.files.add(
-          await http.MultipartFile.fromPath(
-            'profileImage',
-            image.path,
-            contentType: MediaType('image', 'jpeg'),
-          ),
-        );
-      }
-
-      final streamedResponse = await request.send();
-      final response = await http.Response.fromStream(streamedResponse);
-      final data = jsonDecode(response.body);
-
-      return {
-        'status': response.statusCode,
-        'body': data,
-      };
-    } catch (e) {
-      rethrow;
+      await ref.putFile(image);
+      photoURL = await ref.getDownloadURL();
     }
+
+    // 2) ยิง API แบบ JSON พร้อม photoURL (ถ้ามี)
+    final uri = Uri.parse(
+      '${ApiEndpoints.baseUrl}/api/auth/registerwithemailpassword',
+    );
+
+    final body = {
+      'username': name.trim(),
+      'email': email.trim(),
+      'password': password,          // ถ้าต้องการเข้มงวดเพิ่มได้
+      'birthday': birthday.trim(),   // รูปแบบวันที่ให้ตรงกับฝั่ง server
+      if (photoURL != null) 'photoURL': photoURL,
+    };
+
+    final response = await http.post(
+      uri,
+      headers: {'Content-Type': 'application/json; charset=UTF-8'},
+      body: jsonEncode(body),
+    );
+
+    final data = jsonDecode(response.body);
+    return {'status': response.statusCode, 'body': data};
+  } catch (e) {
+    rethrow;
   }
+}
 
   // ------------------------------------------------------------
   // Sign out

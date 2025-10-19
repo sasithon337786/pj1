@@ -1,4 +1,7 @@
+import 'dart:async';
 import 'dart:convert';
+import 'dart:math';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:http/http.dart' as http;
@@ -94,13 +97,62 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
     );
   }
 
+// อัปโหลดขึ้น Firebase Storage แล้วคืน download URL
+  Future<String?> _uploadProfileImage(String userId, File imageFile) async {
+    try {
+      // สุ่มชื่อไฟล์กัน cache/ชนกัน
+      final random = Random();
+      final randomNumber = random.nextInt(90000) + 10000;
+      final fileName = '${userId}_$randomNumber.jpg';
+
+      // ✅ ใช้ bucket จาก Firebase options (หลีกเลี่ยงการ hardcode)
+      final bucket = Firebase.app().options.storageBucket;
+      if (bucket == null || bucket.isEmpty) {
+        debugPrint('🔥 storageBucket is not set in Firebase options');
+        return null;
+      }
+
+      // ✅ path โฟลเดอร์สำหรับโปรไฟล์
+      final fullGsUrl = 'gs://$bucket/profile_images/$fileName';
+
+      // อ้างอิงผ่าน gs:// (ชัดเจนเรื่อง bucket)
+      final ref = FirebaseStorage.instance.refFromURL(fullGsUrl);
+
+      final snapshot = await ref.putFile(
+        imageFile,
+        SettableMetadata(contentType: 'image/jpeg'),
+      );
+
+      if (snapshot.state != TaskState.success) {
+        debugPrint('❌ Upload failed: state=${snapshot.state}');
+        return null;
+      }
+
+      // ดึง metadata เฉย ๆ (optional แต่มีประโยชน์เวลา debug)
+      await ref.getMetadata();
+
+      final url = await ref.getDownloadURL();
+      debugPrint('✅ Uploaded OK -> bucket=${ref.bucket}, path=${ref.fullPath}');
+      debugPrint('✅ URL: $url');
+      return url;
+    } on FirebaseException catch (e) {
+      debugPrint('🔥 FirebaseException [${e.code}] ${e.message}');
+      return null;
+    } catch (e) {
+      debugPrint('🔥 Error uploading profile image: $e');
+      return null;
+    }
+  }
+
   Future<void> _registerUser() async {
     if (!_formKey.currentState!.validate()) return;
 
     if (passwordController.text != confirmPasswordController.text) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-            content: Text('รหัสผ่านไม่ตรงกัน'), backgroundColor: Colors.red),
+        const SnackBar(
+          content: Text('รหัสผ่านไม่ตรงกัน'),
+          backgroundColor: Colors.red,
+        ),
       );
       return;
     }
@@ -108,58 +160,78 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
     setState(() => _isLoading = true);
 
     try {
-      var uri = Uri.parse(
-          ApiEndpoints.baseUrl + '/api/auth/registerwithemailpassword');
+      final email = emailController.text.trim();
 
-      var request = http.MultipartRequest('POST', uri);
-
-      request.fields['email'] = emailController.text.trim();
-      request.fields['password'] = passwordController.text.trim();
-      request.fields['username'] = nameController.text.trim();
-      request.fields['birthday'] = birthdayController.text.trim();
-
-      // เพิ่มรูปถ้ามี
+      // 1) อัปโหลดรูปไป Firebase Storage ก่อน (ถ้ามีรูป)
+      String? photoURL;
       if (_image != null) {
-        request.files.add(
-          await http.MultipartFile.fromPath(
-            'profileImage',
-            _image!.path,
-            contentType: MediaType('image', 'jpeg'),
+        photoURL = await _uploadProfileImage(
+            email, _image!); // ✅ แก้ให้ส่ง 2 พารามิเตอร์
+      }
+
+      // 2) ส่ง JSON ไป backend (ไม่ใช้ Multipart อีก)
+      final uri = Uri.parse(
+          '${ApiEndpoints.baseUrl}/api/auth/registerwithemailpassword');
+
+      final body = <String, dynamic>{
+        'email': email,
+        'password': passwordController.text.trim(),
+        'username': nameController.text.trim(),
+        'birthday': birthdayController.text.trim(),
+        if (photoURL != null) 'photoURL': photoURL,
+      };
+
+      final response = await http
+          .post(
+            uri,
+            headers: {'Content-Type': 'application/json; charset=UTF-8'},
+            body: jsonEncode(body),
+          )
+          .timeout(const Duration(seconds: 20));
+
+      dynamic resBody;
+      try {
+        resBody = jsonDecode(response.body);
+      } catch (_) {
+        resBody = {'message': 'ไม่สามารถอ่านคำตอบจากเซิร์ฟเวอร์ได้'};
+      }
+
+      if (response.statusCode == 201) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(resBody['message'] ?? 'สมัครสมาชิกสำเร็จ!'),
+            backgroundColor: Colors.green,
+          ),
+        );
+        if (!mounted) return;
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const LoginScreen()),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(resBody['message'] ?? 'สมัครสมาชิกไม่สำเร็จ'),
+            backgroundColor: Colors.red,
           ),
         );
       }
-
-      // ส่ง request
-      var streamedResponse = await request.send();
-      var response = await http.Response.fromStream(streamedResponse);
-
-      if (response.statusCode == 201) {
-        final resBody = jsonDecode(response.body);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-              content: Text(resBody['message'] ?? 'สมัครสมาชิกสำเร็จ!'),
-              backgroundColor: Colors.green),
-        );
-
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (context) => const LoginScreen()),
-        );
-      } else {
-        final resBody = jsonDecode(response.body);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-              content: Text(resBody['message'] ?? 'สมัครสมาชิกไม่สำเร็จ'),
-              backgroundColor: Colors.red),
-        );
-      }
+    } on TimeoutException {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('การเชื่อมต่อหมดเวลา โปรดลองใหม่อีกครั้ง'),
+          backgroundColor: Colors.red,
+        ),
+      );
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-            content: Text('เกิดข้อผิดพลาด: $e'), backgroundColor: Colors.red),
+          content: Text('เกิดข้อผิดพลาด: $e'),
+          backgroundColor: Colors.red,
+        ),
       );
     } finally {
-      setState(() => _isLoading = false);
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
