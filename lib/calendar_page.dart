@@ -147,17 +147,18 @@ class _CalendarPageState extends State<CalendarPage> {
     final String encouragementText = () {
       if (dayPercent == null) {
         return 'ยังไม่มีข้อมูลการทำกิจกรรมในวันนี้ค่ะ\n'
-               'เก่งมากๆ แล้วนะคะ! ในวันต่อๆ ไปก็สู้ๆ นะคะ \n'
-               'Do your best!💪🌟🙌❤️';
+            'ในวันอื่นๆคุณยังสามารถเริ่มทำตามเป้าหมาย\n'
+            'ที่ตัวเองต้องการได้นะคะ \n'
+            'Do your best!💪🌟🙌❤️';
       }
       if (dayPercent < 50.0) {
         return 'พยายามอีกนิดนะ!!! 💥\n'
-               'วันนี้คุณทำได้ ${dayPercent.toStringAsFixed(1)}% จากเป้าหมาย 🎯\n'
-               'ลองเติมอีกสักหน่อย รับรองถึงเป้าแน่ ๆ ✨';
+            'วันนี้คุณทำได้ ${dayPercent.toStringAsFixed(1)}% จากเป้าหมาย 🎯\n'
+            'ลองเติมอีกสักหน่อย รับรองถึงเป้าแน่ ๆ ✨';
       }
       return 'คุณทำได้ ${dayPercent.toStringAsFixed(1)}% จากเป้าหมาย 🎯\n'
-             'เก่งมากๆ แล้วนะคะ! ในวันต่อๆ ไปก็สู้ๆ นะคะ \n'
-             'Do your best!💪🌟🙌❤️';
+          'เก่งมากๆ แล้วนะคะ! ในวันต่อๆ ไปก็สู้ๆ นะคะ \n'
+          'Do your best!💪🌟🙌❤️';
     }();
 
     final Color boxBg = (dayPercent != null && dayPercent < 50.0)
@@ -220,7 +221,8 @@ class _CalendarPageState extends State<CalendarPage> {
 
               // ---------- Title chip ----------
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                 decoration: BoxDecoration(
                   color: const Color(0xFFECE6E1),
                   borderRadius: BorderRadius.circular(20),
@@ -348,7 +350,8 @@ class _CalendarPageState extends State<CalendarPage> {
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 child: Container(
                   width: double.infinity,
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
                   margin: const EdgeInsets.only(top: 16),
                   decoration: BoxDecoration(
                     color: boxBg,
