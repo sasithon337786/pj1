@@ -13,6 +13,7 @@ import 'package:pj1/constant/api_endpoint.dart';
 import 'dart:io';
 import 'package:http_parser/http_parser.dart';
 import 'package:pj1/login.dart';
+import 'package:flutter/services.dart';
 
 class RegistrationScreen extends StatefulWidget {
   const RegistrationScreen({super.key});
@@ -305,10 +306,18 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                         width: 30,
                         height: 30,
                       ),
-                      hintText: 'ชื่อ-นามสกุล',
+                      hintText: 'ชื่อผู้ใช้',
+                      maxLength: 30, // ✅ จำนวนสูงสุด
+                      inputFormatters: [
+                        LengthLimitingTextInputFormatter(30), // ✅ กันพิมพ์เกิน
+                      ],
                       validator: (value) {
-                        if (value == null || value.isEmpty) {
-                          return 'กรุณากรอกชื่อ-นามสกุล';
+                        final v = value?.trim() ?? '';
+                        if (v.isEmpty) {
+                          return 'กรุณากรอกชื่อผู้ใช้';
+                        }
+                        if (v.length > 30) {
+                          return 'ห้ามเกิน 30 ตัวอักษร';
                         }
                         return null;
                       },
@@ -468,6 +477,10 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
     VoidCallback? onTap,
     String? Function(String?)? validator,
     TextInputType keyboardType = TextInputType.text,
+
+    // 👇 เพิ่มสองบรรทัดนี้
+    int? maxLength,
+    List<TextInputFormatter>? inputFormatters,
   }) {
     return TextFormField(
       controller: controller,
@@ -476,6 +489,9 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
       onTap: onTap,
       keyboardType: keyboardType,
       validator: validator,
+      // 👇 ส่งต่อพารามิเตอร์ใหม่
+      maxLength: maxLength,
+      inputFormatters: inputFormatters,
       style: GoogleFonts.kanit(
         color: Colors.white,
         fontSize: 16,
@@ -500,6 +516,8 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
           color: Colors.red[300],
           fontSize: 12,
         ),
+        // 👇 ซ่อนตัวนับ maxLength ใต้ช่อง
+        counterText: '',
       ),
     );
   }
