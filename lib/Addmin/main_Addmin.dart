@@ -273,38 +273,70 @@ class _MainAdminState extends State<MainAdmin> {
                                         borderRadius: BorderRadius.circular(16),
                                       ),
                                       child: Row(
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.spaceBetween,
                                         children: [
-                                          Column(
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.start,
-                                            children: [
-                                              Text(
-                                                user.username.isNotEmpty
-                                                    ? user.username
-                                                    : user.email,
-                                                style: GoogleFonts.kanit(
-                                                  fontSize: 22,
-                                                  color: Colors.white,
+                                          // ซ้าย: ข้อมูลข้อความ —> ใช้ Expanded เพื่อบีบพื้นที่ให้ตัด ... ได้
+                                          Expanded(
+                                            child: Column(
+                                              crossAxisAlignment:
+                                                  CrossAxisAlignment.start,
+                                              children: [
+                                                // ชื่อ/อีเมล
+                                                Tooltip(
+                                                  // เผื่ออยากให้ hover/long-press เห็นเต็มๆ
+                                                  message:
+                                                      user.username.isNotEmpty
+                                                          ? user.username
+                                                          : user.email,
+                                                  child: Text(
+                                                    user.username.isNotEmpty
+                                                        ? user.username
+                                                        : user.email,
+                                                    style: GoogleFonts.kanit(
+                                                      fontSize: 22,
+                                                      color: Colors.white,
+                                                    ),
+                                                    maxLines: 1,
+                                                    overflow:
+                                                        TextOverflow.ellipsis,
+                                                    softWrap: false,
+                                                  ),
                                                 ),
-                                              ),
-                                              Text(
-                                                'Role: ${user.role}',
-                                                style: GoogleFonts.kanit(
-                                                  fontSize: 16,
-                                                  color: Colors.white70,
+                                                // Role
+                                                Tooltip(
+                                                  message: 'Role: ${user.role}',
+                                                  child: Text(
+                                                    'Role: ${user.role}',
+                                                    style: GoogleFonts.kanit(
+                                                      fontSize: 16,
+                                                      color: Colors.white70,
+                                                    ),
+                                                    maxLines: 1,
+                                                    overflow:
+                                                        TextOverflow.ellipsis,
+                                                    softWrap: false,
+                                                  ),
                                                 ),
-                                              ),
-                                              Text(
-                                                'Status: ${user.status}',
-                                                style: GoogleFonts.kanit(
-                                                  fontSize: 16,
-                                                  color: Colors.white70,
+                                                // Status
+                                                Tooltip(
+                                                  message:
+                                                      'Status: ${user.status}',
+                                                  child: Text(
+                                                    'Status: ${user.status}',
+                                                    style: GoogleFonts.kanit(
+                                                      fontSize: 16,
+                                                      color: Colors.white70,
+                                                    ),
+                                                    maxLines: 1,
+                                                    overflow:
+                                                        TextOverflow.ellipsis,
+                                                    softWrap: false,
+                                                  ),
                                                 ),
-                                              ),
-                                            ],
+                                              ],
+                                            ),
                                           ),
+                                          const SizedBox(width: 12),
+                                          // ขวา: ปุ่มรายละเอียด
                                           ElevatedButton(
                                             onPressed: () async {
                                               final result =
@@ -313,12 +345,9 @@ class _MainAdminState extends State<MainAdmin> {
                                                 MaterialPageRoute(
                                                   builder: (context) =>
                                                       ListUserInfoScreen(
-                                                    uid: user.uid, // ส่ง uid ไป
-                                                  ),
+                                                          uid: user.uid),
                                                 ),
                                               );
-
-                                              // ถ้า result เป็น true (หรือเงื่อนไขใดๆ) ให้ refresh users
                                               if (result == true) {
                                                 _fetchUsers();
                                               }
