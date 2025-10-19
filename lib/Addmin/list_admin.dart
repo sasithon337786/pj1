@@ -52,30 +52,11 @@ class _ListUserInfoScreenState extends State<ListUserInfoScreen> {
         throw Exception('Not authenticated');
       }
 
-      // 1) total_activities
-      final countUri = Uri.parse(
-        '${ApiEndpoints.baseUrl}/api/activity/count',
-      ).replace(queryParameters: {'uid': widget.uid});
-
-      final countRes = await http.get(
-        countUri,
-        headers: {
-          'Authorization': 'Bearer $idToken',
-          'Content-Type': 'application/json',
-        },
-      );
-      if (countRes.statusCode != 200) {
-        throw Exception('HTTP ${countRes.statusCode}: ${countRes.body}');
-      }
-      final cBody = json.decode(countRes.body) as Map<String, dynamic>;
-      final int newTotal = (cBody['total_activities'] is int)
-          ? cBody['total_activities'] as int
-          : int.tryParse('${cBody['total_activities']}') ?? 0;
-
-      // 2) success จาก summary
+      // 1) สรุปกิจกรรม: total/success/failed (ยิงครั้งเดียว)
       final summaryUri = Uri.parse(
         '${ApiEndpoints.baseUrl}/api/activity/summary',
-      ).replace(queryParameters: {'uid': widget.uid});
+      ).replace(
+          queryParameters: {'uid': widget.uid}); // admin จะส่ง uid คนอื่นได้
 
       final summaryRes = await http.get(
         summaryUri,
@@ -87,7 +68,9 @@ class _ListUserInfoScreenState extends State<ListUserInfoScreen> {
       if (summaryRes.statusCode != 200) {
         throw Exception('HTTP ${summaryRes.statusCode}: ${summaryRes.body}');
       }
+
       final sBody = json.decode(summaryRes.body) as Map<String, dynamic>;
+      // รองรับทั้งแบบ { data: {...} } และแบบ flat
       final sData = (sBody['data'] ?? sBody) as Map<String, dynamic>;
 
       int toInt(dynamic v) {
@@ -97,14 +80,17 @@ class _ListUserInfoScreenState extends State<ListUserInfoScreen> {
         return 0;
       }
 
+      final int newTotal = toInt(sData['total_activities']);
       final int newSuccess = toInt(sData['success_activities']);
-      final int newFailed =
-          (newTotal - newSuccess) < 0 ? 0 : (newTotal - newSuccess);
+      // ถ้า backend ส่ง failed_activities มาแล้ว ใช้อันนั้นได้เลย
+      final int newFailed = sData.containsKey('failed_activities')
+          ? toInt(sData['failed_activities'])
+          : (newTotal - newSuccess < 0 ? 0 : newTotal - newSuccess);
 
-      // 3) Profile -> ต้องสร้าง UserModel เพื่อเปิดปุ่ม
+      // 2) Profile (เหมือนเดิม)
       String newDisplayName = '—';
       String? newPhotoUrl;
-      UserModel? newDetailUser; // <<<<<<<<<<<<<< เพิ่มตัวแปรชั่วคราว
+      UserModel? newDetailUser;
 
       try {
         final profileUri =
@@ -129,7 +115,6 @@ class _ListUserInfoScreenState extends State<ListUserInfoScreen> {
             newPhotoUrl =
                 (rawPhoto != null && rawPhoto.isNotEmpty) ? rawPhoto : null;
 
-            // ✅ สร้างโมเดลสำหรับส่งไป UserInfoScreen
             DateTime? parsedBirthday;
             final b = (pData['birthday'] ?? '').toString();
             if (b.isNotEmpty) parsedBirthday = DateTime.tryParse(b);
@@ -154,7 +139,7 @@ class _ListUserInfoScreenState extends State<ListUserInfoScreen> {
         failedActivities = newFailed;
         displayName = newDisplayName;
         photoUrl = newPhotoUrl;
-        _detailUser = newDetailUser; // <<<<<<<<<<<<<< เซ็ตค่านี้เพื่อเปิดปุ่ม
+        _detailUser = newDetailUser;
         isLoading = false;
         errorText = null;
       });
@@ -168,30 +153,29 @@ class _ListUserInfoScreenState extends State<ListUserInfoScreen> {
   }
 
   void _onItemTapped(int index) async {
-  setState(() => _selectedIndex = index);
-  Widget page;
-  switch (index) {
-    case 0:
-      page = const MainAdmin();
-      break;
-    case 1:
-      page = const ListuserSuspended();
-      break;
-    case 2:
-      page = const ListuserDeleteAdmin();
-      break;
-    case 3:
-      page = const ListuserPetition();
-      break;
-    default:
-      return;
+    setState(() => _selectedIndex = index);
+    Widget page;
+    switch (index) {
+      case 0:
+        page = const MainAdmin();
+        break;
+      case 1:
+        page = const ListuserSuspended();
+        break;
+      case 2:
+        page = const ListuserDeleteAdmin();
+        break;
+      case 3:
+        page = const ListuserPetition();
+        break;
+      default:
+        return;
+    }
+
+    await Navigator.push(context, MaterialPageRoute(builder: (_) => page));
+    if (!mounted) return;
+    _loadLatest(); // กลับมาหน้านี้แล้วรีเฟรชเสมอ
   }
-
-  await Navigator.push(context, MaterialPageRoute(builder: (_) => page));
-  if (!mounted) return;
-  _loadLatest(); // กลับมาหน้านี้แล้วรีเฟรชเสมอ
-}
-
 
   @override
   Widget build(BuildContext context) {
@@ -233,7 +217,7 @@ class _ListUserInfoScreenState extends State<ListUserInfoScreen> {
                 top: MediaQuery.of(context).padding.top + 16,
                 left: 16,
                 child: GestureDetector(
-                  onTap: () => Navigator.pop(context,true),
+                  onTap: () => Navigator.pop(context, true),
                   child: Row(
                     children: [
                       const Icon(Icons.arrow_back, color: Colors.white),
