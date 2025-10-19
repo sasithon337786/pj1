@@ -9,6 +9,8 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart'; // สำหรับ ImagePicker
+import 'package:flutter/services.dart'; // ✨ สำหรับ LengthLimitingTextInputFormatter / MaxLengthEnforcement
+import 'package:characters/characters.dart'; // ✨ สำหรับนับตัวอักษรจริง (รวมอีโมจิ/ตัวผสม)
 
 // ต้อง import ไฟล์ที่เกี่ยวข้องทั้งหมดที่ใช้ใน Bottom Navigation Bar
 import 'package:pj1/account.dart';
@@ -52,18 +54,15 @@ class _CreateActivityScreenState extends State<CreateActivityScreen> {
   }
 
   Future<String?> _getUserRole(String uid) async {
-    // Example: Make an API call to get the user's role
-    // Replace with your actual API call
     try {
       final response = await http.get(
-        Uri.parse(
-            '${ApiEndpoints.baseUrl}/api/auth/getRole?uid=$uid'), // Example API route
+        Uri.parse('${ApiEndpoints.baseUrl}/api/auth/getRole?uid=$uid'),
         headers: {'Content-Type': 'application/json'},
       );
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        return data['role']; // Assuming the response has a 'role' field
+        return data['role'];
       } else {
         print('Failed to get user role: ${response.statusCode}');
         return null;
@@ -140,52 +139,61 @@ class _CreateActivityScreenState extends State<CreateActivityScreen> {
 // 1) อัปโหลดรูป activity
 // --------------------------
   Future<String?> _uploadActivityImage(String userId, File imageFile) async {
-  try {
-    final random = Random();
-    final randomNumber = random.nextInt(90000) + 10000;
-    final fileName = '${userId}_$randomNumber.jpg';
+    try {
+      final random = Random();
+      final randomNumber = random.nextInt(90000) + 10000;
+      final fileName = '${userId}_$randomNumber.jpg';
 
-    // ✅ บังคับ bucket + path ให้ตรงเป๊ะด้วย gs://
-    final ref = FirebaseStorage.instance.refFromURL(
-      'gs://finalproject-609a4.firebasestorage.app/activity_pics/$fileName',
-    );
+      // ✅ บังคับ bucket + path ให้ตรงเป๊ะด้วย gs://
+      final ref = FirebaseStorage.instance.refFromURL(
+        'gs://finalproject-609a4.firebasestorage.app/activity_pics/$fileName',
+      );
 
-    final snapshot = await ref.putFile(
-      imageFile,
-      SettableMetadata(contentType: 'image/jpeg'),
-    );
-    if (snapshot.state != TaskState.success) {
-      debugPrint('❌ Upload failed: state=${snapshot.state}');
+      final snapshot = await ref.putFile(
+        imageFile,
+        SettableMetadata(contentType: 'image/jpeg'),
+      );
+      if (snapshot.state != TaskState.success) {
+        debugPrint('❌ Upload failed: state=${snapshot.state}');
+        return null;
+      }
+      await ref.getMetadata();
+      final url = await ref.getDownloadURL();
+      debugPrint('✅ Uploaded OK -> bucket=${ref.bucket}, path=${ref.fullPath}');
+      debugPrint('✅ URL: $url');
+      return url;
+    } on FirebaseException catch (e) {
+      debugPrint('🔥 FirebaseException [${e.code}] ${e.message}');
+      return null;
+    } catch (e) {
+      debugPrint('🔥 Error uploading activity image: $e');
       return null;
     }
-    await ref.getMetadata();
-    final url = await ref.getDownloadURL();
-    debugPrint('✅ Uploaded OK -> bucket=${ref.bucket}, path=${ref.fullPath}');
-    debugPrint('✅ URL: $url');
-    return url;
-  } on FirebaseException catch (e) {
-    debugPrint('🔥 FirebaseException [${e.code}] ${e.message}');
-    return null;
-  } catch (e) {
-    debugPrint('🔥 Error uploading activity image: $e');
-    return null;
   }
-}
 
 // --------------------------
 // 2) Create Activity
 // --------------------------
   Future _createActivity() async {
     final user = FirebaseAuth.instance.currentUser;
-    final activityName = activityNameController.text.trim();
 
-    // validate
-    if (activityName.isEmpty) {
+    // ✨ ตรวจความยาวชื่อกิจกรรม (กันเกิน 30 ตัวอักษร) + กันค่าว่าง
+    final rawName = activityNameController.text.trim();
+    final nameLength = rawName.characters.length; // นับตัวอักษรจริง
+
+    if (rawName.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('กรุณาใส่ชื่อกิจกรรม')),
       );
       return;
     }
+    if (nameLength > 30) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('ชื่อกิจกรรมห้ามเกิน 30 ตัวอักษร')),
+      );
+      return;
+    }
+
     if (selectedImage == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('กรุณาเลือกรูปภาพ')),
@@ -219,14 +227,13 @@ class _CreateActivityScreenState extends State<CreateActivityScreen> {
       if (imageUrl == null) {
         // หยุดก่อน อย่ายิง API ต่อ เพื่อเลี่ยง "missing required field"
         throw Exception('อัปโหลดรูปภาพไม่สำเร็จ');
-      } 
-      
+      }
 
       // เตรียมข้อมูลและยิง API
       final postUrl = '${ApiEndpoints.baseUrl}/api/activity/createAct';
       final bodyData = {
         'cate_id': _selectedCategoryId, // ควรเป็น int ถ้า backend คาด int
-        'act_name': activityName,
+        'act_name': rawName,
         'act_pic': imageUrl,
       };
       debugPrint(bodyData.toString());
@@ -476,6 +483,12 @@ class _CreateActivityScreenState extends State<CreateActivityScreen> {
                       const SizedBox(height: 20),
                       TextFormField(
                         controller: activityNameController,
+                        // ✨ จำกัดความยาว 30 ตัวอักษรตั้งแต่ UI
+                        maxLength: 20,
+                        maxLengthEnforcement: MaxLengthEnforcement.enforced,
+                        inputFormatters: [
+                          LengthLimitingTextInputFormatter(30),
+                        ],
                         decoration: InputDecoration(
                           hintText: 'Activity Name......',
                           hintStyle: GoogleFonts.kanit(color: Colors.white),
@@ -487,6 +500,7 @@ class _CreateActivityScreenState extends State<CreateActivityScreen> {
                           ),
                           contentPadding: const EdgeInsets.symmetric(
                               horizontal: 16, vertical: 12),
+                          counterText: '', // ไม่แสดงตัวนับใต้ช่อง
                         ),
                         style: GoogleFonts.kanit(color: Colors.white),
                       ),
