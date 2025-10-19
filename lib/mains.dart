@@ -563,44 +563,77 @@ class _TaskCard extends StatelessWidget {
                 ),
               ));
 
+    // ✅ ถ้าเสร็จแล้ว เปลี่ยนชิปเป็น “เสร็จสิ้นแล้ว” และใช้สีเขียวดูสำเร็จ
+    final bool done = isCompleted;
     final Color chipColor =
-        isCompleted ? const Color(0xFFC98993) : const Color(0xFF564843);
+        done ? const Color.fromARGB(255, 40, 145, 16) : const Color(0xFF564843);
+    final String chipText = done ? 'เสร็จสิ้นแล้ว' : displayText;
 
-    return Card(
-      color: const Color(0xFFF3E1E1),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      margin: const EdgeInsets.symmetric(vertical: 8),
-      child: ListTile(
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        leading: imageWidget,
-        title: Text(
-          label,
-          style:
-              GoogleFonts.kanit(fontSize: 20, color: const Color(0xFFC98993)),
-          overflow: TextOverflow.ellipsis,
-          maxLines: 1,
-        ),
-        trailing: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-              decoration: BoxDecoration(
-                  color: chipColor, borderRadius: BorderRadius.circular(12)),
-              child: Text(
-                displayText,
-                style: GoogleFonts.kanit(
-                    fontSize: 14, color: const Color(0xFFFAFAFA)),
+    return Opacity(
+      // ทำให้การ์ดจางลงนิดถ้าเสร็จแล้ว (สวยขึ้น)
+      opacity: done ? 0.9 : 1.0,
+      child: Card(
+        color: const Color(0xFFF3E1E1),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        margin: const EdgeInsets.symmetric(vertical: 8),
+        child: ListTile(
+          contentPadding:
+              const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          leading: imageWidget,
+          title: Text(
+            label,
+            style: GoogleFonts.kanit(
+              fontSize: 20,
+              color: const Color(0xFFC98993),
+            ),
+            overflow: TextOverflow.ellipsis,
+            maxLines: 1,
+          ),
+          trailing: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: chipColor,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Row(
+                  children: [
+                    if (done) ...[
+                      const Icon(Icons.check_circle,
+                          size: 16, color: Colors.white),
+                      const SizedBox(width: 6),
+                    ],
+                    Text(
+                      chipText,
+                      style: GoogleFonts.kanit(
+                          fontSize: 14, color: const Color(0xFFFAFAFA)),
+                    ),
+                  ],
+                ),
               ),
-            ),
-            IconButton(
-              icon: const Icon(Icons.delete, color: Color(0xFFCE2828)),
-              onPressed: onDelete,
-              tooltip: 'ลบกิจกรรม',
-            ),
-          ],
+              IconButton(
+                icon: const Icon(Icons.delete, color: Color(0xFFCE2828)),
+                onPressed: onDelete,
+                tooltip: 'ลบกิจกรรม',
+              ),
+            ],
+          ),
+          onTap: () {
+            if (done) {
+              // ❌ ไม่ให้เข้าไปแก้ต่อเมื่อเสร็จแล้ว — แจ้งเตือนแทน
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                    content: Text('กิจกรรมนี้คุณทำเสร็จแล้ว',
+                        style: GoogleFonts.kanit())),
+              );
+              return;
+            }
+            onTap?.call();
+          },
         ),
-        onTap: onTap,
       ),
     );
   }

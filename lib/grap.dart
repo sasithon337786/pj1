@@ -29,7 +29,6 @@ Future<List<Map<String, dynamic>>> fetchActivities() async {
       'Authorization': 'Bearer $idToken',
     };
 
-    // ดึง activities ของผู้ใช้
     final url = Uri.parse(
       '${ApiEndpoints.baseUrl}/api/activityDetail/getHistory',
     );
@@ -40,7 +39,7 @@ Future<List<Map<String, dynamic>>> fetchActivities() async {
       final activities =
           List<Map<String, dynamic>>.from(json.decode(response.body));
 
-      // เติมสถานะ expectation ให้แต่ละ activity
+      // เติม expectation ให้แต่ละ activity
       for (var act in activities) {
         final finalActId = _toInt(act['act_id'], fallback: 0);
         if (finalActId <= 0) {
@@ -78,17 +77,17 @@ Future<List<Map<String, dynamic>>> fetchActivities() async {
   }
 }
 
-// ตัวช่วยแปลงค่าเป็น int
 int _toInt(dynamic value, {int fallback = 0}) {
   if (value == null) return fallback;
   if (value is int) return value;
   if (value is String) return int.tryParse(value) ?? fallback;
   if (value is double) return value.toInt();
+  if (value is num) return value.toInt();
   return fallback;
 }
 
 class _GraphpageState extends State<Graphpage> {
-  int _selectedIndex = 2; // อยู่แท็บ Graph
+  int _selectedIndex = 2; // แท็บ Graph
   late final Future<List<Map<String, dynamic>>> _future;
 
   @override
@@ -102,35 +101,52 @@ class _GraphpageState extends State<Graphpage> {
     switch (index) {
       case 0:
         Navigator.pushReplacement(
-            context, MaterialPageRoute(builder: (_) => const HomePage()));
+          context,
+          MaterialPageRoute(builder: (_) => const HomePage()),
+        );
         break;
       case 1:
         Navigator.pushReplacement(
-            context, MaterialPageRoute(builder: (_) => const Targetpage()));
+          context,
+          MaterialPageRoute(builder: (_) => const Targetpage()),
+        );
         break;
       case 2:
         // อยู่หน้าเดิม
         break;
       case 3:
         Navigator.pushReplacement(
-            context, MaterialPageRoute(builder: (_) => const AccountPage()));
+          context,
+          MaterialPageRoute(builder: (_) => const AccountPage()),
+        );
         break;
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final topBarHeight = MediaQuery.of(context).padding.top + 80.0;
+
     return Scaffold(
       backgroundColor: const Color(0xFFC98993),
       body: Stack(
         children: [
+          // พื้นหลัง Top Bar
           Column(
             children: [
               Container(
                 color: const Color(0xFF564843),
-                height: MediaQuery.of(context).padding.top + 80,
+                height: topBarHeight,
                 width: double.infinity,
               ),
+              const Expanded(child: SizedBox()), // ดันด้านล่างให้เต็ม
+            ],
+          ),
+
+          // เนื้อหา
+          Column(
+            children: [
+              SizedBox(height: topBarHeight + 45),
               Expanded(
                 child: FutureBuilder<List<Map<String, dynamic>>>(
                   future: _future,
@@ -146,10 +162,10 @@ class _GraphpageState extends State<Graphpage> {
                       return const Center(child: Text('ยังไม่มีกิจกรรม'));
                     }
 
-                    return SingleChildScrollView(
-                      padding: const EdgeInsets.only(top: 70, bottom: 16),
+                    // โครง: หัว + รายการเลื่อนเฉพาะ ListView
+                    return Padding(
+                      padding: const EdgeInsets.fromLTRB(24, 30, 24, 16),
                       child: Container(
-                        margin: const EdgeInsets.symmetric(horizontal: 24),
                         padding: const EdgeInsets.all(16),
                         decoration: BoxDecoration(
                           color: const Color(0xFFEFEAE3),
@@ -158,10 +174,14 @@ class _GraphpageState extends State<Graphpage> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
+                            // ===== หัว (นิ่ง) =====
                             Row(
                               children: [
-                                Image.asset('assets/images/analysis.png',
-                                    width: 24, height: 24),
+                                Image.asset(
+                                  'assets/images/analysis.png',
+                                  width: 24,
+                                  height: 24,
+                                ),
                                 const SizedBox(width: 8),
                                 Text(
                                   'GRAPH',
@@ -172,7 +192,6 @@ class _GraphpageState extends State<Graphpage> {
                                   ),
                                 ),
                                 const Spacer(),
-                                // ปุ่มใหม่
                                 TextButton.icon(
                                   style: TextButton.styleFrom(
                                     backgroundColor: const Color(0xFFE6D2CD),
@@ -186,12 +205,15 @@ class _GraphpageState extends State<Graphpage> {
                                     Navigator.push(
                                       context,
                                       MaterialPageRoute(
-                                          builder: (_) =>
-                                              const AllGraphScreen()),
+                                        builder: (_) => const AllGraphScreen(),
+                                      ),
                                     );
                                   },
-                                  icon: const Icon(Icons.auto_graph,
-                                      size: 18, color: Color(0xFFC98993)),
+                                  icon: const Icon(
+                                    Icons.auto_graph,
+                                    size: 18,
+                                    color: Color(0xFFC98993),
+                                  ),
                                   label: Text(
                                     'แสดงกราฟผลรวม',
                                     style: GoogleFonts.kanit(
@@ -203,18 +225,42 @@ class _GraphpageState extends State<Graphpage> {
                                 ),
                               ],
                             ),
-                            const SizedBox(height: 16),
-                            // ----------------------------------
-                            const SizedBox(height: 16),
-                            for (final act in activities)
-                              TaskCard(
-                                actId: (act['act_id'] as num).toInt(),
-                                actName: (act['act_name'] ?? '').toString(),
-                                actPic: (act['act_pic'] ?? '').toString(),
-                                expectationText: act['user_exp'] ?? '',
-                                actDetailId:
-                                    (act['act_detail_id'] as num?)?.toInt(),
+
+                            const SizedBox(height: 32),
+
+                            // ===== รายการ (เลื่อนเฉพาะส่วนนี้) =====
+                            Expanded(
+                              child: ListView.separated(
+                                physics: const BouncingScrollPhysics(),
+                                itemCount: activities.length,
+                                padding:
+                                    const EdgeInsets.symmetric(vertical: 4),
+                                separatorBuilder: (_, __) =>
+                                    const SizedBox(height: 8),
+                                itemBuilder: (context, index) {
+                                  final act = activities[index];
+
+                                  final actId = _toInt(act['act_id']);
+                                  final actName =
+                                      (act['act_name'] ?? '').toString();
+                                  final actPic =
+                                      (act['act_pic'] ?? '').toString();
+                                  final expectationText =
+                                      (act['user_exp'] ?? '') as String?;
+                                  final actDetailId =
+                                      _toInt(act['act_detail_id'], fallback: 0);
+
+                                  return TaskCard(
+                                    actId: actId,
+                                    actName: actName,
+                                    actPic: actPic,
+                                    expectationText: expectationText,
+                                    actDetailId:
+                                        actDetailId == 0 ? null : actDetailId,
+                                  );
+                                },
                               ),
+                            ),
                           ],
                         ),
                       ),
@@ -224,13 +270,18 @@ class _GraphpageState extends State<Graphpage> {
               ),
             ],
           ),
-          // โลโก้
+
+          // โลโก้ (ซ้อนทับด้านบน)
           Positioned(
             top: MediaQuery.of(context).padding.top + 40,
             left: MediaQuery.of(context).size.width / 2 - 40,
             child: ClipOval(
-              child: Image.asset('assets/images/logo.png',
-                  width: 80, height: 80, fit: BoxFit.cover),
+              child: Image.asset(
+                'assets/images/logo.png',
+                width: 80,
+                height: 80,
+                fit: BoxFit.cover,
+              ),
             ),
           ),
         ],
@@ -246,20 +297,22 @@ class _GraphpageState extends State<Graphpage> {
         onTap: _onItemTapped,
         items: [
           BottomNavigationBarItem(
-              icon: Image.asset('assets/icons/add.png', width: 24, height: 24),
-              label: 'Add'),
+            icon: Image.asset('assets/icons/add.png', width: 24, height: 24),
+            label: 'Add',
+          ),
           BottomNavigationBarItem(
-              icon: Image.asset('assets/icons/wishlist-heart.png',
-                  width: 24, height: 24),
-              label: 'Target'),
+            icon: Image.asset('assets/icons/wishlist-heart.png',
+                width: 24, height: 24),
+            label: 'Target',
+          ),
           BottomNavigationBarItem(
-              icon:
-                  Image.asset('assets/icons/stats.png', width: 24, height: 24),
-              label: 'Graph'),
+            icon: Image.asset('assets/icons/stats.png', width: 24, height: 24),
+            label: 'Graph',
+          ),
           BottomNavigationBarItem(
-              icon:
-                  Image.asset('assets/icons/accout.png', width: 24, height: 24),
-              label: 'Account'),
+            icon: Image.asset('assets/icons/accout.png', width: 24, height: 24),
+            label: 'Account',
+          ),
         ],
       ),
     );
@@ -285,7 +338,7 @@ class TaskCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+      margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 12),
       padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
       decoration: BoxDecoration(
         color: const Color(0xFF564843),
@@ -304,36 +357,35 @@ class TaskCard extends StatelessWidget {
                 const Icon(Icons.image_not_supported, color: Colors.white),
           ),
         ),
-        title: Text(actName,
-            style: GoogleFonts.kanit(color: Colors.white, fontSize: 17)),
+        title: Text(
+          actName,
+          style: GoogleFonts.kanit(color: Colors.white, fontSize: 17),
+        ),
         trailing: Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
           decoration: BoxDecoration(
             color: const Color(0xFFE6D2CD),
             borderRadius: BorderRadius.circular(20),
           ),
-          child: Text('รายละเอียด',
-              style: GoogleFonts.kanit(
-                  color: const Color(0xFFC98993), fontSize: 14)),
+          child: Text(
+            'รายละเอียด',
+            style: GoogleFonts.kanit(
+              color: const Color(0xFFC98993),
+              fontSize: 14,
+            ),
+          ),
         ),
         onTap: () {
-          // เพิ่ม debug print เพื่อตรวจสอบค่าที่ส่ง
-          debugPrint('TaskCard tapped:');
-          debugPrint('actId: $actId');
-          debugPrint('actName: $actName');
-          debugPrint('actPic: $actPic');
-          debugPrint('expectationText: $expectationText');
-          debugPrint('actDetailId: $actDetailId');
-
+          debugPrint('TaskCard tapped: actId=$actId, actDetailId=$actDetailId');
           Navigator.push(
             context,
             MaterialPageRoute(
               builder: (_) => UserGraphBarScreen(
-                actId: actId, // int
-                actName: actName, // String
-                actPic: actPic, // String
-                expectationText: expectationText, // String
-                actDetailId: actDetailId, // int
+                actId: actId,
+                actName: actName,
+                actPic: actPic,
+                expectationText: expectationText,
+                actDetailId: actDetailId,
               ),
             ),
           );

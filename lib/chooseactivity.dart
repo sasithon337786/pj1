@@ -62,39 +62,6 @@ class _ChooseactivityPageState extends State<ChooseactivityPage> {
     }
   }
 
-  void _onItemTapped(int index) {
-    setState(() {
-      _selectedIndex = index;
-    });
-
-    switch (index) {
-      case 0:
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (context) => const HomePage()),
-        );
-        break;
-      case 1:
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (context) => const Targetpage()),
-        );
-        break;
-      case 2:
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (context) => const Graphpage()),
-        );
-        break;
-      case 3:
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (context) => const AccountPage()),
-        );
-        break;
-    }
-  }
-
   Future<void> _addTimeReminder() async {
     final TimeOfDay? picked = await showTimePicker(
       context: context,
@@ -333,9 +300,8 @@ class _ChooseactivityPageState extends State<ChooseactivityPage> {
       if (response.statusCode == 201) {
         if (!mounted) return;
         _showAlertDialog('สำเร็จ', 'บันทึกข้อมูลกิจกรรมเรียบร้อยแล้ว!');
-        
-        await NotificationService.scheduleReminders(idToken!);
 
+        await NotificationService.scheduleReminders(idToken!);
 
         Navigator.pushReplacement(
           context,
@@ -737,35 +703,6 @@ class _ChooseactivityPageState extends State<ChooseactivityPage> {
                 ],
               ),
             ),
-          ),
-        ],
-      ),
-      bottomNavigationBar: BottomNavigationBar(
-        backgroundColor: const Color(0xFFE6D2CD),
-        selectedItemColor: Colors.white,
-        unselectedItemColor: Colors.white60,
-        selectedFontSize: 17,
-        unselectedFontSize: 17,
-        type: BottomNavigationBarType.fixed,
-        currentIndex: _selectedIndex,
-        onTap: _onItemTapped,
-        items: [
-          BottomNavigationBarItem(
-            icon: Image.asset('assets/icons/add.png', width: 24, height: 24),
-            label: 'Add',
-          ),
-          BottomNavigationBarItem(
-            icon: Image.asset('assets/icons/wishlist-heart.png',
-                width: 24, height: 24),
-            label: 'Target',
-          ),
-          BottomNavigationBarItem(
-            icon: Image.asset('assets/icons/stats.png', width: 24, height: 24),
-            label: 'Graph',
-          ),
-          BottomNavigationBarItem(
-            icon: Image.asset('assets/icons/accout.png', width: 24, height: 24),
-            label: 'Account',
           ),
         ],
       ),
