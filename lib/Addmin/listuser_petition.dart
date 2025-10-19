@@ -19,7 +19,7 @@ class ListuserPetition extends StatefulWidget {
 }
 
 class _ListuserPetitionState extends State<ListuserPetition> {
-  int _selectedIndex = 0;
+  int _selectedIndex = 3;
 
   List<PetitionItem> petitions = [];
   bool isLoading = true;
@@ -261,7 +261,6 @@ class _ListuserPetitionState extends State<ListuserPetition> {
                             ),
                           ],
                         ),
-                        const SizedBox(height: 12),
                         if (isLoading)
                           const Padding(
                             padding: EdgeInsets.all(16),
@@ -316,18 +315,10 @@ class _ListuserPetitionState extends State<ListuserPetition> {
                                             style: GoogleFonts.kanit(
                                               fontSize: 20,
                                               color: Colors.white,
-                                              fontWeight: FontWeight.w600,
                                             ),
                                             overflow: TextOverflow.ellipsis,
                                           ),
                                           const SizedBox(height: 4),
-                                          // ถ้าอยากแสดงเหตุผล/เวลา ให้เอาคอมเมนต์ออก:
-                                          // Text(
-                                          //   p.reason,
-                                          //   style: GoogleFonts.kanit(fontSize: 14, color: Colors.white70),
-                                          //   maxLines: 2,
-                                          //   overflow: TextOverflow.ellipsis,
-                                          // ),
                                         ],
                                       ),
                                     ),
