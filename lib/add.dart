@@ -399,16 +399,17 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
                       // ปุ่มจัดการหมวดหมู่
                       const SizedBox(height: 25),
                       if (userRole == 'admin')
-                        Align(
-                          alignment: Alignment.topRight,
-                          child: Padding(
-                            padding: const EdgeInsets.all(16.0),
+                        Padding(
+                          padding: const EdgeInsets.all(16.0),
+                          child: Container(
+                            alignment: Alignment.centerRight, // 👈 จัดชิดซ้าย
+                            width: double
+                                .infinity, // ให้กรอบกินเต็มแถว (กันการลอย)
                             child: ElevatedButton(
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: const Color(0xFF564843),
                                 shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
+                                    borderRadius: BorderRadius.circular(12)),
                                 padding: const EdgeInsets.symmetric(
                                     horizontal: 12, vertical: 6),
                               ),
@@ -416,9 +417,8 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
                                 await showDialog(
                                   context: context,
                                   builder: (context) => ManageCategoriesDialog(
-                                    onCategoriesUpdated: () {
-                                      loadUserCategories();
-                                    },
+                                    onCategoriesUpdated: () =>
+                                        loadUserCategories(),
                                   ),
                                 );
                                 loadUserCategories();
@@ -426,9 +426,7 @@ class _MainHomeScreenState extends State<MainHomeScreen> {
                               child: Text(
                                 'จัดการหมวดหมู่',
                                 style: GoogleFonts.kanit(
-                                  color: Colors.white,
-                                  fontSize: 14,
-                                ),
+                                    color: Colors.white, fontSize: 14),
                               ),
                             ),
                           ),
