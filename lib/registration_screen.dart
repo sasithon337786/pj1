@@ -11,7 +11,6 @@ import 'dart:io';
 import 'package:http_parser/http_parser.dart';
 import 'package:pj1/login.dart';
 // import 'package:pj1/login.dart';
-import 'package:pj1/screens/login_screen.dart';
 
 class RegistrationScreen extends StatefulWidget {
   const RegistrationScreen({super.key});
