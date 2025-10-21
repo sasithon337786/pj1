@@ -8,6 +8,7 @@ import 'package:pj1/constant/api_endpoint.dart';
 import 'package:pj1/dialog_coagy.dart';
 import 'package:pj1/mains.dart'; // ตรวจสอบ path ของ Category class ให้ถูกต้อง
 import 'package:pj1/edit_category_dialog.dart';
+import 'package:pj1/widgets/error_notifier.dart';
 
 class ManageCategoriesDialog extends StatefulWidget {
   final VoidCallback onCategoriesUpdated;
@@ -54,129 +55,131 @@ class _ManageCategoriesDialogState extends State<ManageCategoriesDialog> {
   }
 
   Future<void> _loadUserCategoriesForManagement() async {
-  setState(() {
-    isLoading = true;
-    errorMessage = null;
-  });
-
-  final user = FirebaseAuth.instance.currentUser;
-  if (user == null) {
     setState(() {
-      errorMessage = 'ไม่พบผู้ใช้ กรุณาเข้าสู่ระบบใหม่';
-      isLoading = false;
+      isLoading = true;
+      errorMessage = null;
     });
-    return;
-  }
 
-  final idToken = await user.getIdToken(true);
-
-  // ตรวจสอบ role
-  final role = await _getUserRole(user.uid);
-  if (role == null) {
-    setState(() {
-      errorMessage = 'ไม่สามารถตรวจสอบสิทธิ์ผู้ใช้ได้';
-      isLoading = false;
-    });
-    return;
-  }
-
-  setState(() {
-    userRole = role;
-  });
-
-  final Uri url = role == 'admin'
-      ? Uri.parse('${ApiEndpoints.baseUrl}/api/category/getDefaultCategories')
-      : Uri.parse('${ApiEndpoints.baseUrl}/api/category/getCategory?uid=${user.uid}');
-
-  try {
-    final response = await http.get(
-      url,
-      headers: {'Authorization': 'Bearer $idToken'},
-    );
-
-    if (response.statusCode == 200) {
-      final data = jsonDecode(response.body);
-      final List categoriesRaw = data is List ? data : (data['categories'] ?? []);
-      final categoriesData = categoriesRaw.map((item) {
-        return Category(
-          id: int.tryParse(item['cate_id'].toString()),
-          iconPath: item['cate_pic'],
-          label: item['cate_name'],
-          isNetworkImage: true,
-        );
-      }).toList();
-
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
       setState(() {
-        userCategories = categoriesData;
+        errorMessage = 'ไม่พบผู้ใช้ กรุณาเข้าสู่ระบบใหม่';
         isLoading = false;
       });
-    } else {
+      return;
+    }
+
+    final idToken = await user.getIdToken(true);
+
+    // ตรวจสอบ role
+    final role = await _getUserRole(user.uid);
+
+    if (role == null) {
       setState(() {
-        errorMessage = 'ไม่สามารถโหลดหมวดหมู่ได้: ${response.statusCode}';
+        errorMessage = 'ไม่สามารถตรวจสอบสิทธิ์ผู้ใช้ได้';
+        isLoading = false;
+      });
+      return;
+    }
+
+    setState(() {
+      userRole = role;
+    });
+
+    final Uri url = role == 'admin'
+        ? Uri.parse('${ApiEndpoints.baseUrl}/api/category/getDefaultCategories')
+        : Uri.parse(
+            '${ApiEndpoints.baseUrl}/api/category/getCategory?uid=${user.uid}');
+
+    try {
+      final response = await http.get(
+        url,
+        headers: {'Authorization': 'Bearer $idToken'},
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        final List categoriesRaw =
+            data is List ? data : (data['categories'] ?? []);
+        final categoriesData = categoriesRaw.map((item) {
+          return Category(
+            id: int.tryParse(item['cate_id'].toString()),
+            iconPath: item['cate_pic'],
+            label: item['cate_name'],
+            isNetworkImage: true,
+          );
+        }).toList();
+
+        setState(() {
+          userCategories = categoriesData;
+          isLoading = false;
+        });
+      } else {
+        setState(() {
+          errorMessage = 'ไม่สามารถโหลดหมวดหมู่ได้: ${response.statusCode}';
+          isLoading = false;
+        });
+      }
+    } catch (e) {
+      setState(() {
+        errorMessage = 'เกิดข้อผิดพลาดในการโหลดหมวดหมู่: $e';
         isLoading = false;
       });
     }
-  } catch (e) {
-    setState(() {
-      errorMessage = 'เกิดข้อผิดพลาดในการโหลดหมวดหมู่: $e';
-      isLoading = false;
-    });
-  }
-}
-
-Future<void> _deleteCategory(int? categoryId, String categoryName) async {
-  if (categoryId == null) return;
-
-  final user = FirebaseAuth.instance.currentUser;
-  if (user == null) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('ไม่พบผู้ใช้ กรุณาเข้าสู่ระบบใหม่')),
-    );
-    return;
   }
 
-  final idToken = await user.getIdToken(true);
+  Future<void> _deleteCategory(int? categoryId, String categoryName) async {
+    if (categoryId == null) return;
 
-  bool? confirmDelete = await showDialog<bool>(
-    context: context,
-    builder: (BuildContext context) {
-      return AlertDialog(
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      if (mounted)
+        ErrorNotifier.showSnack(context, 'ไม่พบผู้ใช้ กรุณาเข้าสู่ระบบใหม่');
+      return;
+    }
+
+    final idToken = await user.getIdToken(true);
+
+    final bool? confirmDelete = await showDialog<bool>(
+      context: context,
+      builder: (BuildContext context) => AlertDialog(
         backgroundColor: const Color(0xFFEFEAE3),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: Text('ยืนยันการลบ', style: GoogleFonts.kanit()),
-        content: Text('คุณต้องการลบหมวดหมู่ "$categoryName" ใช่หรือไม่?', style: GoogleFonts.kanit()),
+        content: Text('คุณต้องการลบหมวดหมู่ "$categoryName" ใช่หรือไม่?',
+            style: GoogleFonts.kanit()),
         actions: <Widget>[
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
-            child: Text('ยกเลิก', style: GoogleFonts.kanit(color: Color(0xFF564843))),
+            child: Text('ยกเลิก',
+                style: GoogleFonts.kanit(color: const Color(0xFF564843))),
           ),
           TextButton(
             onPressed: () => Navigator.of(context).pop(true),
-            child: Text('ลบ', style: GoogleFonts.kanit(color: Color(0xFFC98993))),
+            child: Text('ลบ',
+                style: GoogleFonts.kanit(color: const Color(0xFFC98993))),
           ),
         ],
-      );
-    },
-  );
+      ),
+    );
 
-  if (confirmDelete == true) {
+    if (confirmDelete != true) return;
+
     setState(() => isLoading = true);
-
     try {
       final role = await _getUserRole(user.uid);
       if (role == null) {
-        setState(() => isLoading = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('ไม่สามารถตรวจสอบสิทธิ์ผู้ใช้ได้')),
-        );
+        if (mounted)
+          ErrorNotifier.showSnack(context, 'ไม่สามารถตรวจสอบสิทธิ์ผู้ใช้ได้');
         return;
       }
 
       final Uri url = role == 'admin'
-          ? Uri.parse('${ApiEndpoints.baseUrl}/api/category/deleteDefaultCategory')
+          ? Uri.parse(
+              '${ApiEndpoints.baseUrl}/api/category/deleteDefaultCategory')
           : Uri.parse('${ApiEndpoints.baseUrl}/api/category/deleteCategory');
 
-      final response = await http.post(
+      final resp = await http.post(
         url,
         headers: {
           'Content-Type': 'application/json',
@@ -188,34 +191,42 @@ Future<void> _deleteCategory(int? categoryId, String categoryName) async {
         }),
       );
 
-      if (response.statusCode == 200) {
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('ลบหมวดหมู่ "$categoryName" สำเร็จ')),
-          );
-        }
-        _loadUserCategoriesForManagement();
+      if (resp.statusCode == 200) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('ลบหมวดหมู่ "$categoryName" สำเร็จ')),
+        );
+        await _loadUserCategoriesForManagement();
         widget.onCategoriesUpdated.call();
       } else {
-        final message = jsonDecode(response.body)['message'] ?? 'ลบหมวดหมู่ล้มเหลว';
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(message)),
-          );
-        }
+        final msg = _extractBackendMessage(resp.body) ?? 'ลบหมวดหมู่ล้มเหลว';
+        if (mounted) ErrorNotifier.showSnack(context, msg);
       }
     } catch (e) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('เกิดข้อผิดพลาดในการลบ: $e')),
-        );
-      }
+      if (mounted)
+        ErrorNotifier.showSnack(context, 'เกิดข้อผิดพลาดในการลบ: $e');
     } finally {
-      setState(() => isLoading = false);
+      if (mounted) setState(() => isLoading = false);
     }
   }
-}
 
+  String? _extractBackendMessage(String body) {
+    try {
+      final data = jsonDecode(body);
+      if (data is Map) {
+        // รองรับทั้ง message / error / code+message
+        final m = (data['message'] as String?)?.trim();
+        if (m != null && m.isNotEmpty) return m;
+        final e = (data['error'] as String?)?.trim();
+        if (e != null && e.isNotEmpty) return e;
+      }
+    } catch (_) {
+      // plain text
+      final t = body.trim();
+      if (t.isNotEmpty) return t;
+    }
+    return null;
+  }
 
   @override
   Widget build(BuildContext context) {
