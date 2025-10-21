@@ -281,39 +281,6 @@ class _CreateActivityScreenState extends State<CreateActivityScreen> {
     }
   }
 
-  void _onItemTapped(int index) {
-    setState(() {
-      _selectedIndex = index;
-    });
-
-    switch (index) {
-      case 0:
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (context) => const HomePage()),
-        );
-        break;
-      case 1:
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (context) => const Targetpage()),
-        );
-        break;
-      case 2:
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (context) => const Graphpage()),
-        );
-        break;
-      case 3:
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (context) => const AccountPage()),
-        );
-        break;
-    }
-  }
-
   @override
   void initState() {
     super.initState();
@@ -545,35 +512,6 @@ class _CreateActivityScreenState extends State<CreateActivityScreen> {
                 ),
               ),
             ),
-        ],
-      ),
-      bottomNavigationBar: BottomNavigationBar(
-        backgroundColor: const Color(0xFFE6D2CD),
-        selectedItemColor: Colors.white,
-        unselectedItemColor: Colors.white60,
-        selectedFontSize: 17,
-        unselectedFontSize: 17,
-        type: BottomNavigationBarType.fixed,
-        currentIndex: _selectedIndex,
-        onTap: _onItemTapped,
-        items: [
-          BottomNavigationBarItem(
-            icon: Image.asset('assets/icons/add.png', width: 24, height: 24),
-            label: 'Add',
-          ),
-          BottomNavigationBarItem(
-            icon: Image.asset('assets/icons/wishlist-heart.png',
-                width: 24, height: 24),
-            label: 'Target',
-          ),
-          BottomNavigationBarItem(
-            icon: Image.asset('assets/icons/stats.png', width: 24, height: 24),
-            label: 'Graph',
-          ),
-          BottomNavigationBarItem(
-            icon: Image.asset('assets/icons/accout.png', width: 24, height: 24),
-            label: 'Account',
-          ),
         ],
       ),
     );
