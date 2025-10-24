@@ -1,3 +1,3 @@
 class ApiEndpoints {
-  static const String baseUrl = 'https://project-backend-148h.onrender.com';
+  static const String baseUrl = 'https://817495bd8a5c.ngrok-free.app';
 }

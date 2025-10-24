@@ -10,6 +10,8 @@ import 'package:path/path.dart' as path;
 import 'package:pj1/constant/api_endpoint.dart';
 import 'dart:math';
 
+import 'package:pj1/widgets/error_notifier.dart';
+
 class AddCategoryDialog extends StatefulWidget {
   const AddCategoryDialog({super.key});
 
@@ -67,83 +69,87 @@ class _AddCategoryDialogState extends State<AddCategoryDialog> {
   }
 
   Future<void> _createCategory() async {
-    final uid = FirebaseAuth.instance.currentUser?.uid;
-    final idToken = await FirebaseAuth.instance.currentUser?.getIdToken(true);
-    String categoryName = categoryController.text.trim();
+  final uid = FirebaseAuth.instance.currentUser?.uid;
+  final idToken = await FirebaseAuth.instance.currentUser?.getIdToken(true);
+  final categoryName = categoryController.text.trim();
 
-    if (categoryName.isEmpty ||
-        selectedImage == null ||
-        uid == null ||
-        idToken == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('กรุณาเลือกภาพและใส่ชื่อหมวดหมู่')),
-      );
+  // 🔎 validate เบื้องต้น
+  if (categoryName.isEmpty || selectedImage == null || uid == null || idToken == null) {
+    if (mounted) ErrorNotifier.showSnack(context, 'กรุณาเลือกภาพและใส่ชื่อหมวดหมู่');
+    return;
+  }
+
+  setState(() => isLoading = true);
+  try {
+    // 🖼️ อัปโหลดรูป
+    final imageUrl = await _uploadCategoryImage(uid, selectedImage!);
+    if (imageUrl == null) {
+      if (mounted) ErrorNotifier.showSnack(context, 'อัปโหลดรูปภาพไม่สำเร็จ');
       return;
     }
 
-    setState(() => isLoading = true);
-
-    try {
-      // 🔹 อัปโหลดรูปไป Firebase Storage
-      final imageUrl = await _uploadCategoryImage(uid, selectedImage!);
-      if (imageUrl == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('อัปโหลดรูปภาพไม่สำเร็จ')),
-        );
-        setState(() => isLoading = false);
-        return;
-      }
-
-      // 🌐 เลือก URL ตาม role (ถ้าต้องการเช็ค role)
-      final role = await _getUserRole(uid);
-      if (role == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('ไม่สามารถตรวจสอบสิทธิ์ผู้ใช้ได้')),
-        );
-        setState(() => isLoading = false);
-        return;
-      }
-
-      final url = role == 'admin'
-          ? Uri.parse('${ApiEndpoints.baseUrl}/api/category/addDefaultCategory')
-          : Uri.parse('${ApiEndpoints.baseUrl}/api/category/createCate');
-
-      // 🚀 เรียก API
-      final response = await http.post(
-        url,
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $idToken', // 🔹 ส่ง idToken
-        },
-        body: jsonEncode({
-          'uid': uid,
-          'cate_name': categoryName,
-          'cate_pic': imageUrl,
-        }),
-      );
-
-      if (response.statusCode == 200) {
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('เพิ่มหมวดหมู่สำเร็จ')),
-          );
-          Navigator.pop(context, true);
-        }
-      } else {
-        final message =
-            jsonDecode(response.body)['message'] ?? 'บันทึกหมวดหมู่ล้มเหลว';
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(message)),
-        );
-      }
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('เกิดข้อผิดพลาด: $e')),
-      );
-    } finally {
-      setState(() => isLoading = false);
+    // 🔑 เลือก endpoint ตาม role
+    final role = await _getUserRole(uid);
+    if (role == null) {
+      if (mounted) ErrorNotifier.showSnack(context, 'ไม่สามารถตรวจสอบสิทธิ์ผู้ใช้ได้');
+      return;
     }
+
+    final url = role == 'admin'
+        ? Uri.parse('${ApiEndpoints.baseUrl}/api/category/addDefaultCategory')
+        : Uri.parse('${ApiEndpoints.baseUrl}/api/category/createCate');
+
+    // 🚀 ยิง API
+    final resp = await http.post(
+      url,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $idToken',
+      },
+      body: jsonEncode({
+        'uid': uid,
+        'cate_name': categoryName,
+        'cate_pic': imageUrl,
+      }),
+    );
+
+    if (resp.statusCode == 200) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('เพิ่มหมวดหมู่สำเร็จ')),
+      );
+      Navigator.pop(context, true);
+    } else {
+      // ⛳ ส่ง error จาก BE ไปที่ widget
+      final message = _extractBackendMessage(resp.body) ?? 'บันทึกหมวดหมู่ล้มเหลว';
+      if (mounted) ErrorNotifier.showSnack(context, message);
+    }
+  } catch (e) {
+    if (mounted) ErrorNotifier.showSnack(context, 'เกิดข้อผิดพลาด: $e');
+  } finally {
+    if (mounted) setState(() => isLoading = false);
   }
+}
+
+/// ดึงข้อความ error จาก body (รองรับไม่ใช่ JSON / ไม่มี message)
+String? _extractBackendMessage(String body) {
+  try {
+    final data = jsonDecode(body);
+    if (data is Map) {
+      // รองรับทั้ง {message}, {error}, {code+message}
+      if (data['message'] is String && (data['message'] as String).trim().isNotEmpty) {
+        return data['message'] as String;
+      }
+      if (data['error'] is String && (data['error'] as String).trim().isNotEmpty) {
+        return data['error'] as String;
+      }
+    }
+  } catch (_) {
+    // body ไม่ใช่ JSON → ส่งทั้งสตริงกลับไปเลย (บาง BE อาจส่ง plain text)
+    if (body.trim().isNotEmpty) return body.trim();
+  }
+  return null;
+}
 
   @override
   Widget build(BuildContext context) {

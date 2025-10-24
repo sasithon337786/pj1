@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
+import 'package:pj1/Addmin/main_Addmin.dart';
 
 import 'package:pj1/constant/api_endpoint.dart';
 import 'package:pj1/models/userModel.dart';
@@ -81,22 +82,22 @@ class _UserInfoScreenState extends State<UserInfoScreen> {
           ),
         ),
         // ปุ่มย้อนกลับซ้ายบน
-          Positioned(
-            top: topPad + 16,
-            left: 16,
-            child: GestureDetector(
-              onTap: () => Navigator.pop(context, true),
-              child: Row(
-                children: [
-                  const Icon(Icons.arrow_back, color: Colors.white),
-                  const SizedBox(width: 6),
-                  Text('ย้อนกลับ',
-                      style:
-                          GoogleFonts.kanit(color: Colors.white, fontSize: 16)),
-                ],
-              ),
+        Positioned(
+          top: topPad + 16,
+          left: 16,
+          child: GestureDetector(
+            onTap: () => Navigator.pop(context, true),
+            child: Row(
+              children: [
+                const Icon(Icons.arrow_back, color: Colors.white),
+                const SizedBox(width: 6),
+                Text('ย้อนกลับ',
+                    style:
+                        GoogleFonts.kanit(color: Colors.white, fontSize: 16)),
+              ],
             ),
           ),
+        ),
       ],
     );
   }
@@ -153,6 +154,7 @@ class _UserInfoScreenState extends State<UserInfoScreen> {
                   if (resp.statusCode >= 200 && resp.statusCode < 300) {
                     if (!mounted) return;
 
+                    // อัปเดตสถานะใน UI ปัจจุบัน
                     setState(() {
                       _user = UserModel(
                         uid: _user.uid,
@@ -165,14 +167,47 @@ class _UserInfoScreenState extends State<UserInfoScreen> {
                       );
                     });
 
+                    // ปิด dialog ก่อน
                     Navigator.pop(ctx);
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text('เปลี่ยนสถานะเรียบร้อยแล้ว',
-                            style: GoogleFonts.kanit()),
-                        backgroundColor: Colors.green,
-                      ),
-                    );
+
+                    // ✅ รอจนทำงานเสร็จจาก backend แล้วค่อย navigate
+                    if (selectedStatus == 'deleted') {
+                      // แสดงแจ้งเตือนเล็กน้อยก่อนย้ายหน้า
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text('ผู้ใช้ถูกลบเรียบร้อยแล้ว',
+                                style: GoogleFonts.kanit()),
+                            backgroundColor: Colors.green,
+                            duration: const Duration(seconds: 2),
+                          ),
+                        );
+                      }
+
+                      // หน่วงเวลาเล็กน้อยให้ snackbar แสดงทัน
+                      await Future.delayed(const Duration(milliseconds: 800));
+
+                      // ✅ หลังจากแสดงข้อความแล้วค่อยเปลี่ยนหน้า
+                      if (mounted) {
+                        Navigator.of(context).pushAndRemoveUntil(
+                          MaterialPageRoute(builder: (_) => const MainAdmin()),
+                          (route) => false,
+                        );
+                      }
+
+                      return; // ออกจากฟังก์ชัน
+                    }
+
+                    // ถ้าไม่ใช่ deleted แสดงข้อความปกติ
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('เปลี่ยนสถานะเรียบร้อยแล้ว',
+                              style: GoogleFonts.kanit()),
+                          backgroundColor: Colors.green,
+                        ),
+                      );
+                    }
                   } else {
                     final Map<String, dynamic> body =
                         (resp.body.isNotEmpty) ? jsonDecode(resp.body) : {};
