@@ -5,11 +5,11 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:http/http.dart' as http;
 
 import 'package:pj1/constant/api_endpoint.dart';
-import 'package:pj1/graph_all.dart';
+import 'package:pj1/graph_all.dart'; // หน้าแสดงกราฟผลรวม (7 วัน + เดือน + ปี)
 import 'package:pj1/mains.dart';
 import 'package:pj1/target.dart';
 import 'package:pj1/account.dart';
-import 'package:pj1/user_Graph.dart';
+import 'package:pj1/user_Graph.dart'; // << หน้ารายละเอียดกิจกรรม (UserGraphBarScreen)
 
 class Graphpage extends StatefulWidget {
   const Graphpage({super.key});
@@ -174,7 +174,7 @@ class _GraphpageState extends State<Graphpage> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            // ===== หัว (นิ่ง) =====
+                            // ===== หัว (นิ่ง) + ปุ่ม แสดงกราฟผลรวม =====
                             Row(
                               children: [
                                 Image.asset(
@@ -376,7 +376,7 @@ class TaskCard extends StatelessWidget {
           ),
         ),
         onTap: () {
-          debugPrint('TaskCard tapped: actId=$actId, actDetailId=$actDetailId');
+          // กลับไปแบบเดิม: กดรายการ -> ไปหน้า UserGraphBarScreen
           Navigator.push(
             context,
             MaterialPageRoute(
