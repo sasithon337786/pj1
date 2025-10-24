@@ -11,6 +11,7 @@ import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart'; // สำหรับ ImagePicker
 import 'package:flutter/services.dart'; // ✨ สำหรับ LengthLimitingTextInputFormatter / MaxLengthEnforcement
 import 'package:characters/characters.dart'; // ✨ สำหรับนับตัวอักษรจริง (รวมอีโมจิ/ตัวผสม)
+import 'package:pj1/services/auth_service.dart';
 
 // ต้อง import ไฟล์ที่เกี่ยวข้องทั้งหมดที่ใช้ใน Bottom Navigation Bar
 import 'package:pj1/account.dart';
@@ -20,7 +21,8 @@ import 'package:pj1/mains.dart'; // HomePage
 import 'package:pj1/target.dart';
 
 // ต้อง import MainHomeScreen เพื่อเข้าถึง Category class ที่เราสร้างไว้
-import 'package:pj1/add.dart' as MainScreen; // ตั้ง alias ให้ไม่ชนกัน
+import 'package:pj1/add.dart' as MainScreen;
+import 'package:pj1/widgets/error_notifier.dart'; // ตั้ง alias ให้ไม่ชนกัน
 
 class CreateActivityScreen extends StatefulWidget {
   const CreateActivityScreen({Key? key}) : super(key: key);
@@ -177,66 +179,70 @@ class _CreateActivityScreenState extends State<CreateActivityScreen> {
   Future _createActivity() async {
     final user = FirebaseAuth.instance.currentUser;
 
-    // ✨ ตรวจความยาวชื่อกิจกรรม (กันเกิน 30 ตัวอักษร) + กันค่าว่าง
+    // ✨ ตรวจความถูกต้องของ input
     final rawName = activityNameController.text.trim();
-    final nameLength = rawName.characters.length; // นับตัวอักษรจริง
+    final nameLength = rawName.characters.length;
 
     if (rawName.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('กรุณาใส่ชื่อกิจกรรม')),
-      );
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('กรุณาใส่ชื่อกิจกรรม')));
       return;
     }
     if (nameLength > 30) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('ชื่อกิจกรรมห้ามเกิน 30 ตัวอักษร')),
-      );
+          const SnackBar(content: Text('ชื่อกิจกรรมห้ามเกิน 30 ตัวอักษร')));
       return;
     }
-
     if (selectedImage == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('กรุณาเลือกรูปภาพ')),
-      );
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('กรุณาเลือกรูปภาพ')));
       return;
     }
     if (_selectedCategoryId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('กรุณาเลือกหมวดหมู่')),
-      );
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('กรุณาเลือกหมวดหมู่')));
       return;
     }
     if (user == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('กรุณาเข้าสู่ระบบ')),
-      );
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('กรุณาเข้าสู่ระบบ')));
       return;
     }
 
     setState(() => isLoading = true);
 
     try {
-      // SDK ส่วนใหญ่คืน String non-null; ใช้ trim เผื่อ edge case
       final token = await user.getIdToken(true);
       if (token == null || token.isEmpty) {
         throw Exception('ไม่สามารถดึง ID Token ได้');
       }
 
-      // อัปโหลดรูป
-      final imageUrl = await _uploadActivityImage(user.uid, selectedImage!);
-      if (imageUrl == null) {
-        // หยุดก่อน อย่ายิง API ต่อ เพื่อเลี่ยง "missing required field"
-        throw Exception('อัปโหลดรูปภาพไม่สำเร็จ');
-      }
+      // 🧩 ดึง role จาก authService
+      final role =
+          await AuthService().getUserRole(); // <- ดึงจาก service ของคุณ
+      final isAdmin = role?.toLowerCase() == 'admin';
 
-      // เตรียมข้อมูลและยิง API
-      final postUrl = '${ApiEndpoints.baseUrl}/api/activity/createAct';
+      // อัปโหลดรูปภาพ
+      final imageUrl = await _uploadActivityImage(user.uid, selectedImage!);
+      if (imageUrl == null) throw Exception('อัปโหลดรูปภาพไม่สำเร็จ');
+
+      // ✅ เลือก endpoint ตาม role
+      final endpoint =
+          isAdmin ? '/api/activity/createActAdmin' : '/api/activity/createAct';
+
+      final postUrl = '${ApiEndpoints.baseUrl}$endpoint';
+      final cateId = (_selectedCategoryId is int)
+          ? _selectedCategoryId as int
+          : int.tryParse(_selectedCategoryId.toString());
+
+      if (cateId == null) throw Exception('รหัสหมวดหมู่ไม่ถูกต้อง');
+
       final bodyData = {
-        'cate_id': _selectedCategoryId, // ควรเป็น int ถ้า backend คาด int
+        'cate_id': cateId,
         'act_name': rawName,
         'act_pic': imageUrl,
       };
-      debugPrint(bodyData.toString());
+
       final response = await http.post(
         Uri.parse(postUrl),
         headers: {
@@ -253,22 +259,21 @@ class _CreateActivityScreenState extends State<CreateActivityScreen> {
         );
         Navigator.pop(context, true);
       } else {
+        // ดึงข้อความจาก backend เช่น "กิจกรรมซ้ำ"
         String message = 'บันทึกกิจกรรมล้มเหลว';
         try {
           final data = jsonDecode(response.body);
-          if (data is Map && data['message'] is String) {
+          if (data is Map && data['message'] is String)
             message = data['message'];
-          }
         } catch (_) {}
-        if (mounted) {
-          ScaffoldMessenger.of(context)
-              .showSnackBar(SnackBar(content: Text(message)));
-        }
+        if (mounted) ErrorNotifier.showSnack(context, message);
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))),
+          SnackBar(
+            content: Text(e.toString().replaceFirst('Exception: ', '')),
+          ),
         );
       }
     } finally {
