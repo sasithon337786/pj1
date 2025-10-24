@@ -10,6 +10,7 @@ import 'package:pj1/add.dart' show Category;
 import 'package:pj1/constant/api_endpoint.dart';
 import 'package:pj1/dialog_coagy.dart';
 import 'package:pj1/edit_category_dialog.dart';
+import 'package:pj1/widgets/error_notifier.dart';
 // ถ้ามี AddCategoryDialog ในไฟล์อื่น อย่าลืม import ด้วย
 
 class ManageCategoriesDialog extends StatefulWidget {
@@ -131,9 +132,8 @@ class _ManageCategoriesDialogState extends State<ManageCategoriesDialog> {
 
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('ไม่พบผู้ใช้ กรุณาเข้าสู่ระบบใหม่')),
-      );
+      if (mounted)
+        ErrorNotifier.showSnack(context, 'ไม่พบผู้ใช้ กรุณาเข้าสู่ระบบใหม่');
       return;
     }
 
@@ -141,87 +141,90 @@ class _ManageCategoriesDialogState extends State<ManageCategoriesDialog> {
 
     final bool? confirmDelete = await showDialog<bool>(
       context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          backgroundColor: const Color(0xFFEFEAE3),
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          title: Text('ยืนยันการลบ', style: GoogleFonts.kanit()),
-          content: Text('คุณต้องการลบหมวดหมู่ "$categoryName" ใช่หรือไม่?',
-              style: GoogleFonts.kanit()),
-          actions: <Widget>[
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(false),
-              child: Text('ยกเลิก',
-                  style: GoogleFonts.kanit(color: const Color(0xFF564843))),
-            ),
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(true),
-              child: Text('ลบ',
-                  style: GoogleFonts.kanit(color: const Color(0xFFC98993))),
-            ),
-          ],
-        );
-      },
+      builder: (context) => AlertDialog(
+        backgroundColor: const Color(0xFFEFEAE3),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Text('ยืนยันการลบ', style: GoogleFonts.kanit()),
+        content: Text('คุณต้องการลบหมวดหมู่ "$categoryName" ใช่หรือไม่?',
+            style: GoogleFonts.kanit()),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text('ยกเลิก',
+                style: GoogleFonts.kanit(color: const Color(0xFF564843))),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: Text('ลบ',
+                style: GoogleFonts.kanit(color: const Color(0xFFC98993))),
+          ),
+        ],
+      ),
     );
 
-    if (confirmDelete == true) {
-      setState(() => isLoading = true);
+    if (confirmDelete != true) return;
 
-      try {
-        final role = await _getUserRole(user.uid);
-        if (role == null) {
-          setState(() => isLoading = false);
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('ไม่สามารถตรวจสอบสิทธิ์ผู้ใช้ได้')),
-          );
-          return;
-        }
+    setState(() => isLoading = true);
 
-        final Uri url = role == 'admin'
-            ? Uri.parse(
-                '${ApiEndpoints.baseUrl}/api/category/deleteDefaultCategory')
-            : Uri.parse('${ApiEndpoints.baseUrl}/api/category/deleteCategory');
-
-        final response = await http.post(
-          url,
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': 'Bearer $idToken',
-          },
-          body: jsonEncode({
-            'uid': user.uid,
-            'cate_id': categoryId,
-          }),
-        );
-
-        if (response.statusCode == 200) {
-          if (context.mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('ลบหมวดหมู่ "$categoryName" สำเร็จ')),
-            );
-          }
-          await _loadUserCategoriesForManagement();
-          widget.onCategoriesUpdated.call();
-        } else {
-          final message =
-              jsonDecode(response.body)['message'] ?? 'ลบหมวดหมู่ล้มเหลว';
-          if (context.mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text(message)),
-            );
-          }
-        }
-      } catch (e) {
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('เกิดข้อผิดพลาดในการลบ: $e')),
-          );
-        }
-      } finally {
-        setState(() => isLoading = false);
+    try {
+      final role = await _getUserRole(user.uid);
+      if (role == null) {
+        if (mounted)
+          ErrorNotifier.showSnack(context, 'ไม่สามารถตรวจสอบสิทธิ์ผู้ใช้ได้');
+        return;
       }
+
+      final Uri url = role == 'admin'
+          ? Uri.parse(
+              '${ApiEndpoints.baseUrl}/api/category/deleteDefaultCategory')
+          : Uri.parse('${ApiEndpoints.baseUrl}/api/category/deleteCategory');
+
+      final resp = await http.post(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $idToken',
+        },
+        body: jsonEncode({
+          'uid': user.uid,
+          'cate_id': categoryId,
+        }),
+      );
+
+      if (resp.statusCode == 200) {
+        if (!mounted) return;
+        ErrorNotifier.showSnack(context, 'ลบหมวดหมู่ "$categoryName" สำเร็จ');
+
+        await _loadUserCategoriesForManagement();
+        widget.onCategoriesUpdated.call();
+      } else {
+        final message =
+            _extractBackendMessage(resp.body) ?? 'ลบหมวดหมู่ล้มเหลว';
+        if (mounted) ErrorNotifier.showSnack(context, message);
+      }
+    } catch (e) {
+      if (mounted) {
+        ErrorNotifier.showSnack(context, 'เกิดข้อผิดพลาดในการลบ: $e');
+      }
+    } finally {
+      if (mounted) setState(() => isLoading = false);
     }
+  }
+
+  String? _extractBackendMessage(String body) {
+    try {
+      final data = jsonDecode(body);
+      if (data is Map) {
+        final m = (data['message'] as String?)?.trim();
+        if (m != null && m.isNotEmpty) return m;
+        final e = (data['error'] as String?)?.trim();
+        if (e != null && e.isNotEmpty) return e;
+      }
+    } catch (_) {
+      final t = body.trim();
+      if (t.isNotEmpty) return t;
+    }
+    return null;
   }
 
   @override
